@@ -115,7 +115,18 @@ jobs:
           haxelib --global --never git haxelib https://github.com/FunkinCrew/haxelib.git funkin-patches --skip-dependencies || true
           haxelib --global --never git hmm https://github.com/FunkinCrew/hmm funkin-patches
           haxelib --never newrepo
-          haxelib --global run hmm install -q
+          # lib.haxe.org sometimes answers 502/503, so retry (already installed libs are skipped).
+          for attempt in 1 2 3 4 5 6; do
+            if haxelib --global run hmm install -q; then
+              break
+            fi
+            if [ "$attempt" = "6" ]; then
+              echo "::error::Could not install libraries after 6 attempts."
+              exit 1
+            fi
+            echo "hmm install failed (attempt $attempt). Retrying in 30s..."
+            sleep 30
+          done
           haxelib list
 
       # Lime from Git has no lime.ndll, so it must be built BEFORE any other lime command.
