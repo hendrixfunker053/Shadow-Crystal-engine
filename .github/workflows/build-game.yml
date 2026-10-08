@@ -71,7 +71,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y g++ \
             libx11-dev libxi-dev libxext-dev libxinerama-dev libxrandr-dev \
-            libgl-dev libgl1-mesa-dev libasound2-dev libpulse-dev
+            libxcursor-dev libxfixes-dev libxss-dev libxxf86vm-dev libxt-dev \
+            libgl-dev libgl1-mesa-dev libegl1-mesa-dev libgles2-mesa-dev libgbm-dev libdrm-dev \
+            libasound2-dev libpulse-dev libudev-dev libdbus-1-dev libibus-1.0-dev \
+            libwayland-dev libwayland-bin wayland-protocols libxkbcommon-dev libdecor-0-dev
+          echo "wayland-scanner: $(command -v wayland-scanner)"
+          wayland-scanner --version
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -115,7 +120,18 @@ jobs:
           haxelib --global --never git haxelib https://github.com/FunkinCrew/haxelib.git funkin-patches --skip-dependencies || true
           haxelib --global --never git hmm https://github.com/FunkinCrew/hmm funkin-patches
           haxelib --never newrepo
-          haxelib --global run hmm install -q
+          # lib.haxe.org sometimes answers 502/503, so retry (already installed libs are skipped).
+          for attempt in 1 2 3 4 5 6; do
+            if haxelib --global run hmm install -q; then
+              break
+            fi
+            if [ "$attempt" = "6" ]; then
+              echo "::error::Could not install libraries after 6 attempts."
+              exit 1
+            fi
+            echo "hmm install failed (attempt $attempt). Retrying in 30s..."
+            sleep 30
+          done
           haxelib list
 
       # Lime from Git has no lime.ndll, so it must be built BEFORE any other lime command.
