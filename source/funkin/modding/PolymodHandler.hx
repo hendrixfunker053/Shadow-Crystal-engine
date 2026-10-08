@@ -88,6 +88,11 @@ class PolymodHandler
   public static function createModRoot():Void
   {
     FileUtil.createDirIfNotExists(MOD_FOLDER);
+
+    #if sys
+    // Psych Engine mods are converted to Polymod mods (once) before Polymod scans the folder.
+    funkin.modding.psych.PsychModConverter.convertAll(MOD_FOLDER);
+    #end
   }
 
   /**
