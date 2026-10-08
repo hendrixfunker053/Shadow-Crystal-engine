@@ -134,6 +134,16 @@ jobs:
           done
           haxelib list
 
+      # hxcpp from Git has no prebuilt command-line tool (hxcpp.n), so it must be built first.
+      - name: Build hxcpp tool
+        run: |
+          HXCPP_DIR="$(haxelib libpath hxcpp | head -n 1)"
+          echo "hxcpp dir: $HXCPP_DIR"
+          cd "$HXCPP_DIR/tools/hxcpp"
+          haxe compile.hxml
+          echo "--- built tool files ---"
+          find "$HXCPP_DIR" -maxdepth 3 -name "*.n" -print
+
       # Lime from Git has no lime.ndll, so it must be built BEFORE any other lime command.
       - name: Build Lime host library (lime.ndll)
         run: |
