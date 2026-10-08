@@ -7,10 +7,13 @@ import funkin.ui.debug.DebugMenuSubState;
 import flixel.FlxObject;
 import flixel.FlxSubState;
 import flixel.FlxSprite;
+import flixel.addons.display.FlxBackdrop;
 import flixel.effects.FlxFlicker;
 import flixel.math.FlxPoint;
 import flixel.util.typeLimit.NextState;
+import flixel.util.FlxAxes;
 import flixel.util.FlxColor;
+import openfl.display.BitmapData;
 import openfl.geom.Rectangle;
 import flixel.tweens.FlxEase;
 import funkin.graphics.FunkinCamera;
@@ -53,7 +56,6 @@ class MainMenuState extends MusicBeatState
   var menuItems:Null<MenuTypedList<AtlasMenuItem>>;
   var bg:Null<FlxSprite>;
   var magenta:FlxSprite;
-  var checkerboard:FlxSprite;
   var camFollow:FlxObject;
   #if mobile
   var gyroPan:Null<FlxPoint>;
@@ -125,31 +127,17 @@ class MainMenuState extends MusicBeatState
     bg.screenCenter();
     add(bg);
 
-    // Shadow Crystal checkerboard overlay.
-    // It is generated at runtime, so no extra image asset is required.
-    checkerboard = new FlxSprite();
-    var checkerSize:Int = 64;
-    var checkerWidth:Int = Std.int(bg.width);
-    var checkerHeight:Int = Std.int(bg.height);
-    checkerboard.makeGraphic(checkerWidth, checkerHeight, FlxColor.TRANSPARENT, true);
+    // Shadow Crystal: moving black checkerboard pattern at low opacity.
+    // Generated at runtime, so no extra image asset is required.
+    var cell:Int = 64;
+    var tile:BitmapData = new BitmapData(cell * 2, cell * 2, true, 0x00000000);
+    tile.fillRect(new Rectangle(0, 0, cell, cell), 0xFF000000);
+    tile.fillRect(new Rectangle(cell, cell, cell, cell), 0xFF000000);
 
-    for (row in 0...Std.int(Math.ceil(checkerHeight / checkerSize)))
-    {
-      for (col in 0...Std.int(Math.ceil(checkerWidth / checkerSize)))
-      {
-        if ((row + col) % 2 == 0)
-        {
-          checkerboard.pixels.fillRect(
-            new Rectangle(col * checkerSize, row * checkerSize, checkerSize, checkerSize),
-            FlxColor.WHITE);
-        }
-      }
-    }
-
-    checkerboard.alpha = 0.10;
-    checkerboard.scrollFactor.copyFrom(bg.scrollFactor);
-    checkerboard.x = bg.x;
-    checkerboard.y = bg.y;
+    var checkerboard:FlxBackdrop = new FlxBackdrop(tile, FlxAxes.XY);
+    checkerboard.alpha = 0.12; // opacity
+    checkerboard.velocity.set(30, 30); // movement speed/direction
+    checkerboard.scrollFactor.set(0, 0);
     add(checkerboard);
 
     add(camFollow);
