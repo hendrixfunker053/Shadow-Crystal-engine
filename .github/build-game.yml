@@ -1,0 +1,166 @@
+name: Shadow Crystal - Build Android
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: "Build type"
+        type: choice
+        options:
+          - release
+          - debug
+        default: release
+      exclude_armv7:
+        description: "Skip armv7 (much faster; arm64 phones only)"
+        type: boolean
+        default: false
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  HAXE_VERSION: "4.3.7"
+  JAVA_VERSION: "17"
+  # Same versions as docs/COMPILING_MOBILE.md
+  ANDROID_BUILD_TOOLS: "35.0.0"
+  ANDROID_NDK: "29.0.13113456"
+  HXCPP_COMPILE_CACHE: ${{ github.workspace }}/.hxcpp_cache
+  HXCPP_CACHE_MB: "4096"
+
+jobs:
+  android:
+    name: Android
+    runs-on: ubuntu-22.04
+    timeout-minutes: 150
+
+    steps:
+      - name: Checkout (with assets submodule)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Check assets are present
+        run: |
+          if [ -z "$(ls -A assets 2>/dev/null)" ]; then
+            echo "::error::The 'assets' folder is empty. Your repo must include the assets submodule (see .gitmodules)."
+            exit 1
+          fi
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Setup Haxe
+        uses: krdlab/setup-haxe@v1
+        with:
+          haxe-version: ${{ env.HAXE_VERSION }}
+
+      # Lime needs a native host build to run its own tools.
+      - name: Install host dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++ \
+            libx11-dev libxi-dev libxext-dev libxinerama-dev libxrandr-dev \
+            libgl-dev libgl1-mesa-dev libasound2-dev libpulse-dev
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: ""
+
+      - name: Install Android packages
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager --install \
+            "build-tools;${ANDROID_BUILD_TOOLS}" \
+            "ndk;${ANDROID_NDK}" \
+            "platforms;android-29" \
+            "platforms;android-35" \
+            "platform-tools"
+          echo "ANDROID_NDK_ROOT=${ANDROID_HOME}/ndk/${ANDROID_NDK}" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=${ANDROID_HOME}/ndk/${ANDROID_NDK}" >> "$GITHUB_ENV"
+
+      - name: Cache libraries
+        uses: actions/cache@v4
+        with:
+          path: |
+            .haxelib
+            ~/haxelib
+          key: haxelib-${{ runner.os }}-${{ hashFiles('hmm.json') }}
+
+      - name: Cache hxcpp objects
+        uses: actions/cache@v4
+        with:
+          path: .hxcpp_cache
+          key: hxcpp-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: hxcpp-${{ runner.os }}-${{ github.ref_name }}-
+
+      # IMPORTANT: Lime, OpenFL, Flixel and hxcpp must come ONLY from hmm.json.
+      # Never run "haxelib install lime": it replaces the pinned Funkin fork.
+      - name: Install libraries from hmm.json
+        run: |
+          mkdir -p "$HOME/haxelib"
+          haxelib setup "$HOME/haxelib"
+          haxelib --global --never install haxelib 4.1.0 || true
+          haxelib --global --never git haxelib https://github.com/FunkinCrew/haxelib.git funkin-patches --skip-dependencies || true
+          haxelib --global --never git hmm https://github.com/FunkinCrew/hmm funkin-patches
+          haxelib --never newrepo
+          haxelib --global run hmm install -q
+          haxelib list
+
+      # Lime from Git has no lime.ndll, so it must be built BEFORE any other lime command.
+      - name: Build Lime host library
+        run: |
+          haxelib run lime rebuild linux -64
+
+      - name: Configure Lime for Android
+        run: |
+          haxelib run lime setup -y || true
+          haxelib run lime config ANDROID_SDK "$ANDROID_HOME"
+          haxelib run lime config ANDROID_NDK_ROOT "$ANDROID_NDK_ROOT"
+          haxelib run lime config JAVA_HOME "$JAVA_HOME"
+          haxelib run lime config ANDROID_SETUP true
+          haxelib run lime version
+          haxelib run lime config
+
+      - name: Build Lime Android libraries
+        run: |
+          haxelib run lime rebuild android
+
+      - name: Build APK
+        run: |
+          FLAGS="-${{ inputs.build_type || 'release' }}"
+          if [ "${{ inputs.exclude_armv7 }}" = "true" ]; then
+            FLAGS="$FLAGS -DEXCLUDE_ARMV7"
+          fi
+          echo "lime build android $FLAGS"
+          haxelib run lime build android $FLAGS
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Shadow-Crystal-Android
+          path: |
+            export/**/*.apk
+            export/**/*.aab
+          if-no-files-found: error
+
+      - name: Upload Gradle reports (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build-reports
+          path: |
+            export/**/build/reports/**
+            export/**/*.log
+          if-no-files-found: ignore
