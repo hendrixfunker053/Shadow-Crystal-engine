@@ -1,343 +1,162 @@
-name: Shadow Crystal - Build
+name: Shadow Crystal - Build Android
 
 on:
   workflow_dispatch:
+    inputs:
+      build_type:
+        description: "Build type"
+        type: choice
+        options:
+          - release
+          - debug
+        default: release
+      exclude_armv7:
+        description: "Skip armv7 (much faster; arm64 phones only)"
+        type: boolean
+        default: false
   push:
     branches:
       - main
       - master
-  pull_request:
 
 permissions:
   contents: read
 
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   HAXE_VERSION: "4.3.7"
   JAVA_VERSION: "17"
-
-  # Android versions taken from the FNF mobile build guide.
+  # Same versions as docs/COMPILING_MOBILE.md
   ANDROID_BUILD_TOOLS: "35.0.0"
-  ANDROID_PLATFORM: "35"
-  ANDROID_MIN_PLATFORM: "29"
   ANDROID_NDK: "29.0.13113456"
+  HXCPP_COMPILE_CACHE: ${{ github.workspace }}/.hxcpp_cache
+  HXCPP_CACHE_MB: "4096"
 
 jobs:
-
-  # ============================================================
-  # DESKTOP
-  # FNF recommends verifying the desktop build before Android.
-  # ============================================================
-
-  desktop:
-    name: Desktop - Linux
-    runs-on: ubuntu-22.04
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Setup Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: ${{ env.JAVA_VERSION }}
-
-      - name: Setup Haxe
-        uses: krdlab/setup-haxe@v1
-        with:
-          haxe-version: ${{ env.HAXE_VERSION }}
-
-      - name: Cache Haxelib
-        uses: actions/cache@v4
-        with:
-          path: ~/.haxelib
-          key: ${{ runner.os }}-haxelib-${{ hashFiles('hmm.json', 'haxelib.json', 'project.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-haxelib-
-
-      - name: Install HMM
-        run: |
-          haxelib install hmm
-          haxelib run hmm install
-
-      # --------------------------------------------------------
-      # Lime
-      #
-      # IMPORTANT:
-      # Do not use a Git-only Lime checkout here.
-      # The packaged Haxelib release contains lime.ndll.
-      # --------------------------------------------------------
-
-      - name: Install packaged Lime
-        run: |
-          haxelib install lime
-
-          LIME_VERSION="$(haxelib list | awk '/^lime:/{print $2}' | head -n 1 | tr -d '[]')"
-
-          if [ -n "$LIME_VERSION" ]; then
-            haxelib set lime "$LIME_VERSION"
-          fi
-
-      - name: Verify Lime
-        run: |
-          haxelib list
-          haxelib run lime version
-
-      - name: Setup Lime
-        run: |
-          haxelib run lime setup -y
-
-      - name: Rebuild Lime
-        run: |
-          haxelib run lime rebuild cpp -64
-          haxelib run lime rebuild hxcpp
-
-      - name: Build Linux
-        run: |
-          haxelib run lime test linux -release
-
-      - name: Upload Linux build
-        uses: actions/upload-artifact@v4
-        with:
-          name: Shadow-Crystal-Linux
-          path: export/linux/bin/**
-          if-no-files-found: warn
-
-
-  # ============================================================
-  # ANDROID
-  #
-  # Based on the Android section of the FNF mobile guide.
-  # ============================================================
-
   android:
     name: Android
     runs-on: ubuntu-22.04
-
-    needs:
-      - desktop
+    timeout-minutes: 150
 
     steps:
-      - name: Checkout
+      - name: Checkout (with assets submodule)
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      # --------------------------------------------------------
-      # JDK 17
-      # --------------------------------------------------------
+      - name: Check assets are present
+        run: |
+          if [ -z "$(ls -A assets 2>/dev/null)" ]; then
+            echo "::error::The 'assets' folder is empty. Your repo must include the assets submodule (see .gitmodules)."
+            exit 1
+          fi
 
-      - name: Setup JDK 17
+      - name: Setup JDK
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
-
-      # --------------------------------------------------------
-      # Haxe
-      # --------------------------------------------------------
 
       - name: Setup Haxe
         uses: krdlab/setup-haxe@v1
         with:
           haxe-version: ${{ env.HAXE_VERSION }}
 
-      # --------------------------------------------------------
-      # Android command-line tools
-      # --------------------------------------------------------
+      # Lime needs a native host build to run its own tools.
+      - name: Install host dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++ \
+            libx11-dev libxi-dev libxext-dev libxinerama-dev libxrandr-dev \
+            libgl-dev libgl1-mesa-dev libasound2-dev libpulse-dev
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: ""
 
-      # --------------------------------------------------------
-      # Android SDK / NDK versions from FNF guide
-      # --------------------------------------------------------
-
-      - name: Install Android SDK components
+      - name: Install Android packages
         run: |
+          yes | sdkmanager --licenses > /dev/null || true
           sdkmanager --install \
             "build-tools;${ANDROID_BUILD_TOOLS}" \
             "ndk;${ANDROID_NDK}" \
-            "platforms;android-${ANDROID_MIN_PLATFORM}" \
-            "platforms;android-${ANDROID_PLATFORM}" \
+            "platforms;android-29" \
+            "platforms;android-35" \
             "platform-tools"
+          echo "ANDROID_NDK_ROOT=${ANDROID_HOME}/ndk/${ANDROID_NDK}" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=${ANDROID_HOME}/ndk/${ANDROID_NDK}" >> "$GITHUB_ENV"
 
-      - name: Accept Android licenses
-        run: |
-          yes | sdkmanager --licenses > /dev/null || true
-
-      # --------------------------------------------------------
-      # Android environment
-      # --------------------------------------------------------
-
-      - name: Configure Android environment
-        run: |
-          echo "ANDROID_HOME=${ANDROID_SDK_ROOT}" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT}" >> "$GITHUB_ENV"
-
-          echo "ANDROID_NDK_ROOT=${ANDROID_SDK_ROOT}/ndk/${ANDROID_NDK}" >> "$GITHUB_ENV"
-          echo "ANDROID_NDK_HOME=${ANDROID_SDK_ROOT}/ndk/${ANDROID_NDK}" >> "$GITHUB_ENV"
-
-          echo "${ANDROID_SDK_ROOT}/platform-tools" >> "$GITHUB_PATH"
-          echo "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
-
-      # --------------------------------------------------------
-      # Haxelib cache
-      # --------------------------------------------------------
-
-      - name: Cache Haxelib
+      - name: Cache libraries
         uses: actions/cache@v4
         with:
-          path: ~/.haxelib
-          key: ${{ runner.os }}-android-haxelib-${{ hashFiles('hmm.json', 'haxelib.json', 'project.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-android-haxelib-
+          path: |
+            .haxelib
+            ~/haxelib
+          key: haxelib-${{ runner.os }}-${{ hashFiles('hmm.json') }}
 
-      # --------------------------------------------------------
-      # Project dependencies
-      # --------------------------------------------------------
+      - name: Cache hxcpp objects
+        uses: actions/cache@v4
+        with:
+          path: .hxcpp_cache
+          key: hxcpp-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: hxcpp-${{ runner.os }}-${{ github.ref_name }}-
 
-      - name: Install HMM
+      # IMPORTANT: Lime, OpenFL, Flixel and hxcpp must come ONLY from hmm.json.
+      # Never run "haxelib install lime": it replaces the pinned Funkin fork.
+      - name: Install libraries from hmm.json
         run: |
-          haxelib install hmm
-          haxelib run hmm install
-
-      # --------------------------------------------------------
-      # Lime
-      #
-      # Install the packaged Haxelib release so lime.ndll exists.
-      # --------------------------------------------------------
-
-      - name: Install packaged Lime
-        run: |
-          haxelib install lime
-
-          LIME_VERSION="$(haxelib list | awk '/^lime:/{print $2}' | head -n 1 | tr -d '[]')"
-
-          if [ -n "$LIME_VERSION" ]; then
-            haxelib set lime "$LIME_VERSION"
-          fi
-
-      - name: Verify Lime
-        run: |
+          mkdir -p "$HOME/haxelib"
+          haxelib setup "$HOME/haxelib"
+          haxelib --global --never install haxelib 4.1.0 || true
+          haxelib --global --never git haxelib https://github.com/FunkinCrew/haxelib.git funkin-patches --skip-dependencies || true
+          haxelib --global --never git hmm https://github.com/FunkinCrew/hmm funkin-patches
+          haxelib --never newrepo
+          haxelib --global run hmm install -q
           haxelib list
+
+      - name: Configure Lime for Android
+        run: |
+          haxelib run lime setup -y || true
+          haxelib run lime config ANDROID_SDK "$ANDROID_HOME"
+          haxelib run lime config ANDROID_NDK_ROOT "$ANDROID_NDK_ROOT"
+          haxelib run lime config JAVA_HOME "$JAVA_HOME"
+          haxelib run lime config ANDROID_SETUP true
           haxelib run lime version
+          haxelib run lime config
 
-      # --------------------------------------------------------
-      # Lime Android setup
-      #
-      # Equivalent to:
-      # lime setup android
-      #
-      # The Android SDK/NDK/JDK are already configured above.
-      # --------------------------------------------------------
-
-      - name: Setup Lime Android
+      - name: Rebuild Lime native libraries
         run: |
-          haxelib run lime setup android -y
-
-      # --------------------------------------------------------
-      # Build Lime native components
-      # --------------------------------------------------------
-
-      - name: Rebuild Lime
-        run: |
-          haxelib run lime rebuild hxcpp
+          haxelib run lime rebuild linux -64
           haxelib run lime rebuild android
 
-      # --------------------------------------------------------
-      # Build Android
-      #
-      # Equivalent to:
-      # lime test android
-      # --------------------------------------------------------
-
-      - name: Build Android
+      - name: Build APK
         run: |
-          haxelib run lime test android -release
+          FLAGS="-${{ inputs.build_type || 'release' }}"
+          if [ "${{ inputs.exclude_armv7 }}" = "true" ]; then
+            FLAGS="$FLAGS -DEXCLUDE_ARMV7"
+          fi
+          echo "lime build android $FLAGS"
+          haxelib run lime build android $FLAGS
 
-      # --------------------------------------------------------
-      # Upload APK/AAB
-      # --------------------------------------------------------
-
-      - name: Upload Android build
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Shadow-Crystal-Android
           path: |
-            export/android/bin/**/*.apk
-            export/android/bin/**/*.aab
-          if-no-files-found: warn
+            export/**/*.apk
+            export/**/*.aab
+          if-no-files-found: error
 
-
-  # ============================================================
-  # HTML5
-  # ============================================================
-
-  html5:
-    name: HTML5
-    runs-on: ubuntu-22.04
-
-    needs:
-      - desktop
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Setup Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: ${{ env.JAVA_VERSION }}
-
-      - name: Setup Haxe
-        uses: krdlab/setup-haxe@v1
-        with:
-          haxe-version: ${{ env.HAXE_VERSION }}
-
-      - name: Cache Haxelib
-        uses: actions/cache@v4
-        with:
-          path: ~/.haxelib
-          key: ${{ runner.os }}-html5-haxelib-${{ hashFiles('hmm.json', 'haxelib.json', 'project.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-html5-haxelib-
-
-      - name: Install HMM
-        run: |
-          haxelib install hmm
-          haxelib run hmm install
-
-      - name: Install packaged Lime
-        run: |
-          haxelib install lime
-
-          LIME_VERSION="$(haxelib list | awk '/^lime:/{print $2}' | head -n 1 | tr -d '[]')"
-
-          if [ -n "$LIME_VERSION" ]; then
-            haxelib set lime "$LIME_VERSION"
-          fi
-
-      - name: Setup Lime
-        run: |
-          haxelib run lime setup -y
-
-      - name: Rebuild Lime
-        run: |
-          haxelib run lime rebuild hxcpp
-
-      - name: Build HTML5
-        run: |
-          haxelib run lime test html5 -release
-
-      - name: Upload HTML5 build
+      - name: Upload Gradle reports (on failure)
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: Shadow-Crystal-HTML5
-          path: export/html5/bin/**
-          if-no-files-found: warn
+          name: android-build-reports
+          path: |
+            export/**/build/reports/**
+            export/**/*.log
+          if-no-files-found: ignore
