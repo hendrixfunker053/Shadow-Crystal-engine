@@ -29,7 +29,6 @@ concurrency:
 env:
   HAXE_VERSION: "4.3.7"
   JAVA_VERSION: "17"
-  # Same versions as docs/COMPILING_MOBILE.md
   ANDROID_BUILD_TOOLS: "35.0.0"
   ANDROID_NDK: "29.0.13113456"
   HXCPP_COMPILE_CACHE: ${{ github.workspace }}/.hxcpp_cache
@@ -48,7 +47,9 @@ jobs:
           submodules: recursive
 
       - name: Check assets are present
+        shell: bash
         run: |
+          set -euxo pipefail
           if [ -z "$(ls -A assets 2>/dev/null)" ]; then
             echo "::error::The 'assets' folder is empty. Your repo must include the assets submodule (see .gitmodules)."
             exit 1
@@ -65,9 +66,10 @@ jobs:
         with:
           haxe-version: ${{ env.HAXE_VERSION }}
 
-      # Lime needs a native host build to run its own tools.
       - name: Install host dependencies
+        shell: bash
         run: |
+          set -euxo pipefail
           sudo apt-get update
           sudo apt-get install -y g++ \
             libx11-dev libxi-dev libxext-dev libxinerama-dev libxrandr-dev \
@@ -84,14 +86,19 @@ jobs:
           packages: ""
 
       - name: Install Android packages
+        shell: bash
         run: |
-          yes | sdkmanager --licenses > /dev/null || true
+          set -euxo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
           sdkmanager --install \
             "build-tools;${ANDROID_BUILD_TOOLS}" \
             "ndk;${ANDROID_NDK}" \
             "platforms;android-29" \
             "platforms;android-35" \
             "platform-tools"
+
+          echo "ANDROID_HOME=${ANDROID_HOME}" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=${ANDROID_HOME}" >> "$GITHUB_ENV"
           echo "ANDROID_NDK_ROOT=${ANDROID_HOME}/ndk/${ANDROID_NDK}" >> "$GITHUB_ENV"
           echo "ANDROID_NDK_HOME=${ANDROID_HOME}/ndk/${ANDROID_NDK}" >> "$GITHUB_ENV"
 
@@ -110,17 +117,16 @@ jobs:
           key: hxcpp-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
           restore-keys: hxcpp-${{ runner.os }}-${{ github.ref_name }}-
 
-      # IMPORTANT: Lime, OpenFL, Flixel and hxcpp must come ONLY from hmm.json.
-      # Never run "haxelib install lime": it replaces the pinned Funkin fork.
       - name: Install libraries from hmm.json
+        shell: bash
         run: |
+          set -euxo pipefail
           mkdir -p "$HOME/haxelib"
           haxelib setup "$HOME/haxelib"
           haxelib --global --never install haxelib 4.1.0 || true
           haxelib --global --never git haxelib https://github.com/FunkinCrew/haxelib.git funkin-patches --skip-dependencies || true
           haxelib --global --never git hmm https://github.com/FunkinCrew/hmm funkin-patches
           haxelib --never newrepo
-          # lib.haxe.org sometimes answers 502/503, so retry (already installed libs are skipped).
           for attempt in 1 2 3 4 5 6; do
             if haxelib --global run hmm install -q; then
               break
@@ -134,9 +140,10 @@ jobs:
           done
           haxelib list
 
-      # hxcpp from Git has no prebuilt command-line tool (hxcpp.n), so it must be built first.
       - name: Build hxcpp tool
+        shell: bash
         run: |
+          set -euxo pipefail
           HXCPP_DIR="$(haxelib libpath hxcpp | head -n 1)"
           echo "hxcpp dir: $HXCPP_DIR"
           cd "$HXCPP_DIR/tools/hxcpp"
@@ -144,9 +151,10 @@ jobs:
           echo "--- built tool files ---"
           find "$HXCPP_DIR" -maxdepth 3 -name "*.n" -print
 
-      # Lime from Git has no lime.ndll, so it must be built BEFORE any other lime command.
       - name: Build Lime host library (lime.ndll)
+        shell: bash
         run: |
+          set -euxo pipefail
           haxelib path lime
           haxelib run lime rebuild cpp -64 || haxelib run lime rebuild linux -64
           echo "--- ndll folder ---"
@@ -157,25 +165,40 @@ jobs:
           fi
 
       - name: Configure Lime for Android
+        shell: bash
         run: |
-          haxelib run lime config ANDROID_SDK "$ANDROID_HOME"
+          set -euxo pipefail
+          export ANDROID_SDK_ROOT="${ANDROID_HOME}"
+          export ANDROID_NDK_ROOT="${ANDROID_HOME}/ndk/${ANDROID_NDK}"
+          export JAVA_HOME="${JAVA_HOME}"
+
+          haxelib run lime config ANDROID_SDK "$ANDROID_SDK_ROOT"
           haxelib run lime config ANDROID_NDK_ROOT "$ANDROID_NDK_ROOT"
           haxelib run lime config JAVA_HOME "$JAVA_HOME"
           haxelib run lime config ANDROID_SETUP true
           haxelib run lime version
 
       - name: Build Lime Android libraries
+        shell: bash
         run: |
+          set -euxo pipefail
           haxelib run lime rebuild android
 
       - name: Build APK
+        shell: bash
         run: |
-          FLAGS="-${{ inputs.build_type || 'release' }}"
-          if [ "${{ inputs.exclude_armv7 }}" = "true" ]; then
-            FLAGS="$FLAGS -DEXCLUDE_ARMV7"
+          set -euxo pipefail
+          BUILD_TYPE="${{ inputs.build_type || 'release' }}"
+          EXCLUDE_ARMV7="${{ inputs.exclude_armv7 || 'false' }}"
+
+          ARGS=()
+          ARGS+=("-${BUILD_TYPE}")
+          if [ "${EXCLUDE_ARMV7}" = "true" ]; then
+            ARGS+=("-DEXCLUDE_ARMV7")
           fi
-          echo "lime build android $FLAGS"
-          haxelib run lime build android $FLAGS
+
+          echo "lime build android ${ARGS[*]}"
+          haxelib run lime build android "${ARGS[@]}"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
