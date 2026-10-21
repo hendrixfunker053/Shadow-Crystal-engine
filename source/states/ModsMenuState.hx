@@ -106,7 +106,7 @@ class ModsMenuState extends MusicBeatState
 	var exiting:Bool = false;
 	var sequenceStage:Int = 0; // 0 = nada, 1 = electrocución, 2 = chamuscados
 	var shockTimer:FlxTimer = null;
-	var electrocutionSound:flixel.system.FlxSound = null;
+	var electrocutionSound:flixel.sound.FlxSound = null;
 	var folderSignatureAtStart:String = '';
 	var rescanTimer:Float = 0;
 
@@ -296,7 +296,7 @@ class ModsMenuState extends MusicBeatState
 		// En pantallas anchas (sobra margen a la izquierda) va grande; en 16:9 se hace más chico para no tapar la caja.
 		var gearScale:Float = 0.52;
 		var gearSize:Float = 200 * gearScale;
-		gearButton = new ModsMenuButton(14, 607, 'settings', gearScale, openSettings);
+		gearButton = new ModsMenuButton(14, 580, 'settings', gearScale, openSettings);
 
 		for (b in [folderButton, doneButton, gearButton])
 		{
