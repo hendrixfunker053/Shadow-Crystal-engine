@@ -33,17 +33,17 @@ import openfl.display.BitmapData;
 class ModsMenuState extends MusicBeatState
 {
 	// ===== Layout (bloque de 1280x720 centrado en pantallas anchas) =====
-	public static inline var BOX_X_LEFT:Int = 164;
-	public static inline var BOX_X_RIGHT:Int = 507;
+	public static inline var BOX_X_LEFT:Int = 117;
+	public static inline var BOX_X_RIGHT:Int = 612;
 	public static inline var BOX_Y:Int = 110;
-	public static inline var BOX_W:Int = 314;
-	public static inline var BOX_H:Int = 386;
-	public static inline var LIST_TOP:Int = 48; // espacio del título de cada caja
-	public static inline var LIST_BOTTOM:Int = 12;
-	public static inline var ITEM_X:Int = 31;
-	public static inline var ITEM_W:Int = 282;
-	public static inline var ITEM_H:Int = 80;
-	public static inline var ITEM_GAP:Int = 10;
+	public static inline var BOX_W:Int = 395;
+	public static inline var BOX_H:Int = 486;
+	public static inline var LIST_TOP:Int = 60; // espacio del título de cada caja
+	public static inline var LIST_BOTTOM:Int = 15;
+	public static inline var ITEM_X:Int = 40;
+	public static inline var ITEM_W:Int = 350;
+	public static inline var ITEM_H:Int = 96;
+	public static inline var ITEM_GAP:Int = 16;
 
 	// ===== Tiempos =====
 	static inline var HOLD_TIME:Float = 0.3; // segundos para empezar a arrastrar un mod con el dedo
@@ -208,7 +208,7 @@ class ModsMenuState extends MusicBeatState
 		add(topText);
 
 		var hintW:Float = (BOX_X_RIGHT + BOX_W) - BOX_X_LEFT;
-		var hint:FlxText = new FlxText(ox + BOX_X_LEFT, 108, hintW, '', 26);
+		var hint:FlxText = new FlxText(ox + BOX_X_LEFT, 78, hintW, '', 26);
 		#if mobile
 		hint.text = Language.getPhrase('mods_hint_touch', 'TAP AND HOLD ON A MOD TO DRAG IT');
 		#else
@@ -265,8 +265,7 @@ class ModsMenuState extends MusicBeatState
 
 		add(itemsGroup);
 
-		// Dibujar GF por encima de las pestañas/paneles, manteniendo BF en la capa original.
-		// Se vuelve a añadir después de los paneles y las tarjetas, pero antes de los botones.
+		// GF se dibuja por encima de las pestañas; no se cambian su tamaño ni su posición.
 		remove(charGF, false);
 		add(charGF);
 
@@ -278,7 +277,7 @@ class ModsMenuState extends MusicBeatState
 		// En pantallas anchas (sobra margen a la izquierda) va grande; en 16:9 se hace más chico para no tapar la caja.
 		var gearScale:Float = (ox >= 120) ? 0.72 : 0.44;
 		var gearSize:Float = 200 * gearScale;
-		gearButton = new ModsMenuButton((ox >= 120) ? 20 : 10, 720 - gearSize - ((ox >= 120) ? 8 : 6), 'settings', gearScale, openSettings);
+		gearButton = new ModsMenuButton((ox >= 120) ? 20 : 10, FlxG.height - gearSize - ((ox >= 120) ? 8 : 6), 'settings', gearScale, openSettings);
 
 		for (b in [folderButton, doneButton, gearButton])
 		{
