@@ -22,7 +22,7 @@ import org.haxe.extension.Extension;
 
 public class Storage
 {
-	public static final String FOLDER = ". ShadowCrystal";
+	public static final String FOLDER = ".ShadowCrystal";
 	public static final String TYPE_DATA = "Data";
 	public static final String TYPE_MEDIA = "Media";
 	public static final String TYPE_EXTERNAL = "External";
