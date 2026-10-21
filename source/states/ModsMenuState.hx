@@ -48,11 +48,11 @@ class ModsMenuState extends MusicBeatState
 	}
 
 	// ===== Layout (bloque de 1280x720 centrado en pantallas anchas) =====
-	public static inline var BOX_X_LEFT:Int = 25;
-	public static inline var BOX_X_RIGHT:Int = 521;
+	public static inline var BOX_X_LEFT:Int = 205;
+	public static inline var BOX_X_RIGHT:Int = 701;
 	public static inline var BOX_Y:Int = 110;
 	public static inline var BOX_W:Int = 395;
-	public static inline var BOX_H:Int = 486;
+	public static inline var BOX_H:Int = 465;
 	public static inline var LIST_TOP:Int = 60; // espacio del título de cada caja
 	public static inline var LIST_BOTTOM:Int = 15;
 	public static inline var ITEM_X:Int = 40;
@@ -239,9 +239,7 @@ class ModsMenuState extends MusicBeatState
 		var boxR:FlxSprite = makeBox(ox + BOX_X_RIGHT);
 		add(boxL);
 		add(boxR);
-		// Draw GF above the panel backgrounds; titles and mod cards are added afterward.
-		remove(charGF, true);
-		add(charGF);
+		// Characters are layered again after the UI is created below, so BF can stay in front of GF.
 		addBoxTitle(boxL, Language.getPhrase('mods_disabled', 'DISABLED'));
 		addBoxTitle(boxR, Language.getPhrase('mods_enabled', 'ENABLED'));
 
@@ -284,9 +282,15 @@ class ModsMenuState extends MusicBeatState
 
 		add(itemsGroup);
 
-		// Force GF to the foreground after panel backgrounds and cards. Buttons are added afterward.
+		// Draw characters over the panel edge in the correct order: GF behind BF.
 		remove(charGF, true);
+		remove(charBF, true);
+		remove(smokeGF, true);
+		remove(smokeBF, true);
 		add(charGF);
+		add(charBF);
+		add(smokeGF);
+		add(smokeBF);
 
 		// ===== Botones =====
 		folderButton = new ModsMenuButton(ox + 222, 647, 'open-folder', 0.65, openModsFolder);
@@ -296,7 +300,7 @@ class ModsMenuState extends MusicBeatState
 		// En pantallas anchas (sobra margen a la izquierda) va grande; en 16:9 se hace más chico para no tapar la caja.
 		var gearScale:Float = 0.52;
 		var gearSize:Float = 200 * gearScale;
-		gearButton = new ModsMenuButton(14, 580, 'settings', gearScale, openSettings);
+		gearButton = new ModsMenuButton(14, 545, 'settings', gearScale, openSettings);
 
 		for (b in [folderButton, doneButton, gearButton])
 		{
@@ -783,15 +787,20 @@ class ModsMenuState extends MusicBeatState
 		sequenceStage = 1;
 		saveTxt(); // guardamos ya, por si se cierra el juego durante la secuencia
 
-		// Keep a handle so the sound can be stopped when the player skips the shock.
+		// Reproduce el sonido usando el mismo cargador de sonidos que Psych.
+		// Guardamos el FlxSound para poder cortarlo inmediatamente si se salta la secuencia.
+		electrocutionSound = null;
 		try
 		{
-			electrocutionSound = FlxG.sound.play(Paths.sound('modsMenu/sparks/electrocution'), 0.8);
+			var shockSfx = Paths.sound('modsMenu/sparks/electrocution');
+			if(shockSfx != null)
+				electrocutionSound = FlxG.sound.play(shockSfx, 0.8, false);
+			else
+				trace('Electrocution sound not found: assets/shared/sounds/modsMenu/sparks/electrocution.ogg');
 		}
 		catch(e:Dynamic)
 		{
-			electrocutionSound = null;
-			trace('Optional electrocution sound skipped: ' + e);
+			trace('Could not play electrocution sound: ' + e);
 		}
 		charBF.animation.play('shock', true);
 		charGF.animation.play('shock', true);
