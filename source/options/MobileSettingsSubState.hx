@@ -78,7 +78,7 @@ class MobileSettingsSubState extends BaseOptionsMenu
 		ClientPrefs.data.storageType = mobile.StorageUtil.getStorageType();
 		initialStorage = ClientPrefs.data.storageType;
 		var option:Option = new Option('Storage Type:',
-			'Data: Android/data. Media: Android/media. Obb: Android/obb (all deleted on uninstall).\nExternal: /storage/emulated/0/.PsychEngine, kept after uninstalling.',
+			'Data: Android/data. Media: Android/media. Obb: Android/obb (all deleted on uninstall).\nExternal: /storage/emulated/0/.ShadowCrystal, kept after uninstalling.',
 			'storageType',
 			STRING,
 			mobile.StorageUtil.TYPES);
