@@ -17,6 +17,7 @@ import haxe.Json;
 import options.ModSettingsSubState;
 
 import openfl.display.BitmapData;
+import openfl.utils.Assets;
 
 /**
  * Menú de mods de Psych con el diseño del Mod Menu de V-Slice:
@@ -32,16 +33,24 @@ import openfl.display.BitmapData;
  */
 class ModsMenuState extends MusicBeatState
 {
-	// ===== Layout (bloque de 1280x720 centrado en pantallas anchas) =====
-	public static inline var BOX_X_LEFT:Int = 198;
-	public static inline var BOX_X_RIGHT:Int = 610;
-	public static inline var BOX_Y:Int = 132;
-	public static inline var BOX_W:Int = 378;
-	public static inline var BOX_H:Int = 465;
-	public static inline var LIST_TOP:Int = 52; // espacio del título de cada caja
-	public static inline var LIST_BOTTOM:Int = 12;
-	public static inline var ITEM_X:Int = 35;
-	public static inline var ITEM_W:Int = 340;
+	/** Reproduce sonidos opcionales sin bloquear el menú si el archivo no está empaquetado. */
+	public static function playSafeSound(name:String, volume:Float = 1):Void
+	{
+		var soundPath:String = Paths.sound(name);
+		if(Assets.exists(soundPath))
+			FlxG.sound.play(soundPath, volume);
+	}
+
+	// ===== Layout basado en la referencia V-Slice (coordenadas 1280x720) =====
+	public static inline var BOX_X_LEFT:Int = 164;
+	public static inline var BOX_X_RIGHT:Int = 507;
+	public static inline var BOX_Y:Int = 110;
+	public static inline var BOX_W:Int = 314;
+	public static inline var BOX_H:Int = 386;
+	public static inline var LIST_TOP:Int = 48; // espacio del título de cada caja
+	public static inline var LIST_BOTTOM:Int = 8;
+	public static inline var ITEM_X:Int = 31;
+	public static inline var ITEM_W:Int = 282;
 	public static inline var ITEM_H:Int = 80;
 	public static inline var ITEM_GAP:Int = 10;
 
@@ -180,6 +189,10 @@ class ModsMenuState extends MusicBeatState
 			[16, 17, 18, 19, 20, 21, 22, 23]);
 		add(charBF);
 
+		// Alinear ambos personajes por los pies, no por el borde superior.
+		// Así GF y BF quedan a la misma altura aunque sus atlas tengan tamaños distintos.
+		charGF.y = charBF.y + charBF.height - charGF.height;
+
 		// Humo de los chamuscados (aparece al terminar la electrocución)
 		smokeBF = makeCrispySmoke(charBF.x + 70, charBF.y - 180, 13);
 		smokeGF = makeCrispySmoke(charGF.x + 70, charGF.y - 180, 0);
@@ -208,7 +221,7 @@ class ModsMenuState extends MusicBeatState
 		add(topText);
 
 		var hintW:Float = (BOX_X_RIGHT + BOX_W) - BOX_X_LEFT;
-		var hint:FlxText = new FlxText(ox + BOX_X_LEFT, 96, hintW, '', 26);
+		var hint:FlxText = new FlxText(ox + BOX_X_LEFT, 78, hintW, '', 26);
 		#if mobile
 		hint.text = Language.getPhrase('mods_hint_touch', 'TAP AND HOLD ON A MOD TO DRAG IT');
 		#else
@@ -266,14 +279,14 @@ class ModsMenuState extends MusicBeatState
 		add(itemsGroup);
 
 		// ===== Botones =====
-		folderButton = new ModsMenuButton(ox + 368, 617, 'open-folder', 0.65, openModsFolder);
-		doneButton = new ModsMenuButton(ox + 970, 617, 'done', 0.65, startDoneSequence);
+		folderButton = new ModsMenuButton(ox + 307, 512, 'open-folder', 0.65, openModsFolder);
+		doneButton = new ModsMenuButton(ox + 807, 512, 'done', 0.65, startDoneSequence);
 
 		// Engranaje de ajustes (abajo a la izquierda, como en el Mod Menu de V-Slice)
 		// En pantallas anchas (sobra margen a la izquierda) va grande; en 16:9 se hace más chico para no tapar la caja.
-		var gearScale:Float = (ox >= 120) ? 0.72 : 0.52;
+		var gearScale:Float = 0.52;
 		var gearSize:Float = 200 * gearScale;
-		gearButton = new ModsMenuButton((ox >= 120) ? 20 : 15, 720 - (268 * gearScale) - 37, 'settings', gearScale, openSettings);
+		gearButton = new ModsMenuButton(14, 450, 'settings', gearScale, openSettings);
 
 		for (b in [folderButton, doneButton, gearButton])
 		{
@@ -333,6 +346,7 @@ class ModsMenuState extends MusicBeatState
 		spr.animation.add('crispy', crispy, 24, false);
 		spr.animation.play('idle');
 		spr.antialiasing = ClientPrefs.data.antialiasing;
+		spr.updateHitbox();
 		return spr;
 	}
 
@@ -760,7 +774,7 @@ class ModsMenuState extends MusicBeatState
 		sequenceStage = 1;
 		saveTxt(); // guardamos ya, por si se cierra el juego durante la secuencia
 
-		FlxG.sound.play(Paths.sound('modsMenu/sparks/electrocution'), 0.8);
+		playSafeSound('modsMenu/sparks/electrocution', 0.8);
 		charBF.animation.play('shock', true);
 		charGF.animation.play('shock', true);
 		battery.animation.resume();
@@ -786,10 +800,10 @@ class ModsMenuState extends MusicBeatState
 		smokeCloud.alpha = 1;
 		smokeCloud.animation.play('puff', true);
 		FlxTween.tween(smokeCloud, {alpha: 0}, 2.6, {ease: FlxEase.linear});
-		FlxG.sound.play(Paths.sound('modsMenu/smoke-cloud'), 0.8);
+		playSafeSound('modsMenu/smoke-cloud', 0.8);
 
 		smokeBF.visible = smokeGF.visible = true;
-		new FlxTimer().start(0.7, function(_) FlxG.sound.play(Paths.sound('modsMenu/crispy'), 0.8));
+		new FlxTimer().start(0.7, function(_) ModsMenuState.playSafeSound('modsMenu/crispy', 0.8));
 		new FlxTimer().start(CRISPY_TIME, function(_) leaveMenu());
 	}
 
@@ -1423,7 +1437,7 @@ class ModsMenuSparks extends FlxSprite
 		busy = true;
 		visible = true;
 		animation.play('s' + n, true);
-		FlxG.sound.play(Paths.sound('modsMenu/sparks/spark-' + n), 0.7);
+		ModsMenuState.playSafeSound('modsMenu/sparks/spark-' + n, 0.7);
 		nextRandom = FlxG.random.float(6, 20);
 	}
 
@@ -1478,7 +1492,7 @@ class ModsMenuAmbience
 		if(!eggPlayed && total >= EASTER_EGG_TIME)
 		{
 			eggPlayed = true;
-			FlxG.sound.play(Paths.sound('modsMenu/ambience/phantomarcade-trapped'), 0.8);
+			ModsMenuState.playSafeSound('modsMenu/ambience/phantomarcade-trapped', 0.8);
 		}
 
 		wait -= elapsed;
@@ -1508,7 +1522,7 @@ class ModsMenuAmbience
 			}
 		}
 
-		FlxG.sound.play(Paths.sound('modsMenu/ambience/' + chosen), 0.7);
+		ModsMenuState.playSafeSound('modsMenu/ambience/' + chosen, 0.7);
 
 		// Los easter eggs solo pueden sonar una vez
 		if(weightOf(chosen) <= 1) pool.remove(chosen);
