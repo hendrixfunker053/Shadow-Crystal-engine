@@ -33,17 +33,17 @@ import openfl.display.BitmapData;
 class ModsMenuState extends MusicBeatState
 {
 	// ===== Layout (bloque de 1280x720 centrado en pantallas anchas) =====
-	public static inline var BOX_X_LEFT:Int = 40;
-	public static inline var BOX_X_RIGHT:Int = 473;
-	public static inline var BOX_Y:Int = 139;
-	public static inline var BOX_W:Int = 395;
-	public static inline var BOX_H:Int = 486;
-	public static inline var LIST_TOP:Int = 60; // espacio del título de cada caja
-	public static inline var LIST_BOTTOM:Int = 15;
-	public static inline var ITEM_X:Int = 40;
-	public static inline var ITEM_W:Int = 350;
-	public static inline var ITEM_H:Int = 96;
-	public static inline var ITEM_GAP:Int = 16;
+	public static inline var BOX_X_LEFT:Int = 198;
+	public static inline var BOX_X_RIGHT:Int = 610;
+	public static inline var BOX_Y:Int = 132;
+	public static inline var BOX_W:Int = 378;
+	public static inline var BOX_H:Int = 465;
+	public static inline var LIST_TOP:Int = 52; // espacio del título de cada caja
+	public static inline var LIST_BOTTOM:Int = 12;
+	public static inline var ITEM_X:Int = 35;
+	public static inline var ITEM_W:Int = 340;
+	public static inline var ITEM_H:Int = 80;
+	public static inline var ITEM_GAP:Int = 10;
 
 	// ===== Tiempos =====
 	static inline var HOLD_TIME:Float = 0.3; // segundos para empezar a arrastrar un mod con el dedo
@@ -208,13 +208,13 @@ class ModsMenuState extends MusicBeatState
 		add(topText);
 
 		var hintW:Float = (BOX_X_RIGHT + BOX_W) - BOX_X_LEFT;
-		var hint:FlxText = new FlxText(ox + BOX_X_LEFT, 108, hintW, '', 26);
+		var hint:FlxText = new FlxText(ox + BOX_X_LEFT, 96, hintW, '', 26);
 		#if mobile
 		hint.text = Language.getPhrase('mods_hint_touch', 'TAP AND HOLD ON A MOD TO DRAG IT');
 		#else
 		hint.text = Language.getPhrase('mods_hint_mouse', 'CLICK AND DRAG A MOD TO MOVE IT');
 		#end
-		hint.setFormat(Paths.font("vcr.ttf"), 26, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		hint.setFormat(Paths.font("funkin.otf"), 26, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		hint.borderSize = 2;
 		add(hint);
 
@@ -257,7 +257,7 @@ class ModsMenuState extends MusicBeatState
 		{
 			noModsTxt = new FlxText(disabledList.x + 20, disabledList.y + 20, BOX_W - 40,
 				Language.getPhrase('no_mods_installed', 'NO MODS INSTALLED\nPRESS BACK TO EXIT OR INSTALL A MOD'), 20);
-			noModsTxt.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+			noModsTxt.setFormat(Paths.font("funkin.otf"), 20, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 			noModsTxt.borderSize = 2;
 			add(noModsTxt);
 			FlxG.autoPause = false;
@@ -266,14 +266,14 @@ class ModsMenuState extends MusicBeatState
 		add(itemsGroup);
 
 		// ===== Botones =====
-		folderButton = new ModsMenuButton(ox + 222, 647, 'open-folder', 0.65, openModsFolder);
-		doneButton = new ModsMenuButton(ox + 852, 647, 'done', 0.65, startDoneSequence);
+		folderButton = new ModsMenuButton(ox + 368, 617, 'open-folder', 0.65, openModsFolder);
+		doneButton = new ModsMenuButton(ox + 970, 617, 'done', 0.65, startDoneSequence);
 
 		// Engranaje de ajustes (abajo a la izquierda, como en el Mod Menu de V-Slice)
 		// En pantallas anchas (sobra margen a la izquierda) va grande; en 16:9 se hace más chico para no tapar la caja.
-		var gearScale:Float = (ox >= 120) ? 0.72 : 0.44;
+		var gearScale:Float = (ox >= 120) ? 0.72 : 0.52;
 		var gearSize:Float = 200 * gearScale;
-		gearButton = new ModsMenuButton((ox >= 120) ? 20 : 10, 720 - gearSize - ((ox >= 120) ? 8 : 6), 'settings', gearScale, openSettings);
+		gearButton = new ModsMenuButton((ox >= 120) ? 20 : 15, 720 - (268 * gearScale) - 37, 'settings', gearScale, openSettings);
 
 		for (b in [folderButton, doneButton, gearButton])
 		{
@@ -316,11 +316,11 @@ class ModsMenuState extends MusicBeatState
 
 	function addBoxTitle(box:FlxSprite, text:String):Void
 	{
-		var title:Alphabet = new Alphabet(0, 0, "", true);
-		title.setScale(0.5);
-		title.text = text;
-		title.x = box.x + (box.width - title.width) / 2;
-		title.y = box.y + 14;
+		var title:FlxText = new FlxText(box.x, box.y + 9, box.width, text, 25);
+		title.setFormat(Paths.font("funkin.otf"), 25, FlxColor.WHITE, CENTER);
+		title.borderStyle = FlxTextBorderStyle.OUTLINE;
+		title.borderColor = FlxColor.BLACK;
+		title.borderSize = 1.5;
 		add(title);
 	}
 
@@ -730,7 +730,12 @@ class ModsMenuState extends MusicBeatState
 	{
 		try
 		{
-			var modFolder = Paths.mods();
+			var gameRoot:String = mobile.StorageUtil.getGameDir();
+			#if android
+			// Shadow Crystal uses its own external folder instead of PsychEngine's legacy folder.
+			if(mobile.StorageUtil.useExternal()) gameRoot = '/storage/emulated/0/.ShadowCrystal/';
+			#end
+			var modFolder:String = haxe.io.Path.addTrailingSlash(gameRoot) + 'mods';
 			if(!FileSystem.exists(modFolder))
 			{
 				trace('created missing folder');
@@ -1078,12 +1083,12 @@ class ModItem extends FlxSpriteGroup
 		var textW:Float = ModsMenuState.ITEM_W - textX - 6;
 
 		title = new FlxText(textX, 12, textW, "", 24);
-		title.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.WHITE, LEFT);
+		title.setFormat(Paths.font("funkin.otf"), 24, FlxColor.WHITE, LEFT);
 		title.wordWrap = false;
 		add(title);
 
 		descText = new FlxText(textX, 50, textW, "", 15);
-		descText.setFormat(Paths.font("vcr.ttf"), 15, FlxColor.WHITE, LEFT);
+		descText.setFormat(Paths.font("funkin.otf"), 15, FlxColor.WHITE, LEFT);
 		descText.fieldHeight = 42;
 		descText.alpha = 0.7;
 		add(descText);
@@ -1246,7 +1251,6 @@ class ModsMenuButton extends FlxSprite
 		antialiasing = ClientPrefs.data.antialiasing;
 
 		setSkin('');
-		// (x, y) es la esquina superior izquierda a escala base; guardamos el centro
 		cx = x + (frameWidth * scl) / 2;
 		cy = y + (frameHeight * scl) / 2;
 		applyScale(scl);
@@ -1254,11 +1258,26 @@ class ModsMenuButton extends FlxSprite
 
 	function setSkin(suffix:String):Void
 	{
-		loadGraphic(Paths.image('modsMenu/' + baseName + suffix));
+		if(baseName == 'settings')
+		{
+			// optionsButton.xml uses options0000 ... options0016.
+			// Idle always stays on frame 0000; pressing plays the full atlas animation.
+			frames = Paths.getSparrowAtlas('optionsButton');
+			animation.add('idle', [0], 1, false);
+			animation.add('pressed', [for (i in 0...17) i], 24, false);
+			animation.play('idle', true);
+			animation.pause();
+			if(animation.curAnim != null) animation.curAnim.curFrame = 0;
+		}
+		else
+		{
+			loadGraphic(Paths.image('modsMenu/' + baseName + suffix));
+		}
 		var s:Float = scale.x;
 		scale.set(s, s);
 		updateHitbox();
 		if(cx != 0 || cy != 0) setPosition(cx - width / 2, cy - height / 2);
+		refreshEnabledTint();
 	}
 
 	function applyScale(s:Float):Void
@@ -1274,8 +1293,16 @@ class ModsMenuButton extends FlxSprite
 		scaleTween = FlxTween.num(scale.x, target, time, {ease: FlxEase.quadOut}, function(v:Float) applyScale(v));
 	}
 
+	function refreshEnabledTint():Void
+	{
+		// Tinting is done in code: a mod without settings gets a dark gear.
+		if(baseName == 'settings') color = enabled ? FlxColor.WHITE : FlxColor.fromRGB(95, 95, 105);
+		else alpha = enabled ? 1 : 0.4;
+	}
+
 	public function setHover(value:Bool):Void
 	{
+		if(baseName == 'settings') return; // no hover frame: keep options0000 until pressed
 		if(value == hovered || !enabled) return;
 		hovered = value;
 		if(!flashing)
@@ -1289,7 +1316,23 @@ class ModsMenuButton extends FlxSprite
 	{
 		if(!enabled) return;
 
-		// Parpadeo en negativo + pequeño rebote
+		if(baseName == 'settings')
+		{
+			flashing = true;
+			animation.play('pressed', true);
+			animation.finishCallback = function(name:String)
+			{
+				animation.play('idle', true);
+				animation.pause();
+				if(animation.curAnim != null) animation.curAnim.curFrame = 0;
+				flashing = false;
+			};
+			applyScale(baseScale * 0.92);
+			tweenScaleTo(baseScale, 0.15);
+			if(onClick != null) onClick();
+			return;
+		}
+
 		flashing = true;
 		setSkin('-inverted');
 		applyScale(baseScale * 0.92);
@@ -1306,11 +1349,11 @@ class ModsMenuButton extends FlxSprite
 	function set_enabled(v:Bool):Bool
 	{
 		enabled = v;
-		alpha = v ? 1 : 0.4;
+		refreshEnabledTint();
 		if(!v && hovered)
 		{
 			hovered = false;
-			setSkin('');
+			if(baseName != 'settings') setSkin('');
 			applyScale(baseScale);
 		}
 		return v;
