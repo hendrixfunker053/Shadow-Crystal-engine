@@ -33,32 +33,26 @@ import openfl.utils.Assets;
  */
 class ModsMenuState extends MusicBeatState
 {
-	/** Reproduce sonidos opcionales sin bloquear el menú si faltan o no se pueden decodificar. */
+	/** Reproduce sonidos opcionales sin bloquear el menú si el archivo no está empaquetado. */
 	public static function playSafeSound(name:String, volume:Float = 1):Void
 	{
-		try
-		{
-			// Paths.sound() devuelve openfl.media.Sound, no una ruta String.
-			FlxG.sound.play(Paths.sound(name), volume);
-		}
-		catch(e:Dynamic)
-		{
-			trace('Optional Mods Menu sound skipped (' + name + '): ' + e);
-		}
+		var soundPath:String = Paths.sound(name);
+		if(Assets.exists(soundPath))
+			FlxG.sound.play(soundPath, volume);
 	}
 
 	// ===== Layout (bloque de 1280x720 centrado en pantallas anchas) =====
 	public static inline var BOX_X_LEFT:Int = 205;
 	public static inline var BOX_X_RIGHT:Int = 701;
-	public static inline var BOX_Y:Int = 110;
-	public static inline var BOX_W:Int = 395;
+	public static inline var BOX_Y:Int = 132;
+	public static inline var BOX_W:Int = 378;
 	public static inline var BOX_H:Int = 465;
-	public static inline var LIST_TOP:Int = 60; // espacio del título de cada caja
-	public static inline var LIST_BOTTOM:Int = 15;
-	public static inline var ITEM_X:Int = 40;
-	public static inline var ITEM_W:Int = 350;
-	public static inline var ITEM_H:Int = 96;
-	public static inline var ITEM_GAP:Int = 16;
+	public static inline var LIST_TOP:Int = 52; // espacio del título de cada caja
+	public static inline var LIST_BOTTOM:Int = 12;
+	public static inline var ITEM_X:Int = 35;
+	public static inline var ITEM_W:Int = 340;
+	public static inline var ITEM_H:Int = 80;
+	public static inline var ITEM_GAP:Int = 10;
 
 	// ===== Tiempos =====
 	static inline var HOLD_TIME:Float = 0.3; // segundos para empezar a arrastrar un mod con el dedo
@@ -106,7 +100,6 @@ class ModsMenuState extends MusicBeatState
 	var exiting:Bool = false;
 	var sequenceStage:Int = 0; // 0 = nada, 1 = electrocución, 2 = chamuscados
 	var shockTimer:FlxTimer = null;
-	var electrocutionSound:flixel.sound.FlxSound = null;
 	var folderSignatureAtStart:String = '';
 	var rescanTimer:Float = 0;
 
@@ -184,7 +177,7 @@ class ModsMenuState extends MusicBeatState
 		battery.updateHitbox();
 		add(battery);
 
-		charGF = makeChar('gf', 761 + ox, 55,
+		charGF = makeChar('gf', 761 + ox, 127,
 			[0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 3, 3, 4, 4, 5, 6, 6, 7, 7, 7, 0, 0, 0, 0, 0, 0, 0],
 			[8, 9, 10, 11, 12, 13, 14, 15, 10, 16, 17, 18, 11, 18, 13, 10, 14, 8, 18, 19, 14, 8, 17, 13, 11, 8, 13, 11, 10, 15, 14, 16, 9],
 			[20, 21, 22, 23, 24, 25, 26, 27]);
@@ -224,7 +217,7 @@ class ModsMenuState extends MusicBeatState
 		add(topText);
 
 		var hintW:Float = (BOX_X_RIGHT + BOX_W) - BOX_X_LEFT;
-		var hint:FlxText = new FlxText(ox + BOX_X_LEFT, 78, hintW, '', 26);
+		var hint:FlxText = new FlxText(ox + BOX_X_LEFT, 96, hintW, '', 26);
 		#if mobile
 		hint.text = Language.getPhrase('mods_hint_touch', 'TAP AND HOLD ON A MOD TO DRAG IT');
 		#else
@@ -239,7 +232,6 @@ class ModsMenuState extends MusicBeatState
 		var boxR:FlxSprite = makeBox(ox + BOX_X_RIGHT);
 		add(boxL);
 		add(boxR);
-		// Characters are layered again after the UI is created below, so BF can stay in front of GF.
 		addBoxTitle(boxL, Language.getPhrase('mods_disabled', 'DISABLED'));
 		addBoxTitle(boxR, Language.getPhrase('mods_enabled', 'ENABLED'));
 
@@ -282,25 +274,15 @@ class ModsMenuState extends MusicBeatState
 
 		add(itemsGroup);
 
-		// Draw characters over the panel edge in the correct order: GF behind BF.
-		remove(charGF, true);
-		remove(charBF, true);
-		remove(smokeGF, true);
-		remove(smokeBF, true);
-		add(charGF);
-		add(charBF);
-		add(smokeGF);
-		add(smokeBF);
-
 		// ===== Botones =====
-		folderButton = new ModsMenuButton(ox + 222, 647, 'open-folder', 0.65, openModsFolder);
-		doneButton = new ModsMenuButton(ox + 853, 647, 'done', 0.65, startDoneSequence);
+		folderButton = new ModsMenuButton(ox + 368, 617, 'open-folder', 0.65, openModsFolder);
+		doneButton = new ModsMenuButton(ox + 970, 617, 'done', 0.65, startDoneSequence);
 
 		// Engranaje de ajustes (abajo a la izquierda, como en el Mod Menu de V-Slice)
 		// En pantallas anchas (sobra margen a la izquierda) va grande; en 16:9 se hace más chico para no tapar la caja.
-		var gearScale:Float = 0.52;
+		var gearScale:Float = (ox >= 120) ? 0.72 : 0.52;
 		var gearSize:Float = 200 * gearScale;
-		gearButton = new ModsMenuButton(14, 545, 'settings', gearScale, openSettings);
+		gearButton = new ModsMenuButton((ox >= 120) ? 20 : 15, 720 - (268 * gearScale) - 37, 'settings', gearScale, openSettings);
 
 		for (b in [folderButton, doneButton, gearButton])
 		{
@@ -787,21 +769,7 @@ class ModsMenuState extends MusicBeatState
 		sequenceStage = 1;
 		saveTxt(); // guardamos ya, por si se cierra el juego durante la secuencia
 
-		// Reproduce el sonido usando el mismo cargador de sonidos que Psych.
-		// Guardamos el FlxSound para poder cortarlo inmediatamente si se salta la secuencia.
-		electrocutionSound = null;
-		try
-		{
-			var shockSfx = Paths.sound('modsMenu/sparks/electrocution');
-			if(shockSfx != null)
-				electrocutionSound = FlxG.sound.play(shockSfx, 0.8, false);
-			else
-				trace('Electrocution sound not found: assets/shared/sounds/modsMenu/sparks/electrocution.ogg');
-		}
-		catch(e:Dynamic)
-		{
-			trace('Could not play electrocution sound: ' + e);
-		}
+		playSafeSound('modsMenu/sparks/electrocution', 0.8);
 		charBF.animation.play('shock', true);
 		charGF.animation.play('shock', true);
 		battery.animation.resume();
@@ -815,11 +783,6 @@ class ModsMenuState extends MusicBeatState
 		if(sequenceStage != 1) return;
 		sequenceStage = 2;
 		if(shockTimer != null) shockTimer.cancel();
-		if(electrocutionSound != null)
-		{
-			electrocutionSound.stop();
-			electrocutionSound = null;
-		}
 
 		FlxG.camera.flash(FlxColor.WHITE, 0.4);
 		sparks.endElectrocution();
