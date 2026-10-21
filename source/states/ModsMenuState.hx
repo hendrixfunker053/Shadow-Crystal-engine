@@ -48,8 +48,8 @@ class ModsMenuState extends MusicBeatState
 	}
 
 	// ===== Layout (bloque de 1280x720 centrado en pantallas anchas) =====
-	public static inline var BOX_X_LEFT:Int = 95;
-	public static inline var BOX_X_RIGHT:Int = 591;
+	public static inline var BOX_X_LEFT:Int = 25;
+	public static inline var BOX_X_RIGHT:Int = 521;
 	public static inline var BOX_Y:Int = 110;
 	public static inline var BOX_W:Int = 395;
 	public static inline var BOX_H:Int = 486;
@@ -106,6 +106,7 @@ class ModsMenuState extends MusicBeatState
 	var exiting:Bool = false;
 	var sequenceStage:Int = 0; // 0 = nada, 1 = electrocución, 2 = chamuscados
 	var shockTimer:FlxTimer = null;
+	var electrocutionSound:flixel.system.FlxSound = null;
 	var folderSignatureAtStart:String = '';
 	var rescanTimer:Float = 0;
 
@@ -239,7 +240,7 @@ class ModsMenuState extends MusicBeatState
 		add(boxL);
 		add(boxR);
 		// Draw GF above the panel backgrounds; titles and mod cards are added afterward.
-		remove(charGF, false);
+		remove(charGF, true);
 		add(charGF);
 		addBoxTitle(boxL, Language.getPhrase('mods_disabled', 'DISABLED'));
 		addBoxTitle(boxR, Language.getPhrase('mods_enabled', 'ENABLED'));
@@ -282,6 +283,10 @@ class ModsMenuState extends MusicBeatState
 		}
 
 		add(itemsGroup);
+
+		// Force GF to the foreground after panel backgrounds and cards. Buttons are added afterward.
+		remove(charGF, true);
+		add(charGF);
 
 		// ===== Botones =====
 		folderButton = new ModsMenuButton(ox + 222, 647, 'open-folder', 0.65, openModsFolder);
@@ -778,7 +783,16 @@ class ModsMenuState extends MusicBeatState
 		sequenceStage = 1;
 		saveTxt(); // guardamos ya, por si se cierra el juego durante la secuencia
 
-		playSafeSound('modsMenu/sparks/electrocution', 0.8);
+		// Keep a handle so the sound can be stopped when the player skips the shock.
+		try
+		{
+			electrocutionSound = FlxG.sound.play(Paths.sound('modsMenu/sparks/electrocution'), 0.8);
+		}
+		catch(e:Dynamic)
+		{
+			electrocutionSound = null;
+			trace('Optional electrocution sound skipped: ' + e);
+		}
 		charBF.animation.play('shock', true);
 		charGF.animation.play('shock', true);
 		battery.animation.resume();
@@ -792,6 +806,11 @@ class ModsMenuState extends MusicBeatState
 		if(sequenceStage != 1) return;
 		sequenceStage = 2;
 		if(shockTimer != null) shockTimer.cancel();
+		if(electrocutionSound != null)
+		{
+			electrocutionSound.stop();
+			electrocutionSound = null;
+		}
 
 		FlxG.camera.flash(FlxColor.WHITE, 0.4);
 		sparks.endElectrocution();
