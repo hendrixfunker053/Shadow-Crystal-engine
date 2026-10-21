@@ -36,9 +36,14 @@ class ModsMenuState extends MusicBeatState
 	/** Reproduce sonidos opcionales sin bloquear el menú si el archivo no está empaquetado. */
 	public static function playSafeSound(name:String, volume:Float = 1):Void
 	{
-		var soundPath:String = Paths.sound(name);
-		if(Assets.exists(soundPath))
-			FlxG.sound.play(soundPath, volume);
+		try
+		{
+			FlxG.sound.play(Paths.sound(name), volume);
+		}
+		catch (e:Dynamic)
+		{
+			trace('No se pudo reproducir el sonido "$name": $e');
+		}
 	}
 
 	// ===== Layout (bloque de 1280x720 centrado en pantallas anchas) =====
