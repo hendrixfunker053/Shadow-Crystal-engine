@@ -76,8 +76,9 @@ class ModsMenuState extends MusicBeatState
 
 	// ===== Tiempos =====
 	static inline var HOLD_TIME:Float = 0.3; // segundos para empezar a arrastrar un mod con el dedo
-	static inline var SHOCK_TIME:Float = 2.2; // duración de reserva si no se puede leer la duración del audio de electrocución
-	static inline var CRISPY_TIME:Float = 1.8; // tiempo que se ven chamuscados antes de salir
+	static inline var SHOCK_TIME:Float = 81 / 24; // duración de la electrocución (frames de V-Slice a 24 fps)
+	static inline var SHOCK_SOUND_TAIL_MS:Float = (83 / 24) * 1000; // punto del audio de electrocución donde empieza su final
+	static inline var CRISPY_TIME:Float = 2.5; // tiempo que se ven chamuscados antes de salir
 
 	// Posición de las chispas (ajusta si no cuadran con tu atlas)
 	static inline var SPARKS_X:Float = 690;
@@ -197,7 +198,7 @@ class ModsMenuState extends MusicBeatState
 		battery.updateHitbox();
 		// (battery, BF, GF, humo y chispas se añaden más abajo, encima de los paneles)
 
-		charGF = makeChar('gf', 743 + ox, 127,
+		charGF = makeChar('gf', 743 + ox, 79, // antes 127: más arriba para quedar a la altura de BF (sube/baja este número para ajustar)
 			[0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 3, 3, 4, 4, 5, 6, 6, 7, 7, 7, 0, 0, 0, 0, 0, 0, 0],
 			[8, 9, 10, 11, 12, 13, 14, 15, 10, 16, 17, 18, 11, 18, 13, 10, 14, 8, 18, 19, 14, 8, 17, 13, 11, 8, 13, 11, 10, 15, 14, 16, 9],
 			[20, 21, 22, 23, 24, 25, 26, 27]);
@@ -788,9 +789,8 @@ class ModsMenuState extends MusicBeatState
 		battery.animation.resume();
 		sparks.startElectrocution();
 
-		// La electrocución (BF, GF, chispas, batería) dura exactamente lo que dura el audio
-		var shockDuration:Float = (shockSound != null && shockSound.length > 0) ? shockSound.length / 1000 : SHOCK_TIME;
-		shockTimer = new FlxTimer().start(shockDuration, function(_) endShock());
+		// Igual que V-Slice: la electrocución dura 81/24 s (no depende de la duración reportada por el audio)
+		shockTimer = new FlxTimer().start(SHOCK_TIME, function(_) endShock());
 	}
 
 	function endShock():Void
@@ -798,7 +798,8 @@ class ModsMenuState extends MusicBeatState
 		if(sequenceStage != 1) return;
 		sequenceStage = 2;
 		if(shockTimer != null) shockTimer.cancel();
-		if(shockSound != null && shockSound.playing) shockSound.stop(); // si se saltó con un toque
+		// Como V-Slice: el audio salta a su parte final en vez de cortarse
+		if(shockSound != null && shockSound.playing) shockSound.time = SHOCK_SOUND_TAIL_MS;
 
 		FlxG.camera.flash(FlxColor.WHITE, 0.4);
 		sparks.endElectrocution();
@@ -812,17 +813,13 @@ class ModsMenuState extends MusicBeatState
 		smokeCloud.animation.play('puff', true);
 		FlxTween.tween(smokeCloud, {alpha: 0}, 2.6, {ease: FlxEase.linear});
 
-		// smoke-cloud y crispy empiezan justo cuando termina la electrocución (animación + audio)
-		var cloudSnd:FlxSound = playSafeSound('modsMenu/smoke-cloud', 0.8);
-		var crispySnd:FlxSound = playSafeSound('modsMenu/crispy', 0.8);
+		// smoke-cloud y crispy empiezan justo cuando termina la electrocución
+		playSafeSound('modsMenu/smoke-cloud', 0.8);
+		playSafeSound('modsMenu/crispy', 0.8);
 
 		smokeBF.visible = smokeGF.visible = true;
 
-		// No salir antes de que terminen esos sonidos
-		var waitTime:Float = CRISPY_TIME;
-		for (snd in [cloudSnd, crispySnd])
-			if(snd != null && snd.length / 1000 > waitTime) waitTime = snd.length / 1000;
-		new FlxTimer().start(waitTime, function(_) leaveMenu());
+		new FlxTimer().start(CRISPY_TIME, function(_) leaveMenu());
 	}
 
 	function leaveMenu():Void
