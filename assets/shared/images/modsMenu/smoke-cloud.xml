@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TextureAtlas imagePath="smoke-cloud.png" width="1895" height="1583">
+  <SubTexture name="0" x="2" y="2" width="887" height="660" />
+  <SubTexture name="1" x="890" y="2" width="929" height="534" />
+  <SubTexture name="2" x="580" y="833" width="936" height="283" />
+  <SubTexture name="3" x="890" y="537" width="957" height="295" />
+  <SubTexture name="4" x="580" y="1117" width="869" height="228" />
+  <SubTexture name="5" x="580" y="1346" width="810" height="196" />
+  <SubTexture name="6" x="2" y="1365" width="465" height="77" />
+  <SubTexture name="7" x="1820" y="2" width="23" height="104" rotated="true" />
+  <SubTexture name="8" x="1517" y="833" width="376" height="353" />
+  <SubTexture name="9" x="2" y="663" width="577" height="701" />
+</TextureAtlas>

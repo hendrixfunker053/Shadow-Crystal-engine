@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TextureAtlas imagePath="gf.png" width="4093" height="1765">
+  <SubTexture name="0" x="3225" y="2" width="400" height="253" rotated="true" />
+  <SubTexture name="1" x="3225" y="2" width="400" height="253" rotated="true" />
+  <SubTexture name="2" x="3881" y="1072" width="102" height="112" rotated="true" />
+  <SubTexture name="3" x="3667" y="880" width="292" height="191" />
+  <SubTexture name="4" x="3626" y="2" width="306" height="215" />
+  <SubTexture name="5" x="3808" y="424" width="212" height="206" rotated="true" />
+  <SubTexture name="6" x="3960" y="841" width="112" height="99" />
+  <SubTexture name="7" x="3390" y="1193" width="165" height="199" rotated="true" />
+  <SubTexture name="8" x="2111" y="2" width="383" height="351" />
+  <SubTexture name="9" x="1714" y="765" width="410" height="360" rotated="true" />
+  <SubTexture name="10" x="2092" y="364" width="404" height="360" rotated="true" />
+  <SubTexture name="11" x="2534" y="1115" width="398" height="359" rotated="true" />
+  <SubTexture name="12" x="2863" y="2" width="361" height="387" />
+  <SubTexture name="13" x="1714" y="364" width="377" height="400" rotated="true" />
+  <SubTexture name="14" x="1791" y="1126" width="372" height="389" rotated="true" />
+  <SubTexture name="15" x="2125" y="725" width="370" height="389" rotated="true" />
+  <SubTexture name="16" x="2753" y="1475" width="419" height="269" rotated="true" />
+  <SubTexture name="17" x="3326" y="256" width="211" height="385" />
+  <SubTexture name="18" x="1582" y="1559" width="383" height="184" rotated="true" />
+  <SubTexture name="19" x="938" y="388" width="391" height="177" rotated="true" />
+  <SubTexture name="20" x="2933" y="1067" width="412" height="218" rotated="true" />
+  <SubTexture name="21" x="2497" y="390" width="413" height="261" rotated="true" />
+  <SubTexture name="22" x="2866" y="652" width="256" height="414" />
+  <SubTexture name="23" x="2911" y="390" width="414" height="255" rotated="true" />
+  <SubTexture name="24" x="3784" y="1465" width="69" height="39" />
+  <SubTexture name="25" x="3983" y="631" width="79" height="137" rotated="true" />
+  <SubTexture name="26" x="3984" y="941" width="77" height="137" rotated="true" />
+  <SubTexture name="27" x="2164" y="1506" width="588" height="244" rotated="true" />
+  <SubTexture name="28" x="3749" y="424" width="54" height="121" rotated="true" />
+  <SubTexture name="29" x="2497" y="2" width="365" height="384" />
+  <SubTexture name="30" x="3973" y="1414" width="96" height="92" rotated="true" />
+  <SubTexture name="31" x="2092" y="725" width="30" height="35" rotated="true" />
+  <SubTexture name="32" x="3733" y="1072" width="147" height="169" />
+  <SubTexture name="33" x="3225" y="256" width="93" height="133" />
+  <SubTexture name="34" x="522" y="1642" width="66" height="112" rotated="true" />
+  <SubTexture name="35" x="3733" y="1242" width="142" height="103" />
+  <SubTexture name="36" x="139" y="1642" width="131" height="107" />
+  <SubTexture name="37" x="3984" y="1079" width="100" height="105" rotated="true" />
+  <SubTexture name="38" x="3808" y="841" width="124" height="35" />
+  <SubTexture name="39" x="1011" y="1621" width="173" height="120" />
+  <SubTexture name="40" x="3134" y="1286" width="34" height="161" rotated="true" />
+  <SubTexture name="41" x="3865" y="1439" width="72" height="120" rotated="true" />
+  <SubTexture name="42" x="4021" y="424" width="44" height="184" rotated="true" />
+  <SubTexture name="43" x="3173" y="1606" width="218" height="151" />
+  <SubTexture name="44" x="3933" y="2" width="142" height="211" rotated="true" />
+  <SubTexture name="45" x="2534" y="1475" width="123" height="30" />
+  <SubTexture name="46" x="2497" y="652" width="301" height="61" />
+  <SubTexture name="47" x="3566" y="1509" width="256" height="41" />
+  <SubTexture name="48" x="3134" y="1448" width="29" height="24" />
+  <SubTexture name="49" x="3933" y="841" width="25" height="24" />
+  <SubTexture name="50" x="591" y="1183" width="596" height="437" rotated="true" />
+  <SubTexture name="51" x="1527" y="2" width="583" height="361" rotated="true" />
+  <SubTexture name="52" x="475" y="590" width="450" height="592" />
+  <SubTexture name="53" x="2" y="590" width="472" height="592" />
+  <SubTexture name="54" x="481" y="2" width="456" height="563" />
+  <SubTexture name="55" x="2" y="2" width="478" height="587" />
+  <SubTexture name="56" x="938" y="2" width="588" height="385" rotated="true" />
+  <SubTexture name="57" x="2" y="1183" width="588" height="458" rotated="true" />
+  <SubTexture name="58" x="1337" y="388" width="376" height="598" />
+  <SubTexture name="59" x="1188" y="1173" width="602" height="385" rotated="true" />
+  <SubTexture name="60" x="926" y="566" width="410" height="606" />
+  <SubTexture name="61" x="271" y="1642" width="127" height="107" rotated="true" />
+  <SubTexture name="62" x="3876" y="1242" width="114" height="111" rotated="true" />
+  <SubTexture name="63" x="3865" y="1354" width="107" height="84" />
+  <SubTexture name="64" x="3991" y="1305" width="85" height="108" rotated="true" />
+  <SubTexture name="65" x="3749" y="218" width="306" height="205" />
+  <SubTexture name="66" x="3593" y="573" width="214" height="306" rotated="true" />
+  <SubTexture name="67" x="3123" y="646" width="255" height="332" rotated="true" />
+  <SubTexture name="68" x="1188" y="1559" width="393" height="190" />
+  <SubTexture name="69" x="3538" y="256" width="210" height="316" rotated="true" />
+  <SubTexture name="70" x="3173" y="1286" width="216" height="319" rotated="true" />
+  <SubTexture name="71" x="3346" y="979" width="320" height="213" />
+  <SubTexture name="72" x="3808" y="631" width="174" height="209" />
+  <SubTexture name="73" x="3566" y="1378" width="217" height="130" rotated="true" />
+  <SubTexture name="74" x="2933" y="1286" width="200" height="188" rotated="true" />
+  <SubTexture name="75" x="1966" y="1516" width="188" height="200" />
+  <SubTexture name="76" x="591" y="1621" width="209" height="138" rotated="true" />
+  <SubTexture name="77" x="801" y="1621" width="209" height="138" rotated="true" />
+  <SubTexture name="78" x="2" y="1642" width="136" height="106" />
+  <SubTexture name="79" x="399" y="1642" width="122" height="105" />
+  <SubTexture name="80" x="3784" y="1346" width="80" height="118" rotated="true" />
+  <SubTexture name="81" x="3991" y="1185" width="79" height="119" rotated="true" />
+  <SubTexture name="82" x="1529" y="987" width="177" height="185" />
+  <SubTexture name="83" x="1337" y="987" width="191" height="174" />
+  <SubTexture name="84" x="3390" y="1393" width="175" height="186" rotated="true" />
+  <SubTexture name="85" x="3556" y="1193" width="176" height="184" rotated="true" />
+  <SubTexture name="86" x="3392" y="1580" width="184" height="176" />
+  <SubTexture name="87" x="2496" y="725" width="369" height="389" rotated="true" />
+  <SubTexture name="88" x="2164" y="1115" width="369" height="390" rotated="true" />
+  <SubTexture name="89" x="2496" y="725" width="369" height="389" rotated="true" />
+  <SubTexture name="90" x="3123" y="979" width="136" height="82" />
+  <SubTexture name="91" x="2866" y="1067" width="57" height="32" />
+  <SubTexture name="92" x="3538" y="573" width="35" height="68" rotated="true" />
+  <SubTexture name="93" x="2799" y="652" width="49" height="72" rotated="true" />
+  <SubTexture name="94" x="4045" y="609" width="24" height="20" rotated="true" />
+  <SubTexture name="95" x="3749" y="546" width="24" height="24" />
+  <SubTexture name="96" x="3774" y="546" width="19" height="26" rotated="true" />
+  <SubTexture name="97" x="3733" y="1346" width="20" height="22" />
+  <SubTexture name="98" x="3754" y="1346" width="21" height="16" />
+  <SubTexture name="99" x="4021" y="609" width="23" height="21" rotated="true" />
+  <SubTexture name="100" x="3379" y="642" width="213" height="320" rotated="true" />
+</TextureAtlas>
