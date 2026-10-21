@@ -33,12 +33,18 @@ import openfl.utils.Assets;
  */
 class ModsMenuState extends MusicBeatState
 {
-	/** Reproduce sonidos opcionales sin bloquear el menú si el archivo no está empaquetado. */
+	/** Reproduce sonidos opcionales sin bloquear el menú si faltan o no se pueden decodificar. */
 	public static function playSafeSound(name:String, volume:Float = 1):Void
 	{
-		var soundPath:String = Paths.sound(name);
-		if(Assets.exists(soundPath))
-			FlxG.sound.play(soundPath, volume);
+		try
+		{
+			// Paths.sound() devuelve openfl.media.Sound, no una ruta String.
+			FlxG.sound.play(Paths.sound(name), volume);
+		}
+		catch(e:Dynamic)
+		{
+			trace('Optional Mods Menu sound skipped (' + name + '): ' + e);
+		}
 	}
 
 	// ===== Layout (bloque de 1280x720 centrado en pantallas anchas) =====
