@@ -36,9 +36,11 @@ class ModsMenuState extends MusicBeatState
 	/** Reproduce sonidos opcionales sin bloquear el menú si el archivo no está empaquetado. */
 	public static function playSafeSound(name:String, volume:Float = 1):Void
 	{
-		var soundPath:String = Paths.sound(name);
-		if(Assets.exists(soundPath))
-			FlxG.sound.play(soundPath, volume);
+		// Paths.sound() devuelve un openfl.media.Sound, no una ruta String.
+		// Comprueba el ID del asset ANTES de cargarlo para evitar el error si falta.
+		var assetPath:String = 'assets/shared/sounds/' + name + '.ogg';
+		if(Assets.exists(assetPath))
+			FlxG.sound.play(Paths.sound(name), volume);
 	}
 
 	// ===== Layout basado en la referencia V-Slice (coordenadas 1280x720) =====
