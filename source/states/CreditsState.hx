@@ -34,11 +34,12 @@ class CreditsState extends MusicBeatState
 		grpOptions = new FlxTypedGroup<Alphabet>();
 		add(grpOptions);
 
-		#if MODS_ALLOWED
-		for (mod in Mods.parseList().enabled) pushModCreditsToList(mod);
-		#end
-
 		var defaultList:Array<Array<String>> = [ //Name - Icon name - Description - Link - BG Color
+			["Shadow Crystal Engine Team"],
+			["Hendrixfunker053",	"hendrix",			"Coder and Creator of Shadow Crystal Engine",				"https://youtube.com/@hendrixfunker053",	"FF006A"],
+			["brenninhomark",		"bren",				"Creator of the Psych Engine Android Port",					"https://youtube.com/@brenninhomark",	"00FF00"],
+			["Stefandx",			"stef",				"Improvements to the Psych Engine Port",					"https://youtube.com/@stefandeluxe93",	"D9CBDA"],
+			[""],
 			["Psych Engine Team"],
 			["Shadow Mario",		"shadowmario",		"Main Programmer and Head of Psych Engine",					"https://ko-fi.com/shadowmario",	"444444"],
 			["Riveren",				"riveren",			"Main Artist/Animator of Psych Engine",						"https://x.com/riverennn",			"14967B"],
@@ -66,11 +67,18 @@ class CreditsState extends MusicBeatState
 			["kawaisprite",			"kawaisprite",		"Composer of Friday Night Funkin'",							"https://x.com/kawaisprite",		"378FC7"],
 			[""],
 			["Psych Engine Discord"],
-			["Join the Psych Ward!", "discord", "", "https://discord.gg/2ka77eMXDv", "5165F6"]
+			["Join the Psych Ward!", "discord", "", "https://discord.gg/2ka77eMXDv", "5165F6"],
+			[""]
 		];
 		
+		// Los equipos de aquí van SIEMPRE primero
 		for(i in defaultList)
 			creditsStuff.push(i);
+
+		// Los créditos de los mods se agregan después, al final de la lista
+		#if MODS_ALLOWED
+		for (mod in Mods.parseList().enabled) pushModCreditsToList(mod);
+		#end
 	
 		for (i => credit in creditsStuff)
 		{
