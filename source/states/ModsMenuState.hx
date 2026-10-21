@@ -1,5 +1,17 @@
 package states;
 
+/**
+ * Mods menu state.
+ *
+ * Keeps the existing Psych Engine mod loading, ordering, enable/disable,
+ * settings, restart, controller, mouse and mobile-touch behavior.
+ *
+ * Visual assets are loaded from images/modsMenu/ and images/modsMenuButtons.
+ * The companion funkin.ui.modmenu classes belong to a different engine-side
+ * implementation, so this state intentionally keeps its compatible local
+ * ModItem and MenuButton classes instead of mixing incompatible APIs.
+ */
+
 import backend.WeekData;
 import backend.Mods;
 
@@ -21,7 +33,6 @@ import lime.utils.Assets;
 
 class ModsMenuState extends MusicBeatState
 {
-	// Fuente del menú: coloca funkin.otf en assets/fonts/funkin.otf (o la ruta equivalente de Paths.font).
 	// === Decoración (assets en images/modsMenu/) ===
 	var bg:FlxSprite;
 	var wires:FlxSprite;
@@ -66,6 +77,9 @@ class ModsMenuState extends MusicBeatState
 
 	var _lastControllerMode:Bool = false;
 	var startMod:String = null;
+	// -------------------------------------------------------------------------
+	// State lifecycle and menu construction
+	// -------------------------------------------------------------------------
 	public function new(startMod:String = null)
 	{
 		this.startMod = startMod;
@@ -257,13 +271,13 @@ class ModsMenuState extends MusicBeatState
 			var myX = bgList.x + bgList.width + 20;
 			noModsTxt = new FlxText(myX, 0, 380, Language.getPhrase('no_mods_installed', 'NO MODS INSTALLED\nPRESS BACK TO EXIT OR INSTALL A MOD'), 48);
 			if(FlxG.random.bool(0.1)) noModsTxt.text += '\nBITCH.'; //meanie
-			noModsTxt.setFormat(Paths.font("funkin.otf"), 32, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+			noModsTxt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 			noModsTxt.borderSize = 2;
 			add(noModsTxt);
 			noModsTxt.screenCenter(Y);
 
 			var txt = new FlxText(bgList.x + 15, bgList.y + 15, bgList.width - 30, Language.getPhrase('no_mods_found', "No Mods found."), 16);
-			txt.setFormat(Paths.font("funkin.otf"), 16, FlxColor.WHITE);
+			txt.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE);
 			add(txt);
 
 			FlxG.autoPause = false;
@@ -282,7 +296,7 @@ class ModsMenuState extends MusicBeatState
 		add(icon);
 
 		modName = new FlxText(icon.x + 165, bgTitle.y + 15, infoW - 195, "", 24);
-		modName.setFormat(Paths.font("funkin.otf"), 24, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		modName.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		modName.borderSize = 2;
 		add(modName);
 
@@ -291,12 +305,12 @@ class ModsMenuState extends MusicBeatState
 		add(bgDescription);
 		
 		modDesc = new FlxText(bgDescription.x + 15, bgDescription.y + 15, bgDescription.width - 30, "", 20);
-		modDesc.setFormat(Paths.font("funkin.otf"), 20, FlxColor.WHITE, LEFT);
+		modDesc.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, LEFT);
 		add(modDesc);
 
 		var myHeight = 100;
 		modRestartText = new FlxText(bgDescription.x + 15, bgDescription.y + bgDescription.height - myHeight - 50, bgDescription.width - 30, Language.getPhrase('mod_restart', '* Moving or Toggling On/Off this Mod will restart the game.'), 14);
-		modRestartText.setFormat(Paths.font("funkin.otf"), 14, FlxColor.WHITE, RIGHT);
+		modRestartText.setFormat(Paths.font("vcr.ttf"), 14, FlxColor.WHITE, RIGHT);
 		add(modRestartText);
 
 		bgButtons = FlxSpriteUtil.drawRoundRectComplex(new FlxSprite(bgDescription.x, bgDescription.y + bgDescription.height - myHeight).makeGraphic(infoW, myHeight, FlxColor.TRANSPARENT), 0, 0, infoW, myHeight, 0, 0, 15, 15, FlxColor.WHITE);
@@ -419,6 +433,9 @@ class ModsMenuState extends MusicBeatState
 		super.create();
 	}
 
+	// -------------------------------------------------------------------------
+	// Character and effects helpers
+	// -------------------------------------------------------------------------
 	// seq = índices de los frames únicos del atlas para cada frame de la animación original (24 fps)
 	// idleEnd / shockEnd = último frame de idle y de shock; loopStart = frame donde empieza 'crispy loop'
 	function makeChar(name:String, x:Float, y:Float, seq:Array<Int>, idleEnd:Int, shockEnd:Int, loopStart:Int):FlxSprite
@@ -506,6 +523,9 @@ class ModsMenuState extends MusicBeatState
 	}
 	#end
 
+	// -------------------------------------------------------------------------
+	// Input, navigation and update loop
+	// -------------------------------------------------------------------------
 	override function update(elapsed:Float)
 	{
 		#if mobile
@@ -785,6 +805,9 @@ class ModsMenuState extends MusicBeatState
 		super.update(elapsed);
 	}
 
+	// -------------------------------------------------------------------------
+	// Selection, ordering and mod-list persistence
+	// -------------------------------------------------------------------------
 	function changeSelectedButton(add:Int = 0)
 	{
 		var max = buttons.length - 1;
@@ -1026,6 +1049,7 @@ class ModsMenuState extends MusicBeatState
 	}
 }
 
+/** A mod entry using the existing Psych Engine asset and metadata APIs. */
 class ModItem extends FlxSpriteGroup
 {
 	public var selectBg:FlxSprite;
@@ -1079,7 +1103,7 @@ class ModItem extends FlxSpriteGroup
 		add(icon);
 
 		text = new FlxText(95, 38, 230, "", 16);
-		text.setFormat(Paths.font("funkin.otf"), 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		text.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		text.borderSize = 2;
 		text.y -= Std.int(text.height / 2);
 		add(text);
@@ -1132,6 +1156,7 @@ class ModItem extends FlxSpriteGroup
 	}
 }
 
+/** Menu button used by this state; preserves mouse/controller focus behavior. */
 class MenuButton extends FlxSpriteGroup
 {
 	public var bg:FlxSprite;
