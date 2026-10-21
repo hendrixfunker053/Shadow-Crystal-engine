@@ -48,18 +48,31 @@ class ModsMenuState extends MusicBeatState
 		return null;
 	}
 
+	static var _uiFont:String = null;
+
+	/** Fuente del Mod Menu de V-Slice (assets/fonts/FunkinLingLong.otf); si no existe usa funkin.otf. */
+	public static function uiFont():String
+	{
+		if(_uiFont == null)
+		{
+			var f:String = Paths.font('FunkinLingLong.otf');
+			_uiFont = (FileSystem.exists(f) || Assets.exists(f)) ? f : Paths.font('funkin.otf');
+		}
+		return _uiFont;
+	}
+
 	// ===== Layout (bloque de 1280x720 centrado en pantallas anchas) =====
-	public static inline var BOX_X_LEFT:Int = 125; // antes 205 (bajar este y BOX_X_RIGHT para mover más a la izquierda)
-	public static inline var BOX_X_RIGHT:Int = 621; // antes 701
-	public static inline var BOX_Y:Int = 132;
-	public static inline var BOX_W:Int = 378;
-	public static inline var BOX_H:Int = 465;
-	public static inline var LIST_TOP:Int = 52; // espacio del título de cada caja
-	public static inline var LIST_BOTTOM:Int = 12;
-	public static inline var ITEM_X:Int = 35;
-	public static inline var ITEM_W:Int = 340;
-	public static inline var ITEM_H:Int = 80;
-	public static inline var ITEM_GAP:Int = 10;
+	public static inline var BOX_X_LEFT:Int = 40;
+	public static inline var BOX_X_RIGHT:Int = 471; // = BOX_X_LEFT + BOX_W + 35
+	public static inline var BOX_Y:Int = 137;
+	public static inline var BOX_W:Int = 396;
+	public static inline var BOX_H:Int = 489;
+	public static inline var LIST_TOP:Int = 60; // espacio del título de cada caja
+	public static inline var LIST_BOTTOM:Int = 15;
+	public static inline var ITEM_X:Int = 40;
+	public static inline var ITEM_W:Int = 326;
+	public static inline var ITEM_H:Int = 96;
+	public static inline var ITEM_GAP:Int = 16;
 
 	// ===== Tiempos =====
 	static inline var HOLD_TIME:Float = 0.3; // segundos para empezar a arrastrar un mod con el dedo
@@ -67,7 +80,7 @@ class ModsMenuState extends MusicBeatState
 	static inline var CRISPY_TIME:Float = 1.8; // tiempo que se ven chamuscados antes de salir
 
 	// Posición de las chispas (ajusta si no cuadran con tu atlas)
-	static inline var SPARKS_X:Float = 708;
+	static inline var SPARKS_X:Float = 690;
 	static inline var SPARKS_Y:Float = 120;
 
 	// La música ambiente se queda sonando al recargar el menú; solo se restaura al salir
@@ -174,7 +187,7 @@ class ModsMenuState extends MusicBeatState
 		add(bgWires);
 
 		// ===== Batería + BF y GF en la silla eléctrica (atlas prerenderizados) =====
-		battery = new FlxSprite(965 + ox, 80);
+		battery = new FlxSprite(947 + ox, 80);
 		battery.frames = Paths.getSparrowAtlas('modsMenu/carbattery');
 		battery.animation.addByPrefix('idle', 'idle', 12, true);
 		battery.animation.play('idle');
@@ -184,12 +197,12 @@ class ModsMenuState extends MusicBeatState
 		battery.updateHitbox();
 		// (battery, BF, GF, humo y chispas se añaden más abajo, encima de los paneles)
 
-		charGF = makeChar('gf', 761 + ox, 127,
+		charGF = makeChar('gf', 743 + ox, 127,
 			[0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 3, 3, 4, 4, 5, 6, 6, 7, 7, 7, 0, 0, 0, 0, 0, 0, 0],
 			[8, 9, 10, 11, 12, 13, 14, 15, 10, 16, 17, 18, 11, 18, 13, 10, 14, 8, 18, 19, 14, 8, 17, 13, 11, 8, 13, 11, 10, 15, 14, 16, 9],
 			[20, 21, 22, 23, 24, 25, 26, 27]);
 
-		charBF = makeChar('bf', 925 + ox, 224,
+		charBF = makeChar('bf', 907 + ox, 224,
 			[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 3, 3, 4, 4, 5, 6, 6, 7, 7, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
 			[8, 9, 10, 11, 12, 8, 13, 14, 12, 15, 11, 10, 13, 8, 13, 12, 11, 8, 9, 10, 11, 12, 8, 13, 14, 12, 15, 11, 10, 13, 8, 13, 12, 11, 8, 9, 10, 11, 12, 8, 13, 14, 12, 15, 11, 10, 13, 8, 13, 12, 11, 8, 9, 10, 11, 12, 8, 13, 14, 12],
 			[16, 17, 18, 19, 20, 21, 22, 23]);
@@ -199,7 +212,7 @@ class ModsMenuState extends MusicBeatState
 		smokeGF = makeCrispySmoke(charGF.x + 70, charGF.y - 180, 0);
 
 		// Nube de humo grande
-		smokeCloud = new FlxSprite(846 + ox, -170);
+		smokeCloud = new FlxSprite(828 + ox, -170);
 		smokeCloud.frames = Paths.getSparrowAtlas('modsMenu/smoke_cloud');
 		smokeCloud.animation.addByPrefix('puff', 'f', 24, false);
 		smokeCloud.animation.play('puff');
@@ -218,14 +231,15 @@ class ModsMenuState extends MusicBeatState
 		add(topText);
 
 		var hintW:Float = (BOX_X_RIGHT + BOX_W) - BOX_X_LEFT;
-		var hint:FlxText = new FlxText(ox + BOX_X_LEFT, 96, hintW, '', 26);
+		var hint:FlxText = new FlxText(ox + BOX_X_LEFT, 94, hintW, '', 32);
 		#if mobile
 		hint.text = Language.getPhrase('mods_hint_touch', 'TAP AND HOLD ON A MOD TO DRAG IT');
 		#else
 		hint.text = Language.getPhrase('mods_hint_mouse', 'CLICK AND DRAG A MOD TO MOVE IT');
 		#end
-		hint.setFormat(Paths.font("funkin.otf"), 26, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
-		hint.borderSize = 2;
+		hint.setFormat(uiFont(), 32, FlxColor.WHITE, CENTER);
+		hint.scale.set(1, 0.8);
+		hint.letterSpacing = 5;
 		add(hint);
 
 		// ===== Cajas =====
@@ -277,8 +291,8 @@ class ModsMenuState extends MusicBeatState
 		add(sparks);
 
 		// ===== Botones =====
-		folderButton = new ModsMenuButton(ox + 288, 617, 'open-folder', 0.65, openModsFolder);
-		doneButton = new ModsMenuButton(ox + 970, 617, 'done', 0.65, startDoneSequence);
+		folderButton = new ModsMenuButton(ox + BOX_X_LEFT + 181, 646, 'open-folder', 0.65, openModsFolder);
+		doneButton = new ModsMenuButton(ox + 852, 646, 'done', 0.65, startDoneSequence);
 
 		// Engranaje de ajustes (abajo a la izquierda, como en el Mod Menu de V-Slice)
 		// En pantallas anchas (sobra margen a la izquierda) va grande; en 16:9 se hace más chico para no tapar la caja.
@@ -327,11 +341,8 @@ class ModsMenuState extends MusicBeatState
 
 	function addBoxTitle(box:FlxSprite, text:String):Void
 	{
-		var title:FlxText = new FlxText(box.x, box.y + 9, box.width, text, 25);
-		title.setFormat(Paths.font("funkin.otf"), 25, FlxColor.WHITE, CENTER);
-		title.borderStyle = FlxTextBorderStyle.OUTLINE;
-		title.borderColor = FlxColor.BLACK;
-		title.borderSize = 1.5;
+		var title:FlxText = new FlxText(box.x, box.y + 14, box.width, text, 32);
+		title.setFormat(uiFont(), 32, FlxColor.WHITE, CENTER);
 		add(title);
 	}
 
@@ -932,6 +943,7 @@ class ModList
 	public var scroll:Float = 0;
 	public var target:Float = 0;
 	public var gap:Int = -1; // hueco de previsualización al arrastrar
+	static inline var TRACK_TOP:Float = 42; // la barra sube 42 px por encima de la lista (como V-Slice)
 	public var track:FlxSprite;
 	public var thumb:FlxSprite;
 
@@ -942,11 +954,11 @@ class ModList
 		this.w = w;
 		this.h = h;
 
-		track = new FlxSprite(x + 15, y).makeGraphic(8, Std.int(h), 0xFF3A393E);
+		track = new FlxSprite(x + 12, y - TRACK_TOP).makeGraphic(10, Std.int(h + TRACK_TOP), 0xFF3A393E);
 		track.alpha = 0.6;
 		track.visible = false;
 
-		thumb = new FlxSprite(x + 15, y).makeGraphic(8, 1, 0xFF57565A);
+		thumb = new FlxSprite(x + 12, y - TRACK_TOP).makeGraphic(10, 1, 0xFF57565A);
 		thumb.alpha = 0.95;
 		thumb.origin.set(0, 0);
 		thumb.visible = false;
@@ -1054,10 +1066,11 @@ class ModList
 		track.visible = thumb.visible = need;
 		if(!need) return;
 
-		var th:Float = Math.max(24, h * (h / contentHeight()));
+		var trackH:Float = h + TRACK_TOP;
+		var th:Float = Math.max(24, trackH * (h / contentHeight()));
 		var frac:Float = maxScroll() > 0 ? scroll / maxScroll() : 0;
 		thumb.scale.y = th;
-		thumb.y = y + Math.max(0, Math.min(1, frac)) * (h - th);
+		thumb.y = (y - TRACK_TOP) + Math.max(0, Math.min(1, frac)) * (trackH - th);
 	}
 }
 
@@ -1101,16 +1114,16 @@ class ModItem extends FlxSpriteGroup
 		add(icon);
 
 		var textX:Float = ModsMenuState.ITEM_H + 8;
-		var textW:Float = ModsMenuState.ITEM_W - textX - 6;
+		var textW:Float = ModsMenuState.ITEM_W - textX - 6; // = 216, igual que DESC_WIDTH de V-Slice
 
-		title = new FlxText(textX, 12, textW, "", 24);
-		title.setFormat(Paths.font("funkin.otf"), 24, FlxColor.WHITE, LEFT);
+		title = new FlxText(textX, 0, textW, "", 30);
+		title.setFormat(ModsMenuState.uiFont(), 30, FlxColor.WHITE, LEFT);
 		title.wordWrap = false;
 		add(title);
 
-		descText = new FlxText(textX, 50, textW, "", 15);
-		descText.setFormat(Paths.font("funkin.otf"), 15, FlxColor.WHITE, LEFT);
-		descText.fieldHeight = 42;
+		descText = new FlxText(textX, 36, textW, "", 20);
+		descText.setFormat(ModsMenuState.uiFont(), 20, FlxColor.WHITE, LEFT);
+		descText.fieldHeight = ModsMenuState.ITEM_H - 36;
 		descText.alpha = 0.7;
 		add(descText);
 
@@ -1187,7 +1200,6 @@ class ModItem extends FlxSpriteGroup
 
 		title.text = this.name;
 		var d:String = StringTools.replace(this.desc, '\n', ' ');
-		if(d.length > 62) d = d.substr(0, 59) + '...';
 		descText.text = d;
 	}
 
