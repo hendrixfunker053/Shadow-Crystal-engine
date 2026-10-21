@@ -33,28 +33,33 @@ import openfl.utils.Assets;
  */
 class ModsMenuState extends MusicBeatState
 {
-	/** Reproduce sonidos opcionales sin bloquear el menú si el archivo no está empaquetado. */
+	/** Reproduce efectos opcionales sin permitir que un archivo ausente/dañado cierre el menú. */
 	public static function playSafeSound(name:String, volume:Float = 1):Void
 	{
-		// Paths.sound() devuelve un openfl.media.Sound, no una ruta String.
-		// Comprueba el ID del asset ANTES de cargarlo para evitar el error si falta.
-		var assetPath:String = 'assets/shared/sounds/' + name + '.ogg';
-		if(Assets.exists(assetPath))
+		try
+		{
+			// Paths.sound devuelve Sound. Algunos builds móviles registran el asset aunque
+			// el archivo no pueda decodificarse; por eso también protegemos la carga.
 			FlxG.sound.play(Paths.sound(name), volume);
+		}
+		catch(e:Dynamic)
+		{
+			trace('Optional Mods Menu sound skipped (' + name + '): ' + e);
+		}
 	}
 
 	// ===== Layout basado en la referencia V-Slice (coordenadas 1280x720) =====
 	public static inline var BOX_X_LEFT:Int = 164;
 	public static inline var BOX_X_RIGHT:Int = 507;
 	public static inline var BOX_Y:Int = 110;
-	public static inline var BOX_W:Int = 314;
-	public static inline var BOX_H:Int = 386;
-	public static inline var LIST_TOP:Int = 48; // espacio del título de cada caja
-	public static inline var LIST_BOTTOM:Int = 8;
-	public static inline var ITEM_X:Int = 31;
-	public static inline var ITEM_W:Int = 282;
-	public static inline var ITEM_H:Int = 80;
-	public static inline var ITEM_GAP:Int = 10;
+	public static inline var BOX_W:Int = 395;
+	public static inline var BOX_H:Int = 486;
+	public static inline var LIST_TOP:Int = 60; // espacio del título de cada caja
+	public static inline var LIST_BOTTOM:Int = 15;
+	public static inline var ITEM_X:Int = 40;
+	public static inline var ITEM_W:Int = 350;
+	public static inline var ITEM_H:Int = 96;
+	public static inline var ITEM_GAP:Int = 16;
 
 	// ===== Tiempos =====
 	static inline var HOLD_TIME:Float = 0.3; // segundos para empezar a arrastrar un mod con el dedo
@@ -218,12 +223,12 @@ class ModsMenuState extends MusicBeatState
 		topText.antialiasing = ClientPrefs.data.antialiasing;
 		topText.scale.set(0.66, 0.67);
 		topText.updateHitbox();
-		topText.x = ox + (1280 - topText.width) / 2;
+		topText.x = (FlxG.width - topText.width) / 2;
 		topText.y = 720 * 0.035;
 		add(topText);
 
 		var hintW:Float = (BOX_X_RIGHT + BOX_W) - BOX_X_LEFT;
-		var hint:FlxText = new FlxText(ox + BOX_X_LEFT, 78, hintW, '', 26);
+		var hint:FlxText = new FlxText(BOX_X_LEFT, 78, hintW, '', 26);
 		#if mobile
 		hint.text = Language.getPhrase('mods_hint_touch', 'TAP AND HOLD ON A MOD TO DRAG IT');
 		#else
@@ -234,16 +239,16 @@ class ModsMenuState extends MusicBeatState
 		add(hint);
 
 		// ===== Cajas =====
-		var boxL:FlxSprite = makeBox(ox + BOX_X_LEFT);
-		var boxR:FlxSprite = makeBox(ox + BOX_X_RIGHT);
+		var boxL:FlxSprite = makeBox(BOX_X_LEFT);
+		var boxR:FlxSprite = makeBox(BOX_X_RIGHT);
 		add(boxL);
 		add(boxR);
 		addBoxTitle(boxL, Language.getPhrase('mods_disabled', 'DISABLED'));
 		addBoxTitle(boxR, Language.getPhrase('mods_enabled', 'ENABLED'));
 
 		var listH:Float = BOX_H - LIST_TOP - LIST_BOTTOM;
-		disabledList = new ModList(ox + BOX_X_LEFT, BOX_Y + LIST_TOP, BOX_W, listH);
-		enabledList = new ModList(ox + BOX_X_RIGHT, BOX_Y + LIST_TOP, BOX_W, listH);
+		disabledList = new ModList(BOX_X_LEFT, BOX_Y + LIST_TOP, BOX_W, listH);
+		enabledList = new ModList(BOX_X_RIGHT, BOX_Y + LIST_TOP, BOX_W, listH);
 		add(disabledList.track);
 		add(disabledList.thumb);
 		add(enabledList.track);
@@ -281,8 +286,8 @@ class ModsMenuState extends MusicBeatState
 		add(itemsGroup);
 
 		// ===== Botones =====
-		folderButton = new ModsMenuButton(ox + 307, 512, 'open-folder', 0.65, openModsFolder);
-		doneButton = new ModsMenuButton(ox + 807, 512, 'done', 0.65, startDoneSequence);
+		folderButton = new ModsMenuButton(307, 512, 'open-folder', 0.65, openModsFolder);
+		doneButton = new ModsMenuButton(807, 512, 'done', 0.65, startDoneSequence);
 
 		// Engranaje de ajustes (abajo a la izquierda, como en el Mod Menu de V-Slice)
 		// En pantallas anchas (sobra margen a la izquierda) va grande; en 16:9 se hace más chico para no tapar la caja.
