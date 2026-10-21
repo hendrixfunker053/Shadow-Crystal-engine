@@ -48,8 +48,8 @@ class ModsMenuState extends MusicBeatState
 	}
 
 	// ===== Layout (bloque de 1280x720 centrado en pantallas anchas) =====
-	public static inline var BOX_X_LEFT:Int = 120;
-	public static inline var BOX_X_RIGHT:Int = 616;
+	public static inline var BOX_X_LEFT:Int = 95;
+	public static inline var BOX_X_RIGHT:Int = 591;
 	public static inline var BOX_Y:Int = 110;
 	public static inline var BOX_W:Int = 395;
 	public static inline var BOX_H:Int = 486;
@@ -183,7 +183,7 @@ class ModsMenuState extends MusicBeatState
 		battery.updateHitbox();
 		add(battery);
 
-		charGF = makeChar('gf', 761 + ox, 127,
+		charGF = makeChar('gf', 761 + ox, 55,
 			[0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 3, 3, 4, 4, 5, 6, 6, 7, 7, 7, 0, 0, 0, 0, 0, 0, 0],
 			[8, 9, 10, 11, 12, 13, 14, 15, 10, 16, 17, 18, 11, 18, 13, 10, 14, 8, 18, 19, 14, 8, 17, 13, 11, 8, 13, 11, 10, 15, 14, 16, 9],
 			[20, 21, 22, 23, 24, 25, 26, 27]);
@@ -238,8 +238,7 @@ class ModsMenuState extends MusicBeatState
 		var boxR:FlxSprite = makeBox(ox + BOX_X_RIGHT);
 		add(boxL);
 		add(boxR);
-		// GF is created before the panels. Re-add her above the panel backgrounds,
-		// then draw panel titles and mod cards over her as usual.
+		// Draw GF above the panel backgrounds; titles and mod cards are added afterward.
 		remove(charGF, false);
 		add(charGF);
 		addBoxTitle(boxL, Language.getPhrase('mods_disabled', 'DISABLED'));
