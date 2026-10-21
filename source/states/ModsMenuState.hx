@@ -749,21 +749,47 @@ class ModsMenuState extends MusicBeatState
 		openSubState(new ModSettingsSubState(selectedItem.settings, selectedItem.folder, selectedItem.name));
 	}
 
+	/**
+	 * Abre la carpeta "mods" de la carpeta de juego REAL (la que usa el juego según el Storage Type):
+	 *  - Data:     <Android/data/paquete/files>/mods  -> se abre con DataFolder (el proveedor de documentos),
+	 *              porque Android 11+ no deja a los gestores de archivos entrar a Android/data.
+	 *  - Media / Obb / External: se abre la ruta directa con CoolUtil.openFolder.
+	 *  Si External está elegido pero no hay permiso, Storage.getDirFor() ya cae a la carpeta Data, y aquí se sigue ese mismo resultado.
+	 */
 	function openModsFolder():Void
 	{
 		try
 		{
 			var gameRoot:String = mobile.StorageUtil.getGameDir();
-			#if android
-			// Shadow Crystal uses its own external folder instead of PsychEngine's legacy folder.
-			if(mobile.StorageUtil.useExternal()) gameRoot = '/storage/emulated/0/.ShadowCrystal/';
-			#end
 			var modFolder:String = haxe.io.Path.addTrailingSlash(gameRoot) + 'mods';
 			if(!FileSystem.exists(modFolder))
 			{
 				trace('created missing folder');
 				FileSystem.createDirectory(modFolder);
 			}
+
+			#if android
+			var inAppData:Bool = false;
+			try
+			{
+				var getDirPathFor = lime.system.JNI.createStaticMethod('org/psychengine/mobile/Storage', 'getDirPathFor', '(Ljava/lang/String;)Ljava/lang/String;');
+				var appDir:String = getDirPathFor('Data');
+				inAppData = haxe.io.Path.removeTrailingSlashes(appDir) == haxe.io.Path.removeTrailingSlashes(gameRoot);
+			}
+			catch(e:Dynamic) { trace('No se pudo leer la carpeta Data: $e'); }
+
+			if(inAppData)
+			{
+				try
+				{
+					var open = lime.system.JNI.createStaticMethod('org/psychengine/mobile/DataFolder', 'open', '(Ljava/lang/String;)V');
+					open('mods');
+					return;
+				}
+				catch(e:Dynamic) { trace('DataFolder.open falló, usando CoolUtil.openFolder: $e'); }
+			}
+			#end
+
 			CoolUtil.openFolder(modFolder);
 		}
 		catch(e:Dynamic)
