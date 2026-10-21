@@ -1,17 +1,5 @@
 package states;
 
-/**
- * Mods menu state.
- *
- * Keeps the existing Psych Engine mod loading, ordering, enable/disable,
- * settings, restart, controller, mouse and mobile-touch behavior.
- *
- * Visual assets are loaded from images/modsMenu/ and images/modsMenuButtons.
- * The companion funkin.ui.modmenu classes belong to a different engine-side
- * implementation, so this state intentionally keeps its compatible local
- * ModItem and MenuButton classes instead of mixing incompatible APIs.
- */
-
 import backend.WeekData;
 import backend.Mods;
 
@@ -66,6 +54,12 @@ class ModsMenuState extends MusicBeatState
 	var bgButtons:FlxSprite;
 
 	var modsGroup:FlxTypedGroup<ModItem>;
+	// Pestañas de estado. La lista original de Psych se conserva como fuente de verdad.
+	var activeModsTab:Bool = true;
+	var activeTabBg:FlxSprite;
+	var inactiveTabBg:FlxSprite;
+	var activeTabText:FlxText;
+	var inactiveTabText:FlxText;
 	var curSelectedMod:Int = 0;
 	
 	var hoveringOnMods:Bool = true;
@@ -77,9 +71,6 @@ class ModsMenuState extends MusicBeatState
 
 	var _lastControllerMode:Bool = false;
 	var startMod:String = null;
-	// -------------------------------------------------------------------------
-	// State lifecycle and menu construction
-	// -------------------------------------------------------------------------
 	public function new(startMod:String = null)
 	{
 		this.startMod = startMod;
@@ -201,6 +192,35 @@ class ModsMenuState extends MusicBeatState
 			}
 			modsGroup.add(modItem);
 		}
+
+		// Abrir inicialmente la pestaña que tenga contenido. Respetar startMod si existe.
+		var initialVisible:Array<Int> = [];
+		for (i in 0...modsGroup.members.length)
+			if (!modsList.disabled.contains(modsGroup.members[i].folder)) initialVisible.push(i);
+		if (initialVisible.length > 0)
+		{
+			activeModsTab = true;
+			if (!initialVisible.contains(curSelectedMod)) curSelectedMod = initialVisible[0];
+		}
+		else if (modsGroup.members.length > 0)
+		{
+			activeModsTab = false;
+			curSelectedMod = 0;
+		}
+
+		// Pestañas Activos/Inactivos, con el estilo gráfico del menú actual.
+		var tabY:Float = bgList.y + 8;
+		var tabW:Float = (bgList.width - 24) / 2;
+		activeTabBg = new FlxSprite(bgList.x + 8, tabY).makeGraphic(Std.int(tabW), 30, FlxColor.WHITE);
+		inactiveTabBg = new FlxSprite(bgList.x + 16 + tabW, tabY).makeGraphic(Std.int(tabW), 30, FlxColor.WHITE);
+		activeTabText = new FlxText(activeTabBg.x, tabY + 6, tabW, 'ACTIVOS', 14);
+		inactiveTabText = new FlxText(inactiveTabBg.x, tabY + 6, tabW, 'INACTIVOS', 14);
+		for (tabText in [activeTabText, inactiveTabText])
+		{
+			tabText.setFormat(Paths.font("vcr.ttf"), 14, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+			tabText.borderSize = 1;
+		}
+		refreshTabAppearance();
 
 		//
 		var buttonX = bgList.x;
@@ -362,7 +382,7 @@ class ModsMenuState extends MusicBeatState
 		add(settingsButton);
 		buttons.push(settingsButton);
 
-		if(modsGroup.members[curSelectedMod].settings == null || modsGroup.members[curSelectedMod].settings.length < 1)
+		if (curSelectedMod < 0 || curSelectedMod >= modsGroup.members.length || modsGroup.members[curSelectedMod].settings == null || modsGroup.members[curSelectedMod].settings.length < 1)
 			settingsButton.enabled = false;
 
 		var button = new MenuButton(buttonsX + btnStep * 4, buttonsY, btnSize, btnSize, Paths.image('modsMenuButtons'), function() //On/Off
@@ -383,6 +403,7 @@ class ModsMenuState extends MusicBeatState
 			curMod.text.color = modsList.disabled.contains(mod) ? FlxColor.GRAY : FlxColor.WHITE;
 
 			if(curMod.mustRestart) waitingToRestart = true;
+			selectModsTab(!modsList.disabled.contains(mod));
 			updateModDisplayData();
 			checkToggleButtons();
 			playSpark();
@@ -423,9 +444,14 @@ class ModsMenuState extends MusicBeatState
 		}
 		
 		add(bgList);
+		add(activeTabBg);
+		add(inactiveTabBg);
+		add(activeTabText);
+		add(inactiveTabText);
 		add(modsGroup);
 		_lastControllerMode = controls.controllerMode;
 
+		selectModsTab(activeModsTab);
 		changeSelectedMod();
 		#if mobile
 		add(mobile.MobileButton.back(null, true));
@@ -433,9 +459,6 @@ class ModsMenuState extends MusicBeatState
 		super.create();
 	}
 
-	// -------------------------------------------------------------------------
-	// Character and effects helpers
-	// -------------------------------------------------------------------------
 	// seq = índices de los frames únicos del atlas para cada frame de la animación original (24 fps)
 	// idleEnd / shockEnd = último frame de idle y de shock; loopStart = frame donde empieza 'crispy loop'
 	function makeChar(name:String, x:Float, y:Float, seq:Array<Int>, idleEnd:Int, shockEnd:Int, loopStart:Int):FlxSprite
@@ -523,9 +546,48 @@ class ModsMenuState extends MusicBeatState
 	}
 	#end
 
-	// -------------------------------------------------------------------------
-	// Input, navigation and update loop
-	// -------------------------------------------------------------------------
+	function isInCurrentTab(mod:ModItem):Bool
+	{
+		if (mod == null) return false;
+		var disabled:Bool = modsList.disabled.contains(mod.folder);
+		return activeModsTab ? !disabled : disabled;
+	}
+
+	function visibleModIndices():Array<Int>
+	{
+		var result:Array<Int> = [];
+		for (i in 0...modsGroup.members.length)
+		{
+			var mod = modsGroup.members[i];
+			if (isInCurrentTab(mod)) result.push(i);
+		}
+		return result;
+	}
+
+	function refreshTabAppearance():Void
+	{
+		if (activeTabBg == null) return;
+		activeTabBg.color = activeModsTab ? 0xFF397D50 : 0xFF343434;
+		inactiveTabBg.color = !activeModsTab ? 0xFF9B4141 : 0xFF343434;
+		activeTabText.alpha = activeModsTab ? 1 : 0.65;
+		inactiveTabText.alpha = !activeModsTab ? 1 : 0.65;
+	}
+
+	function selectModsTab(showActive:Bool):Void
+	{
+		activeModsTab = showActive;
+		refreshTabAppearance();
+		var indices = visibleModIndices();
+		if (indices.length > 0)
+		{
+			if (!indices.contains(curSelectedMod)) curSelectedMod = indices[0];
+			centerMod = indices.indexOf(curSelectedMod);
+		}
+		else curSelectedMod = -1;
+		updateItemPositions();
+		if (curSelectedMod >= 0) updateModDisplayData();
+	}
+
 	override function update(elapsed:Float)
 	{
 		#if mobile
@@ -533,6 +595,11 @@ class ModsMenuState extends MusicBeatState
 		if (FlxG.mouse.justPressed) touchHoldTime = 0;
 		else if (FlxG.mouse.pressed) touchHoldTime += elapsed;
 		#end
+		if (FlxG.mouse.justPressed && activeTabBg != null)
+		{
+			if (FlxG.mouse.overlaps(activeTabBg)) selectModsTab(true);
+			else if (FlxG.mouse.overlaps(inactiveTabBg)) selectModsTab(false);
+		}
 		if(controls.BACK && hoveringOnMods)
 		{
 			saveTxt();
@@ -805,9 +872,6 @@ class ModsMenuState extends MusicBeatState
 		super.update(elapsed);
 	}
 
-	// -------------------------------------------------------------------------
-	// Selection, ordering and mod-list persistence
-	// -------------------------------------------------------------------------
 	function changeSelectedButton(add:Int = 0)
 	{
 		var max = buttons.length - 1;
@@ -854,8 +918,11 @@ class ModsMenuState extends MusicBeatState
 
 	function changeSelectedMod(add:Int = 0, isMouseWheel:Bool = false)
 	{
-		var max = modsList.all.length - 1;
-		if(max < 0) return;
+		var indices = visibleModIndices();
+		if (indices.length == 0) { curSelectedMod = -1; updateItemPositions(); return; }
+		var currentPosition = indices.indexOf(curSelectedMod);
+		if (currentPosition < 0) currentPosition = 0;
+		var max = indices.length - 1;
 
 		if(hoveringOnMods)
 		{
@@ -864,19 +931,20 @@ class ModsMenuState extends MusicBeatState
 		}
 
 		var lastSelected = curSelectedMod;
-		curSelectedMod += add;
+		currentPosition += add;
 
 		var limited:Bool = false;
-		if(curSelectedMod < 0)
+		if(currentPosition < 0)
 		{
-			curSelectedMod = 0;
+			currentPosition = 0;
 			limited = true;
 		}
-		else if(curSelectedMod > max)
+		else if(currentPosition > max)
 		{
-			curSelectedMod = max;
+			currentPosition = max;
 			limited = true;
 		}
+		curSelectedMod = indices[currentPosition];
 		
 		if(!isMouseWheel && limited && Math.abs(add) == 1)
 		{
@@ -915,8 +983,17 @@ class ModsMenuState extends MusicBeatState
 
 	function updateModDisplayData()
 	{
+		if (curSelectedMod < 0 || curSelectedMod >= modsGroup.members.length)
+		{
+			if (modName != null) modName.text = activeModsTab ? 'NO ACTIVE MODS' : 'NO INACTIVE MODS';
+			if (modDesc != null) modDesc.text = '';
+			if (icon != null) icon.visible = false;
+			if (battery != null) battery.color = 0xFF555555;
+			return;
+		}
 		var curMod:ModItem = modsGroup.members[curSelectedMod];
 		if(curMod == null) return;
+		if (icon != null) icon.visible = true;
 
 		// Batería: encendida y animada si el mod está activado, apagada y quieta si no
 		if(battery != null)
@@ -958,23 +1035,23 @@ class ModsMenuState extends MusicBeatState
 	var centerMod:Int = 2;
 	function updateItemPositions()
 	{
-		var maxVisible = Math.max(4, centerMod + 2);
-		var minVisible = Math.max(0, centerMod - 2);
-		for (i => mod in modsGroup.members)
+		var indices = visibleModIndices();
+		var selectedPos = indices.indexOf(curSelectedMod);
+		if (selectedPos < 0 && indices.length > 0) selectedPos = 0;
+		var centerPos = selectedPos < 0 ? 0 : selectedPos;
+		var minVisible = Math.max(0, centerPos - 2);
+		var maxVisible = centerPos + 2;
+		for (i in 0...modsGroup.members.length)
 		{
-			if(mod == null)
-			{
-				trace('Mod #$i is null, maybe it was ' + modsList.all[i]);
-				continue;
-			}
-
-			mod.visible = (i >= minVisible && i <= maxVisible);
+			var mod = modsGroup.members[i];
+			if (mod == null) continue;
+			var pos = indices.indexOf(i);
+			mod.visible = pos >= minVisible && pos <= maxVisible && pos >= 0;
 			mod.x = bgList.x + 5;
-			mod.y = bgList.y + (86 * (i - centerMod + 2)) + 5;
-			
-			mod.alpha = 0.6;
-			if(i == curSelectedMod) mod.alpha = 1;
-			mod.selectBg.visible = (i == curSelectedMod && hoveringOnMods);
+			// Deja espacio para las pestañas en la parte superior del panel.
+			mod.y = bgList.y + 38 + (76 * (pos - centerPos + 2)) + 5;
+			mod.alpha = (i == curSelectedMod) ? 1 : 0.6;
+			mod.selectBg.visible = (i == curSelectedMod && hoveringOnMods && pos >= 0);
 		}
 	}
 
@@ -1049,7 +1126,6 @@ class ModsMenuState extends MusicBeatState
 	}
 }
 
-/** A mod entry using the existing Psych Engine asset and metadata APIs. */
 class ModItem extends FlxSpriteGroup
 {
 	public var selectBg:FlxSprite;
@@ -1156,7 +1232,6 @@ class ModItem extends FlxSpriteGroup
 	}
 }
 
-/** Menu button used by this state; preserves mouse/controller focus behavior. */
 class MenuButton extends FlxSpriteGroup
 {
 	public var bg:FlxSprite;
