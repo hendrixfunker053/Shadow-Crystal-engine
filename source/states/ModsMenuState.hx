@@ -12,6 +12,10 @@ import flixel.util.FlxSpriteUtil;
 import objects.AttachedSprite;
 import options.ModSettingsSubState;
 
+import flixel.tweens.FlxTween;
+import flixel.tweens.FlxEase;
+import flixel.util.FlxTimer;
+
 import openfl.display.BitmapData;
 import lime.utils.Assets;
 
@@ -19,17 +23,21 @@ class ModsMenuState extends MusicBeatState
 {
 	// === Decoración (assets en images/modsMenu/) ===
 	var bg:FlxSprite;
+	var bgTween:FlxTween;
 	var wires:FlxSprite;
 	var smoke:FlxSprite;
 	var smokeTween:FlxTween;
+	var shockTimer:FlxTimer;
 	var headerText:FlxSprite;
 	var battery:FlxSprite;
+	var charBF:FlxSprite;
+	var charGF:FlxSprite;
 
 	// La música ambiente se queda sonando al recargar el menú; solo se restaura al salir
 	static var ambienceOn:Bool = false;
 
 	var icon:FlxSprite;
-	var modName:Alphabet;
+	var modName:FlxText;
 	var modDesc:FlxText;
 	var modRestartText:FlxText;
 	var modsList:ModsList = null;
@@ -83,6 +91,9 @@ class ModsMenuState extends MusicBeatState
 			ambienceOn = true;
 		}
 
+		// Los elementos de la derecha se anclan al borde derecho (por si la pantalla es más ancha que 1280)
+		var ox:Float = Math.max(0, FlxG.width - 1280);
+
 		// Fondo
 		bg = new FlxSprite().loadGraphic(Paths.image('modsMenu/bg'));
 		bg.antialiasing = ClientPrefs.data.antialiasing;
@@ -99,16 +110,35 @@ class ModsMenuState extends MusicBeatState
 		wires.setPosition(FlxG.width - wires.width, FlxG.height - wires.height);
 		add(wires);
 
-		// Humo teñido con el color del mod seleccionado
-		smoke = new FlxSprite().loadGraphic(Paths.image('modsMenu/smoke'));
+		// Batería sobre la silla (parpadea)
+		battery = new FlxSprite(965 + ox, 80);
+		battery.frames = Paths.getSparrowAtlas('modsMenu/carbattery');
+		battery.animation.addByPrefix('idle', 'idle', 2, true);
+		battery.animation.play('idle');
+		battery.antialiasing = ClientPrefs.data.antialiasing;
+		battery.scale.set(0.75, 0.75);
+		battery.updateHitbox();
+		add(battery);
+
+		// BF y GF en la silla eléctrica (atlas prerenderizados a escala 0.7)
+		charBF = makeChar('bf', 925 + ox, 224,
+			[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 3, 3, 4, 4, 5, 6, 6, 7, 7, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+			[8, 9, 10, 11, 12, 8, 13, 14, 12, 15, 11, 10, 13, 8, 13, 12, 11, 8, 9, 10, 11, 12, 8, 13, 14, 12, 15, 11, 10, 13, 8, 13, 12, 11, 8, 9, 10, 11, 12, 8, 13, 14, 12, 15, 11, 10, 13, 8, 13, 12, 11, 8, 9, 10, 11, 12, 8, 13, 14, 12]);
+		add(charBF);
+		charGF = makeChar('gf', 761 + ox, 127,
+			[0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 3, 3, 4, 4, 5, 6, 6, 7, 7, 7, 0, 0, 0, 0, 0, 0, 0],
+			[8, 9, 10, 11, 12, 13, 14, 15, 10, 16, 17, 18, 11, 18, 13, 10, 14, 8, 18, 19, 14, 8, 17, 13, 11, 8, 13, 11, 10, 15, 14, 16, 9]);
+		add(charGF);
+
+		// Humo: columna que sube desde las sillas al activar/desactivar un mod
+		smoke = new FlxSprite();
+		smoke.frames = Paths.getSparrowAtlas('modsMenu/smoke');
+		smoke.animation.addByPrefix('puff', 'retry_smoke', 24, true);
+		smoke.animation.play('puff');
 		smoke.antialiasing = ClientPrefs.data.antialiasing;
-		smoke.scale.set(0.4, 0.4);
-		smoke.updateHitbox();
-		smoke.alpha = 0.35;
-		smoke.color = 0xFF665AFF;
-		smoke.screenCenter();
+		smoke.setPosition(846 + ox, -170);
+		smoke.visible = false;
 		add(smoke);
-		FlxTween.tween(smoke, {x: smoke.x + 50, y: smoke.y + 30}, 14, {type: FlxTweenType.PINGPONG, ease: FlxEase.sineInOut});
 
 		// Título "CHOOSE YOUR MODS" en el margen superior
 		headerText = new FlxSprite(40, 6).loadGraphic(Paths.image('modsMenu/top-text'));
@@ -140,7 +170,7 @@ class ModsMenuState extends MusicBeatState
 		}
 
 		var mod:ModItem = modsGroup.members[curSelectedMod];
-		if(mod != null) smoke.color = mod.bgColor;
+		if(mod != null) bg.color = FlxColor.interpolate(FlxColor.WHITE, mod.bgColor, 0.35);
 
 		//
 		var buttonX = bgList.x;
@@ -209,7 +239,7 @@ class ModsMenuState extends MusicBeatState
 			buttonEnableAll.visible = true;
 
 			var myX = bgList.x + bgList.width + 20;
-			noModsTxt = new FlxText(myX, 0, FlxG.width - myX - 20, Language.getPhrase('no_mods_installed', 'NO MODS INSTALLED\nPRESS BACK TO EXIT OR INSTALL A MOD'), 48);
+			noModsTxt = new FlxText(myX, 0, 380, Language.getPhrase('no_mods_installed', 'NO MODS INSTALLED\nPRESS BACK TO EXIT OR INSTALL A MOD'), 48);
 			if(FlxG.random.bool(0.1)) noModsTxt.text += '\nBITCH.'; //meanie
 			noModsTxt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 			noModsTxt.borderSize = 2;
@@ -226,63 +256,57 @@ class ModsMenuState extends MusicBeatState
 		}
 		//
 
-		bgTitle = FlxSpriteUtil.drawRoundRectComplex(new FlxSprite(bgList.x + bgList.width + 20, 40).makeGraphic(840, 180, FlxColor.TRANSPARENT), 0, 0, 840, 180, 15, 15, 0, 0, FlxColor.BLACK);
+		var infoW:Int = 400; // columna de info (el resto de la derecha es para BF y GF)
+
+		bgTitle = FlxSpriteUtil.drawRoundRectComplex(new FlxSprite(bgList.x + bgList.width + 20, 40).makeGraphic(infoW, 180, FlxColor.TRANSPARENT), 0, 0, infoW, 180, 15, 15, 0, 0, FlxColor.BLACK);
 		bgTitle.alpha = 0.6;
 		add(bgTitle);
 
 		icon = new FlxSprite(bgTitle.x + 15, bgTitle.y + 15);
 		add(icon);
 
-		// Batería animada a la derecha del título: encendida = mod activado
-		battery = new FlxSprite();
-		battery.frames = Paths.getSparrowAtlas('modsMenu/carbattery');
-		battery.animation.addByPrefix('idle', 'idle', 2, true);
-		battery.animation.play('idle');
-		battery.antialiasing = ClientPrefs.data.antialiasing;
-		battery.scale.set(0.38, 0.38);
-		battery.updateHitbox();
-		battery.setPosition(bgTitle.x + bgTitle.width - battery.width - 15, bgTitle.y + (bgTitle.height - battery.height) / 2);
-		add(battery);
-
-		modNameInitialY = icon.y + 80;
-		modName = new Alphabet(icon.x + 165, modNameInitialY, "", true);
-		modName.scaleY = 0.8;
+		modName = new FlxText(icon.x + 165, bgTitle.y + 15, infoW - 195, "", 24);
+		modName.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		modName.borderSize = 2;
 		add(modName);
 
-		bgDescription = FlxSpriteUtil.drawRoundRectComplex(new FlxSprite(bgTitle.x, bgTitle.y + 200).makeGraphic(840, 450, FlxColor.TRANSPARENT), 0, 0, 840, 450, 0, 0, 15, 15, FlxColor.BLACK);
+		bgDescription = FlxSpriteUtil.drawRoundRectComplex(new FlxSprite(bgTitle.x, bgTitle.y + 200).makeGraphic(infoW, 450, FlxColor.TRANSPARENT), 0, 0, infoW, 450, 0, 0, 15, 15, FlxColor.BLACK);
 		bgDescription.alpha = 0.6;
 		add(bgDescription);
 		
-		modDesc = new FlxText(bgDescription.x + 15, bgDescription.y + 15, bgDescription.width - 30, "", 24);
-		modDesc.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.WHITE, LEFT);
+		modDesc = new FlxText(bgDescription.x + 15, bgDescription.y + 15, bgDescription.width - 30, "", 20);
+		modDesc.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, LEFT);
 		add(modDesc);
 
 		var myHeight = 100;
-		modRestartText = new FlxText(bgDescription.x + 15, bgDescription.y + bgDescription.height - myHeight - 25, bgDescription.width - 30, Language.getPhrase('mod_restart', '* Moving or Toggling On/Off this Mod will restart the game.'), 16);
-		modRestartText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, RIGHT);
+		modRestartText = new FlxText(bgDescription.x + 15, bgDescription.y + bgDescription.height - myHeight - 50, bgDescription.width - 30, Language.getPhrase('mod_restart', '* Moving or Toggling On/Off this Mod will restart the game.'), 14);
+		modRestartText.setFormat(Paths.font("vcr.ttf"), 14, FlxColor.WHITE, RIGHT);
 		add(modRestartText);
 
-		bgButtons = FlxSpriteUtil.drawRoundRectComplex(new FlxSprite(bgDescription.x, bgDescription.y + bgDescription.height - myHeight).makeGraphic(840, myHeight, FlxColor.TRANSPARENT), 0, 0, 840, myHeight, 0, 0, 15, 15, FlxColor.WHITE);
+		bgButtons = FlxSpriteUtil.drawRoundRectComplex(new FlxSprite(bgDescription.x, bgDescription.y + bgDescription.height - myHeight).makeGraphic(infoW, myHeight, FlxColor.TRANSPARENT), 0, 0, infoW, myHeight, 0, 0, 15, 15, FlxColor.WHITE);
 		bgButtons.color = FlxColor.BLACK;
 		bgButtons.alpha = 0.2;
 		add(bgButtons);
 
-		var buttonsX = bgButtons.x + 320;
-		var buttonsY = bgButtons.y + 10;
+		// 5 botones de 66px en una barra de 400px
+		var btnSize:Int = 66;
+		var btnStep:Int = 76;
+		var buttonsX = bgButtons.x + (infoW - (btnStep * 4 + btnSize)) / 2;
+		var buttonsY = bgButtons.y + (myHeight - btnSize) / 2;
 
-		var button = new MenuButton(buttonsX, buttonsY, 80, 80, Paths.image('modsMenuButtons'), function() moveModToPosition(0), 54, 54); //Move to the top
+		var button = new MenuButton(buttonsX, buttonsY, btnSize, btnSize, Paths.image('modsMenuButtons'), function() moveModToPosition(0), 54, 54); //Move to the top
 		button.icon.animation.add('icon', [0]);
 		button.icon.animation.play('icon', true);
 		add(button);
 		buttons.push(button);
 		
-		var button = new MenuButton(buttonsX + 100, buttonsY, 80, 80, Paths.image('modsMenuButtons'), function() moveModToPosition(curSelectedMod - 1), 54, 54); //Move up
+		var button = new MenuButton(buttonsX + btnStep, buttonsY, btnSize, btnSize, Paths.image('modsMenuButtons'), function() moveModToPosition(curSelectedMod - 1), 54, 54); //Move up
 		button.icon.animation.add('icon', [1]);
 		button.icon.animation.play('icon', true);
 		add(button);
 		buttons.push(button);
 		
-		var button = new MenuButton(buttonsX + 200, buttonsY, 80, 80, Paths.image('modsMenuButtons'), function() moveModToPosition(curSelectedMod + 1), 54, 54); //Move down
+		var button = new MenuButton(buttonsX + btnStep * 2, buttonsY, btnSize, btnSize, Paths.image('modsMenuButtons'), function() moveModToPosition(curSelectedMod + 1), 54, 54); //Move down
 		button.icon.animation.add('icon', [2]);
 		button.icon.animation.play('icon', true);
 		add(button);
@@ -294,28 +318,7 @@ class ModsMenuState extends MusicBeatState
 				button.enabled = false;
 		}
 
-		#if !mobile
-		// Botón "OPEN MOD FOLDER" en el espacio libre a la izquierda de la barra de botones.
-		// Se inserta DESPUÉS del bloque que desactiva botones, y al inicio del array para que el orden coincida con el layout.
-		var folderButton = new MenuButton(bgButtons.x + 10, buttonsY, 300, 80, Paths.image('modsMenu/open-folder'), function() {
-			var modFolder = Paths.mods();
-			if(!FileSystem.exists(modFolder))
-			{
-				trace('created missing folder');
-				FileSystem.createDirectory(modFolder);
-			}
-			CoolUtil.openFolder(modFolder);
-		});
-		folderButton.icon.antialiasing = ClientPrefs.data.antialiasing;
-		folderButton.icon.setGraphicSize(280);
-		folderButton.icon.updateHitbox();
-		folderButton.icon.x = folderButton.bg.x + (folderButton.bg.width - folderButton.icon.width) / 2;
-		folderButton.icon.y = folderButton.bg.y + (folderButton.bg.height - folderButton.icon.height) / 2;
-		add(folderButton);
-		buttons.insert(0, folderButton);
-		#end
-
-		settingsButton = new MenuButton(buttonsX + 300, buttonsY, 80, 80, Paths.image('modsMenuButtons'), function() //Settings
+		settingsButton = new MenuButton(buttonsX + btnStep * 3, buttonsY, btnSize, btnSize, Paths.image('modsMenuButtons'), function() //Settings
 		{
 			var curMod:ModItem = modsGroup.members[curSelectedMod];
 			if(curMod != null && curMod.settings != null && curMod.settings.length > 0)
@@ -332,7 +335,7 @@ class ModsMenuState extends MusicBeatState
 		if(modsGroup.members[curSelectedMod].settings == null || modsGroup.members[curSelectedMod].settings.length < 1)
 			settingsButton.enabled = false;
 
-		var button = new MenuButton(buttonsX + 400, buttonsY, 80, 80, Paths.image('modsMenuButtons'), function() //On/Off
+		var button = new MenuButton(buttonsX + btnStep * 4, buttonsY, btnSize, btnSize, Paths.image('modsMenuButtons'), function() //On/Off
 		{
 			var curMod:ModItem = modsGroup.members[curSelectedMod];
 			var mod:String = curMod.folder;
@@ -363,6 +366,26 @@ class ModsMenuState extends MusicBeatState
 				button.bg.color = modsList.enabled.contains(modsGroup.members[curSelectedMod].folder) ? FlxColor.GREEN : 0xFFFF6666;
 		};
 
+		#if !mobile
+		// Botón "OPEN MOD FOLDER" debajo de BF y GF. Va al final del array para que la navegación con teclado/mando siga el orden del layout.
+		var folderButton = new MenuButton(840 + ox, 662, 400, 48, Paths.image('modsMenu/open-folder'), function() {
+			var modFolder = Paths.mods();
+			if(!FileSystem.exists(modFolder))
+			{
+				trace('created missing folder');
+				FileSystem.createDirectory(modFolder);
+			}
+			CoolUtil.openFolder(modFolder);
+		});
+		folderButton.icon.antialiasing = ClientPrefs.data.antialiasing;
+		folderButton.icon.setGraphicSize(360);
+		folderButton.icon.updateHitbox();
+		folderButton.icon.x = folderButton.bg.x + (folderButton.bg.width - folderButton.icon.width) / 2;
+		folderButton.icon.y = folderButton.bg.y + (folderButton.bg.height - folderButton.icon.height) / 2;
+		add(folderButton);
+		buttons.push(folderButton);
+		#end
+
 		if(modsList.all.length < 1)
 		{
 			for (btn in buttons) btn.enabled = false;
@@ -380,10 +403,44 @@ class ModsMenuState extends MusicBeatState
 		super.create();
 	}
 
+	function makeChar(name:String, x:Float, y:Float, idle:Array<Int>, shock:Array<Int>):FlxSprite
+	{
+		var spr:FlxSprite = new FlxSprite(x, y);
+		spr.frames = Paths.getSparrowAtlas('modsMenu/char_' + name);
+		spr.animation.add('idle', idle, 24, true);
+		spr.animation.add('shock', shock, 24, true);
+		spr.animation.play('idle');
+		spr.antialiasing = ClientPrefs.data.antialiasing;
+		return spr;
+	}
+
 	function playSpark(big:Bool = false)
 	{
 		if(big) FlxG.sound.play(Paths.sound('modsMenu/sparks/electrocution'), 0.7);
 		else FlxG.sound.play(Paths.sound('modsMenu/sparks/spark-' + FlxG.random.int(1, 11)), 0.7);
+		shockChars();
+	}
+
+	// BF y GF se electrocutan un segundo y sale humo de las sillas
+	function shockChars()
+	{
+		if(charBF == null || charGF == null || smoke == null) return;
+
+		charBF.animation.play('shock', true);
+		charGF.animation.play('shock', true);
+		if(shockTimer != null) shockTimer.cancel();
+		shockTimer = new FlxTimer().start(1, function(_) {
+			charBF.animation.play('idle', true);
+			charGF.animation.play('idle', true);
+		});
+
+		smoke.visible = true;
+		smoke.alpha = 0.85;
+		smoke.animation.play('puff', true);
+		if(smokeTween != null) smokeTween.cancel();
+		smokeTween = FlxTween.tween(smoke, {alpha: 0}, 0.6, {startDelay: 1.0, onComplete: function(_) {
+			smoke.visible = false;
+		}});
 	}
 
 	function restoreMenuMusic()
@@ -801,9 +858,9 @@ class ModsMenuState extends MusicBeatState
 		var curMod:ModItem = modsGroup.members[curSelectedMod];
 		if(curMod == null) return;
 
-		// El humo toma el color del mod seleccionado
-		if(smokeTween != null) smokeTween.cancel();
-		smokeTween = FlxTween.color(smoke, 1, smoke.color, curMod.bgColor);
+		// El fondo toma un tinte suave del color del mod seleccionado
+		if(bgTween != null) bgTween.cancel();
+		bgTween = FlxTween.color(bg, 1, bg.color, FlxColor.interpolate(FlxColor.WHITE, curMod.bgColor, 0.35));
 
 		// Batería: encendida y animada si el mod está activado, apagada y quieta si no
 		if(battery != null)
@@ -832,12 +889,9 @@ class ModsMenuState extends MusicBeatState
 			icon.animation.curAnim.curFrame = curMod.icon.animation.curAnim.curFrame;
 		}
 
-		if(modName.scaleX != 0.8) modName.setScale(0.8);
+		modName.size = curMod.name.length > 34 ? 18 : (curMod.name.length > 20 ? 21 : 24);
 		modName.text = curMod.name;
-		// 500 en vez de 620: deja sitio a la batería a la derecha del panel
-		var newScale = Math.min(500 / (modName.width / 0.8), 0.8);
-		modName.setScale(newScale, Math.min(newScale * 1.35, 0.8));
-		modName.y = modNameInitialY - (modName.height / 2);
+		modName.y = bgTitle.y + (bgTitle.height - modName.height) / 2;
 		modRestartText.visible = curMod.mustRestart;
 		modDesc.text = curMod.desc;
 
