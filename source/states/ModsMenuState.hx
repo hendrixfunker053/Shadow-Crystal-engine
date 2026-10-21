@@ -21,13 +21,13 @@ import lime.utils.Assets;
 
 class ModsMenuState extends MusicBeatState
 {
+	// Fuente del menú: coloca funkin.otf en assets/fonts/funkin.otf (o la ruta equivalente de Paths.font).
 	// === Decoración (assets en images/modsMenu/) ===
 	var bg:FlxSprite;
-	var bgTween:FlxTween;
 	var wires:FlxSprite;
 	var smoke:FlxSprite;
-	var smokeTween:FlxTween;
-	var shockTimer:FlxTimer;
+	var smokeTimer:FlxTimer;
+	var sparks:FlxSprite;
 	var headerText:FlxSprite;
 	var battery:FlxSprite;
 	var charBF:FlxSprite;
@@ -120,23 +120,42 @@ class ModsMenuState extends MusicBeatState
 		battery.updateHitbox();
 		add(battery);
 
-		// BF y GF en la silla eléctrica (atlas prerenderizados a escala 0.7)
-		charBF = makeChar('bf', 925 + ox, 224,
-			[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 3, 3, 4, 4, 5, 6, 6, 7, 7, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-			[8, 9, 10, 11, 12, 8, 13, 14, 12, 15, 11, 10, 13, 8, 13, 12, 11, 8, 9, 10, 11, 12, 8, 13, 14, 12, 15, 11, 10, 13, 8, 13, 12, 11, 8, 9, 10, 11, 12, 8, 13, 14, 12, 15, 11, 10, 13, 8, 13, 12, 11, 8, 9, 10, 11, 12, 8, 13, 14, 12]);
-		add(charBF);
-		charGF = makeChar('gf', 761 + ox, 127,
-			[0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 3, 3, 4, 4, 5, 6, 6, 7, 7, 7, 0, 0, 0, 0, 0, 0, 0],
-			[8, 9, 10, 11, 12, 13, 14, 15, 10, 16, 17, 18, 11, 18, 13, 10, 14, 8, 18, 19, 14, 8, 17, 13, 11, 8, 13, 11, 10, 15, 14, 16, 9]);
+		// GF primero y BF después: BF queda en una capa por encima de GF.
+		// Atlas prerenderizados a escala 0.7 desde los Animate (idle / shock / crispy / crispyLoop)
+		charGF = makeChar('gf', 760 + ox, 57,
+			[0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 3, 3, 4, 4, 5, 6, 6, 7, 7, 7, 0, 0, 0, 0, 0, 0, 0, 8, 9, 10, 11, 12, 13, 14, 15, 10, 16, 17, 18, 11, 18, 13, 10, 14, 8, 18, 19, 14, 8, 17, 13, 11, 8, 13, 11, 10, 15, 14, 16, 9, 20, 20, 20, 21, 21, 21, 22, 22, 22, 22, 23, 23, 23, 23, 23, 23, 23, 24, 24, 25, 25, 26, 27, 27, 28, 29, 29, 30, 31, 32, 32, 33, 33, 33, 34, 35, 35, 36, 36, 36, 37, 32, 32, 33, 33, 33, 34, 35, 35, 36, 36, 36, 37, 32, 32, 33, 33, 33, 34, 35, 35, 36, 36, 36, 37, 32, 32, 33, 33],
+			30, 63, 93);
 		add(charGF);
+		charBF = makeChar('bf', 924 + ox, 224,
+			[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 3, 3, 4, 4, 5, 6, 6, 7, 7, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 9, 10, 11, 12, 8, 13, 14, 12, 15, 11, 10, 13, 8, 13, 12, 11, 8, 9, 10, 11, 12, 8, 13, 14, 12, 15, 11, 10, 13, 8, 13, 12, 11, 8, 9, 10, 11, 12, 8, 13, 14, 12, 15, 11, 10, 13, 8, 13, 12, 11, 8, 9, 10, 11, 12, 8, 13, 14, 12, 16, 16, 16, 17, 17, 17, 18, 18, 18, 18, 19, 19, 19, 19, 19, 19, 20, 20, 21, 21, 22, 22, 22, 23, 23, 23, 24, 24, 24, 25, 25, 25, 26, 26, 26, 27, 27, 27, 24, 24, 24, 25, 25, 25, 26, 26, 26, 27, 27, 27, 24, 24, 24, 25, 25, 25, 26, 26, 26],
+			65, 125, 152);
+		add(charBF);
 
-		// Humo: columna que sube desde las sillas al activar/desactivar un mod
+		// Chispas (sparks): cada 'sparkN' corresponde al sonido spark-N; 'electrocution' al sonido grande
+		sparks = new FlxSprite();
+		sparks.frames = Paths.getSparrowAtlas('modsMenu/sparks');
+		var sparkSeq:Array<Int> = [0, 1, 2, 3, 4, 1, 5, 6, 7, 8, 8, 9, 9, 1, 1, 10, 10, 1, 11, 12, 1, 13, 14, 15, 1, 16, 1, 1, 17, 18, 19, 20, 21, 22, 1, 17, 1, 1, 1, 1, 1, 1, 23, 1, 24, 1, 1, 25, 26, 27, 28, 1, 25, 29, 30, 1, 1, 31, 32, 1, 33, 34, 35, 1, 36, 37, 38, 1, 39, 40, 1, 1, 41, 42, 42, 1, 43, 44, 45, 46, 1, 47, 47, 1, 48, 49, 1, 50, 50, 1, 51, 52, 53, 54, 1, 55, 56, 56, 57, 58, 56, 59, 1, 1, 55, 56, 60, 61, 1, 62, 1, 63, 64, 65, 1, 66, 67, 68, 69, 69, 70, 70, 1, 1, 71, 71, 1, 72, 73, 1, 74, 75, 76, 1, 77, 1, 1, 78, 79, 80, 81, 82, 83, 1, 78, 1, 1, 1, 1, 1, 1, 84, 1, 85, 1, 1, 86, 87, 88, 89, 1, 86, 90, 91, 1, 1, 92, 93, 1, 94, 95, 96, 1, 97, 98, 99, 1, 100, 101, 1, 1, 102, 103, 103, 1, 104, 105, 106, 107, 1, 108, 108, 1, 109, 110, 1, 111, 111, 1, 112, 113, 1, 114, 115, 116, 1, 117, 117, 1, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 1, 130, 1, 127, 129, 131, 1, 132, 132, 133, 1, 134, 135, 136, 136, 137, 138, 139, 139, 1, 140, 1, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 155, 156, 157, 1, 158, 159, 159, 160, 160, 161, 161, 1, 1, 162, 163, 1, 164, 165, 166, 1, 167, 167, 1, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 1, 180, 1, 177, 179, 181, 1, 182, 182, 183, 1, 184, 185, 186, 186, 187, 188, 189, 189, 1, 190, 1, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 205, 206, 207, 1, 208, 209, 209, 210, 210, 211, 211, 1, 1, 212, 213, 214, 1, 215, 216, 217, 1, 218, 219, 1, 220, 221, 222, 223, 224, 1, 225, 1, 226, 227, 1, 228, 229, 230, 231, 1, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 1, 249, 1, 250, 251, 252, 253, 254, 255, 256, 257, 258, 259, 260, 261, 1, 262, 263, 264, 265, 266, 266, 267, 268, 269, 270, 271, 272, 273, 274, 275, 276, 277, 278, 279, 280, 281, 282, 283, 284, 285, 286, 287, 286, 288, 1, 289, 1, 289, 1, 1, 1];
+		var sparkStarts:Array<Int> = [0, 18, 64, 90, 109, 127, 173, 199, 241, 271, 313, 343, 419];
+		for (i in 0...11)
+			sparks.animation.add('spark' + (i + 1), [for (f in sparkStarts[i]...sparkStarts[i + 1]) sparkSeq[f]], 24, false);
+		sparks.animation.add('electrocution', [for (f in sparkStarts[11]...sparkStarts[12]) sparkSeq[f]], 24, false);
+		sparks.animation.finishCallback = function(_:String) sparks.visible = false;
+		sparks.antialiasing = ClientPrefs.data.antialiasing;
+		sparks.scale.set(1.659, 1.659); // atlas a 0.8 -> 0.8 * 1.659 = 1.327 (escala de la instancia en el Animate)
+		sparks.updateHitbox();
+		sparks.setPosition(487 + ox, 26);
+		sparks.visible = false;
+		add(sparks);
+
+		// smoke-cloud: nube que sube desde las sillas al electrocutar
 		smoke = new FlxSprite();
-		smoke.frames = Paths.getSparrowAtlas('modsMenu/smoke');
-		smoke.animation.addByPrefix('puff', 'retry_smoke', 24, true);
-		smoke.animation.play('puff');
+		smoke.frames = Paths.getSparrowAtlas('modsMenu/smoke_cloud');
+		smoke.animation.add('puff', [0, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15, 16, 16, 17, 17, 18, 18, 19, 19, 20, 20], 24, false);
+		smoke.animation.finishCallback = function(_:String) smoke.visible = false;
 		smoke.antialiasing = ClientPrefs.data.antialiasing;
-		smoke.setPosition(846 + ox, -170);
+		smoke.scale.set(1.4, 1.4); // atlas a 0.5 -> 0.5 * 1.4 = 0.7
+		smoke.updateHitbox();
+		smoke.setPosition(1364 + ox - 684, 510 - 984); // origen del Animate (1364,510) + bbox*0.7
 		smoke.visible = false;
 		add(smoke);
 
@@ -168,9 +187,6 @@ class ModsMenuState extends MusicBeatState
 			}
 			modsGroup.add(modItem);
 		}
-
-		var mod:ModItem = modsGroup.members[curSelectedMod];
-		if(mod != null) bg.color = FlxColor.interpolate(FlxColor.WHITE, mod.bgColor, 0.35);
 
 		//
 		var buttonX = bgList.x;
@@ -206,7 +222,7 @@ class ModsMenuState extends MusicBeatState
 			}
 			updateModDisplayData();
 			checkToggleButtons();
-			playSpark(true);
+			playSpark(true, true);
 		});
 		buttonEnableAll.bg.color = FlxColor.GREEN;
 		buttonEnableAll.focusChangeCallback = function(focus:Bool) if(!focus) buttonEnableAll.bg.color = FlxColor.GREEN;
@@ -241,13 +257,13 @@ class ModsMenuState extends MusicBeatState
 			var myX = bgList.x + bgList.width + 20;
 			noModsTxt = new FlxText(myX, 0, 380, Language.getPhrase('no_mods_installed', 'NO MODS INSTALLED\nPRESS BACK TO EXIT OR INSTALL A MOD'), 48);
 			if(FlxG.random.bool(0.1)) noModsTxt.text += '\nBITCH.'; //meanie
-			noModsTxt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+			noModsTxt.setFormat(Paths.font("funkin.otf"), 32, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 			noModsTxt.borderSize = 2;
 			add(noModsTxt);
 			noModsTxt.screenCenter(Y);
 
 			var txt = new FlxText(bgList.x + 15, bgList.y + 15, bgList.width - 30, Language.getPhrase('no_mods_found', "No Mods found."), 16);
-			txt.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE);
+			txt.setFormat(Paths.font("funkin.otf"), 16, FlxColor.WHITE);
 			add(txt);
 
 			FlxG.autoPause = false;
@@ -266,7 +282,7 @@ class ModsMenuState extends MusicBeatState
 		add(icon);
 
 		modName = new FlxText(icon.x + 165, bgTitle.y + 15, infoW - 195, "", 24);
-		modName.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		modName.setFormat(Paths.font("funkin.otf"), 24, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		modName.borderSize = 2;
 		add(modName);
 
@@ -275,12 +291,12 @@ class ModsMenuState extends MusicBeatState
 		add(bgDescription);
 		
 		modDesc = new FlxText(bgDescription.x + 15, bgDescription.y + 15, bgDescription.width - 30, "", 20);
-		modDesc.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, LEFT);
+		modDesc.setFormat(Paths.font("funkin.otf"), 20, FlxColor.WHITE, LEFT);
 		add(modDesc);
 
 		var myHeight = 100;
 		modRestartText = new FlxText(bgDescription.x + 15, bgDescription.y + bgDescription.height - myHeight - 50, bgDescription.width - 30, Language.getPhrase('mod_restart', '* Moving or Toggling On/Off this Mod will restart the game.'), 14);
-		modRestartText.setFormat(Paths.font("vcr.ttf"), 14, FlxColor.WHITE, RIGHT);
+		modRestartText.setFormat(Paths.font("funkin.otf"), 14, FlxColor.WHITE, RIGHT);
 		add(modRestartText);
 
 		bgButtons = FlxSpriteUtil.drawRoundRectComplex(new FlxSprite(bgDescription.x, bgDescription.y + bgDescription.height - myHeight).makeGraphic(infoW, myHeight, FlxColor.TRANSPARENT), 0, 0, infoW, myHeight, 0, 0, 15, 15, FlxColor.WHITE);
@@ -403,44 +419,65 @@ class ModsMenuState extends MusicBeatState
 		super.create();
 	}
 
-	function makeChar(name:String, x:Float, y:Float, idle:Array<Int>, shock:Array<Int>):FlxSprite
+	// seq = índices de los frames únicos del atlas para cada frame de la animación original (24 fps)
+	// idleEnd / shockEnd = último frame de idle y de shock; loopStart = frame donde empieza 'crispy loop'
+	function makeChar(name:String, x:Float, y:Float, seq:Array<Int>, idleEnd:Int, shockEnd:Int, loopStart:Int):FlxSprite
 	{
 		var spr:FlxSprite = new FlxSprite(x, y);
 		spr.frames = Paths.getSparrowAtlas('modsMenu/char_' + name);
-		spr.animation.add('idle', idle, 24, true);
-		spr.animation.add('shock', shock, 24, true);
+		var last:Int = seq.length - 1;
+		spr.animation.add('idle', [for (i in 0...(idleEnd + 1)) seq[i]], 24, true);
+		spr.animation.add('shock', [for (i in (idleEnd + 1)...(shockEnd + 1)) seq[i]], 24, false);
+		spr.animation.add('crispy', [for (i in (shockEnd + 1)...(last + 1)) seq[i]], 24, false);
+		spr.animation.add('crispyLoop', [for (i in loopStart...(last + 1)) seq[i]], 24, true);
+		spr.animation.finishCallback = function(anim:String) {
+			if(anim == 'shock') spr.animation.play('idle', true);
+			else if(anim == 'crispy') spr.animation.play('crispyLoop', true);
+		};
 		spr.animation.play('idle');
 		spr.antialiasing = ClientPrefs.data.antialiasing;
 		return spr;
 	}
 
-	function playSpark(big:Bool = false)
+	// big = sonido/chispa grande (Enable All / Disable All); crispy = BF y GF quedan chamuscados (Enable All)
+	function playSpark(big:Bool = false, crispy:Bool = false)
 	{
-		if(big) FlxG.sound.play(Paths.sound('modsMenu/sparks/electrocution'), 0.7);
-		else FlxG.sound.play(Paths.sound('modsMenu/sparks/spark-' + FlxG.random.int(1, 11)), 0.7);
-		shockChars();
+		var sparkAnim:String;
+		if(big)
+		{
+			FlxG.sound.play(Paths.sound('modsMenu/sparks/electrocution'), 0.7);
+			sparkAnim = 'electrocution';
+		}
+		else
+		{
+			var n:Int = FlxG.random.int(1, 11);
+			FlxG.sound.play(Paths.sound('modsMenu/sparks/spark-' + n), 0.7);
+			sparkAnim = 'spark' + n;
+		}
+		if(sparks != null)
+		{
+			sparks.visible = true;
+			sparks.animation.play(sparkAnim, true);
+		}
+		shockChars(crispy);
 	}
 
-	// BF y GF se electrocutan un segundo y sale humo de las sillas
-	function shockChars()
+	// BF y GF se electrocutan (o quedan crispy) y sale la nube de humo
+	function shockChars(crispy:Bool = false)
 	{
 		if(charBF == null || charGF == null || smoke == null) return;
 
-		charBF.animation.play('shock', true);
-		charGF.animation.play('shock', true);
-		if(shockTimer != null) shockTimer.cancel();
-		shockTimer = new FlxTimer().start(1, function(_) {
-			charBF.animation.play('idle', true);
-			charGF.animation.play('idle', true);
-		});
+		var anim:String = crispy ? 'crispy' : 'shock';
+		charBF.animation.play(anim, true);
+		charGF.animation.play(anim, true);
+		if(crispy) FlxG.sound.play(Paths.sound('modsMenu/crispy'), 0.7);
 
-		smoke.visible = true;
-		smoke.alpha = 0.85;
-		smoke.animation.play('puff', true);
-		if(smokeTween != null) smokeTween.cancel();
-		smokeTween = FlxTween.tween(smoke, {alpha: 0}, 0.6, {startDelay: 1.0, onComplete: function(_) {
-			smoke.visible = false;
-		}});
+		if(smokeTimer != null) smokeTimer.cancel();
+		smokeTimer = new FlxTimer().start(crispy ? 0.9 : 0.5, function(_) {
+			FlxG.sound.play(Paths.sound('modsMenu/smoke-cloud'), 0.6);
+			smoke.visible = true;
+			smoke.animation.play('puff', true);
+		});
 	}
 
 	function restoreMenuMusic()
@@ -858,10 +895,6 @@ class ModsMenuState extends MusicBeatState
 		var curMod:ModItem = modsGroup.members[curSelectedMod];
 		if(curMod == null) return;
 
-		// El fondo toma un tinte suave del color del mod seleccionado
-		if(bgTween != null) bgTween.cancel();
-		bgTween = FlxTween.color(bg, 1, bg.color, FlxColor.interpolate(FlxColor.WHITE, curMod.bgColor, 0.35));
-
 		// Batería: encendida y animada si el mod está activado, apagada y quieta si no
 		if(battery != null)
 		{
@@ -1046,7 +1079,7 @@ class ModItem extends FlxSpriteGroup
 		add(icon);
 
 		text = new FlxText(95, 38, 230, "", 16);
-		text.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		text.setFormat(Paths.font("funkin.otf"), 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		text.borderSize = 2;
 		text.y -= Std.int(text.height / 2);
 		add(text);
