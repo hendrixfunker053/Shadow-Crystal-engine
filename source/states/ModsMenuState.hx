@@ -99,6 +99,7 @@ class ModsMenuState extends MusicBeatState
 	var bg:FlxSprite;
 	var bgWires:FlxSprite;
 	var battery:FlxSprite;
+	var fgWires:FlxAnimate = null; // cables del frente (foreground-wires de V-Slice)
 	var charBF:ModsMenuChar;
 	var charGF:ModsMenuChar;
 	var smokeBF:FlxSprite;
@@ -127,6 +128,10 @@ class ModsMenuState extends MusicBeatState
 	var shockSound:FlxSound = null;
 	var folderSignatureAtStart:String = '';
 	var rescanTimer:Float = 0;
+	var crispyTimer:Float = 0; // tiempo desde que salen chamuscados (como V-Slice)
+	var playedCrispySFX:Bool = false;
+	var crispyBoth:Bool = false;
+	var gfPausedIdle:Bool = false;
 
 	// Input de puntero (ratón / dedo)
 	var grabbed:ModItem = null;
@@ -296,6 +301,15 @@ class ModsMenuState extends MusicBeatState
 		add(battery);
 		add(charGF);
 		add(charBF);
+
+		// Cables del frente: misma posición y escala que V-Slice (BF.x - 144, BF.y - 90 con BF = batería + (-119, 50))
+		fgWires = makeForegroundWires();
+		if(fgWires != null)
+		{
+			fgWires.setPosition(battery.x - 263, battery.y - 40);
+			add(fgWires);
+		}
+
 		add(smokeBF);
 		add(smokeGF);
 		add(smokeCloud);
@@ -361,6 +375,59 @@ class ModsMenuState extends MusicBeatState
 		var title:FlxText = new FlxText(box.x, box.y + 14, box.width, text, 32);
 		title.setFormat(uiFont(), 32, FlxColor.WHITE, CENTER);
 		add(title);
+	}
+
+	/**
+	 * Cables del frente de V-Slice. Archivos en assets/shared/images/modsMenu/foreground-wires/ (Animation.json + spritemap1.json + spritemap1.png).
+	 * Etiquetas de la línea de tiempo: idle (1 frame), idle pinhead (1), shock (5 frames, en bucle), end (60 frames, sin bucle).
+	 */
+	function makeForegroundWires():FlxAnimate
+	{
+		try
+		{
+			var a:FlxAnimate = new FlxAnimate();
+			Paths.loadAnimateAtlas(a, 'modsMenu/foreground-wires');
+
+			addLabelAnim(a, 'idle', 'idle', [0], true);
+			addLabelAnim(a, 'idle-pinhead', 'idle pinhead', [1], true);
+			addLabelAnim(a, 'shock', 'shock', [2, 3, 4, 5, 6], true);
+			addLabelAnim(a, 'end', 'end', [for (i in 7...67) i], false);
+
+			a.scale.set(0.7, 0.7);
+			a.antialiasing = ClientPrefs.data.antialiasing;
+			a.anim.play('idle', true);
+			return a;
+		}
+		catch(e:Dynamic)
+		{
+			trace('No se pudieron cargar los cables del frente (modsMenu/foreground-wires): $e');
+			return null;
+		}
+	}
+
+	/** Registra una animación por etiqueta de la línea de tiempo; si la librería no tiene addByFrameLabel usa los índices de frames. */
+	function addLabelAnim(a:FlxAnimate, name:String, label:String, indices:Array<Int>, loop:Bool):Void
+	{
+		var an = a.anim;
+		var addLabel:Dynamic = Reflect.field(an, 'addByFrameLabel');
+		if(addLabel != null)
+		{
+			try
+			{
+				Reflect.callMethod(an, addLabel, [name, label, 24, loop]);
+				var m:Dynamic = Reflect.field(an, 'animsMap');
+				if(m == null || m.exists(name)) return;
+			}
+			catch(e:Dynamic) {}
+		}
+		an.addBySymbolIndices(name, 'wires foreground all', indices, 24, loop);
+	}
+
+	function playWires(name:String):Void
+	{
+		if(fgWires == null) return;
+		try { fgWires.anim.play(name, true); }
+		catch(e:Dynamic) { trace('Animación de cables "$name" falló: $e'); }
 	}
 
 	function makeChar(name:String, x:Float, y:Float, idle:Array<Int>, shock:Array<Int>, crispy:Array<Int>):ModsMenuChar
@@ -434,6 +501,7 @@ class ModsMenuState extends MusicBeatState
 		{
 			// Durante la secuencia de DONE, tocar / ACCEPT salta la electrocución
 			if(sequenceStage == 1 && (FlxG.mouse.justPressed || controls.ACCEPT)) endShock();
+			updateCrispy(elapsed);
 			super.update(elapsed);
 			return;
 		}
@@ -500,7 +568,9 @@ class ModsMenuState extends MusicBeatState
 		if(FlxG.mouse.justPressed)
 		{
 			pressButton = buttonUnder();
-			pressList = boxListAt(mx, my);
+			// Si el toque cae sobre un botón (ej. el engranaje, que se superpone a la caja DISABLED), el botón tiene prioridad:
+			// no se selecciona ni se arrastra el mod que quede debajo.
+			pressList = (pressButton != null) ? null : boxListAt(mx, my);
 			pressItem = null;
 			if(pressList != null && pressList.inView(mx, my))
 			{
@@ -726,7 +796,7 @@ class ModsMenuState extends MusicBeatState
 				FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
 			}
 		}
-		else if(controls.ACCEPT && !selectedItem.isBase)
+		else if(controls.ACCEPT && !selectedItem.isBase && !FlxG.mouse.pressed && !FlxG.mouse.justReleased)
 		{
 			toggleItem(selectedItem);
 		}
@@ -854,9 +924,10 @@ class ModsMenuState extends MusicBeatState
 		saveTxt(); // guardamos ya, por si se cierra el juego durante la secuencia
 
 		shockSound = playSafeSound('modsMenu/sparks/electrocution', 0.8);
-		charBF.playAnim('shock', true);
-		charGF.playAnim('shock', true);
+		charBF.playAnim('shock', true, true); // V-Slice empieza la electrocución en un frame aleatorio
+		charGF.playAnim('shock', true, true);
 		battery.animation.resume();
+		playWires('shock');
 		sparks.startElectrocution();
 
 		// Igual que V-Slice: la electrocución dura 81/24 s (no depende de la duración reportada por el audio)
@@ -868,37 +939,114 @@ class ModsMenuState extends MusicBeatState
 		if(sequenceStage != 1) return;
 		sequenceStage = 2;
 		if(shockTimer != null) shockTimer.cancel();
-		// Como V-Slice: el audio salta a su parte final en vez de cortarse
-		if(shockSound != null && shockSound.playing) shockSound.time = SHOCK_SOUND_TAIL_MS;
 
-		FlxG.camera.flash(FlxColor.WHITE, 0.4);
-		sparks.endElectrocution();
-		battery.animation.pause();
+		// === Igual que playElectrocutionSequence() de V-Slice ===
+		// 1) Al terminar la electrocución: BF y GF se ponen BLANCOS (silueta), la pantalla se oscurece (0xFF232327)
+		//    y desaparecen batería, cables y botones durante 2 frames.
+		var bgColor:FlxColor = bg.color;
+		charBF.whiteout = true;
+		charGF.whiteout = true;
 
-		// Como V-Slice: al terminar la electrocución se aplican los personajes de la lista final.
-		// Si cambiaron (otro mod), salen en idle y sin humo; si siguen igual, quedan chamuscados.
-		var bfChanged:Bool = applyCharacter(charBF, 'bf');
-		var gfChanged:Bool = applyCharacter(charGF, 'gf');
-		placeSmoke(smokeBF, charBF);
-		placeSmoke(smokeGF, charGF);
-		var bfCrispy:Bool = !bfChanged && charBF.hasAnim('crispy');
-		var gfCrispy:Bool = !gfChanged && charGF.hasAnim('crispy');
-		charBF.playAnim(bfCrispy ? 'crispy' : 'idle', true);
-		charGF.playAnim(gfCrispy ? 'crispy' : 'idle', true);
+		var blackFlash:FlxSprite = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, 0xFF232327);
+		blackFlash.scrollFactor.set();
+		var at:Int = members.indexOf(battery);
+		if(at >= 0) insert(at, blackFlash);
+		else add(blackFlash);
 
-		smokeCloud.visible = true;
-		smokeCloud.alpha = 1;
-		smokeCloud.animation.play('puff', true);
-		FlxTween.tween(smokeCloud, {alpha: 0}, 2.6, {ease: FlxEase.linear});
+		battery.visible = false;
+		bgWires.visible = false;
+		if(fgWires != null) fgWires.visible = false;
+		for (b in buttons) b.visible = false;
 
-		// smoke-cloud y crispy empiezan justo cuando termina la electrocución
-		playSafeSound('modsMenu/smoke-cloud', 0.8);
-		playSafeSound('modsMenu/crispy', 0.8);
+		// 2) 2 frames después: flash blanco de 1 frame, se cambian los personajes y sale el humo
+		new FlxTimer().start(2 / 24, function(_)
+		{
+			FlxG.camera.flash(FlxColor.WHITE, 1 / 24, function()
+			{
+				remove(blackFlash, true);
+				blackFlash.destroy();
+			});
 
-		smokeBF.visible = bfCrispy;
-		smokeGF.visible = gfCrispy;
+			var bfChanged:Bool = applyCharacter(charBF, 'bf');
+			var gfChanged:Bool = applyCharacter(charGF, 'gf');
+			placeSmoke(smokeBF, charBF);
+			placeSmoke(smokeGF, charGF);
 
-		new FlxTimer().start(CRISPY_TIME, function(_) leaveMenu());
+			// El fondo vuelve de oscuro a su color en 1 s
+			FlxTween.color(bg, 1, 0xFF232327, bgColor);
+
+			for (b in buttons) b.visible = true;
+			battery.visible = true;
+			battery.animation.play('idle', true);
+			battery.animation.pause();
+			bgWires.visible = true;
+			if(fgWires != null) fgWires.visible = true;
+
+			charBF.whiteout = false;
+			charGF.whiteout = false;
+
+			smokeCloud.visible = true;
+			smokeCloud.alpha = 1;
+			smokeCloud.animation.play('puff', true);
+			FlxTween.tween(smokeCloud, {alpha: 0}, 62 / 24, {ease: FlxEase.linear}); // 62 frames a 24 fps
+			playSafeSound('modsMenu/smoke-cloud', 0.8);
+
+			// El audio de electrocución salta a su parte final justo aquí (como sparks.endElectrocution() de V-Slice)
+			if(shockSound != null && shockSound.playing) shockSound.time = SHOCK_SOUND_TAIL_MS;
+			sparks.endElectrocution();
+
+			var bfCrispy:Bool = !bfChanged && charBF.hasAnim('crispy');
+			var gfCrispy:Bool = !gfChanged && charGF.hasAnim('crispy');
+			if(bfCrispy) charBF.playAnim('crispy', true);
+			else charBF.playAnim('idle', true);
+
+			gfPausedIdle = false;
+			if(gfCrispy) charGF.playAnim('crispy', true);
+			else
+			{
+				// GF sin chamuscar: se queda congelada en idle y se reanuda a los 0.3 s
+				charGF.playAnim('idle', true);
+				charGF.pauseAnim();
+				gfPausedIdle = true;
+			}
+
+			smokeBF.visible = bfCrispy;
+			smokeGF.visible = gfCrispy;
+			crispyBoth = bfCrispy && gfCrispy;
+
+			// Como V-Slice: si alguno quedó chamuscado, los cables hacen su animación final
+			if(bfCrispy || gfCrispy) playWires('end');
+
+			crispyTimer = 0;
+			playedCrispySFX = false;
+			sequenceStage = 3;
+		});
+	}
+
+	/** Fase "chamuscados" (como el update de V-Slice): el SFX crispy suena a 0.7 s, GF se reanuda a 0.3 s y se sale a los 2.5 s. */
+	function updateCrispy(elapsed:Float):Void
+	{
+		if(sequenceStage != 3) return;
+
+		crispyTimer += elapsed;
+
+		if(crispyBoth && crispyTimer >= 0.7 && !playedCrispySFX)
+		{
+			playedCrispySFX = true;
+			playSafeSound('modsMenu/crispy', 0.8);
+		}
+
+		if(gfPausedIdle && crispyTimer >= 0.3)
+		{
+			gfPausedIdle = false;
+			charGF.resumeAnim();
+		}
+
+		if(crispyTimer >= CRISPY_TIME)
+		{
+			sequenceStage = 4;
+			leaveMenu();
+		}
 	}
 
 	function leaveMenu():Void
@@ -1351,6 +1499,10 @@ class ModsMenuChar extends FlxSprite
 	public var isAtlas(default, null):Bool = false;
 	public var curName:String = '';
 
+	/** Silueta blanca (el PureColor de V-Slice al final de la electrocución). */
+	public var whiteout(default, set):Bool = false;
+	var atlasWhite:Bool = false;
+
 	// Posición del personaje del mod (la del juego es la del constructor)
 	public var modHomeX:Float = 0;
 	public var modHomeY:Float = 0;
@@ -1577,7 +1729,27 @@ class ModsMenuChar extends FlxSprite
 	public function hasAnim(name:String):Bool
 		return isAtlas ? atlasHas(name) : animation.exists(name);
 
-	public function playAnim(name:String, force:Bool = true):Void
+	function set_whiteout(v:Bool):Bool
+	{
+		whiteout = v;
+		if(v) setColorTransform(0, 0, 0, 1, 255, 255, 255, 0);
+		else setColorTransform();
+		return v;
+	}
+
+	public function pauseAnim():Void
+	{
+		if(isAtlas) atlas.anim.pause();
+		else animation.pause();
+	}
+
+	public function resumeAnim():Void
+	{
+		if(isAtlas) atlas.anim.resume();
+		else animation.resume();
+	}
+
+	public function playAnim(name:String, force:Bool = true, randomFrame:Bool = false):Void
 	{
 		if(!hasAnim(name))
 		{
@@ -1590,6 +1762,13 @@ class ModsMenuChar extends FlxSprite
 		{
 			frame = startFrame;
 			startFrameUsed = true;
+		}
+
+		// V-Slice: la animación de electrocución arranca en un frame aleatorio
+		if(randomFrame && !isAtlas)
+		{
+			var anim = animation.getByName(name);
+			if(anim != null && anim.numFrames > 1) frame = FlxG.random.int(0, anim.numFrames - 1);
 		}
 
 		curName = name;
@@ -1630,6 +1809,13 @@ class ModsMenuChar extends FlxSprite
 			return;
 		}
 		if(!visible || alpha <= 0) return;
+
+		if(atlasWhite != whiteout)
+		{
+			atlasWhite = whiteout;
+			if(whiteout) atlas.setColorTransform(0, 0, 0, 1, 255, 255, 255, 0);
+			else atlas.setColorTransform();
+		}
 
 		atlas.setPosition(x - (curOffX - globalOffX), y - (curOffY - globalOffY));
 		atlas.scale.copyFrom(scale);
