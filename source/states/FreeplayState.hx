@@ -64,6 +64,25 @@ class FreeplayState extends MusicBeatState
 	public static var vocals:FlxSound = null;
 	public static var opponentVocals:FlxSound = null;
 
+	// -------------------------------------------------------------------------
+	// INFORMACIÓN COMPARTIDA CON PAUSESUBSTATE
+	// -------------------------------------------------------------------------
+
+	public static var currentCustomDifficulty:String = null;
+	public static var currentCustomChart:String = null;
+	public static var currentCustomFolder:String = null;
+	public static var currentFreeplaySong:String = null;
+
+	// Información completa de las dificultades detectadas para la canción.
+	public static var pauseDifficultyNames:Array<String> = [];
+	public static var pauseDifficultyCharts:Array<String> = [];
+	public static var pauseDifficultyFolders:Array<String> = [];
+	public static var pauseDifficultyCustom:Array<Bool> = [];
+	public static var pauseDifficultyBase:Array<Int> = [];
+
+	public static var pauseCurrentDifficulty:Int = 0;
+	public static var pauseModDirectory:String = "";
+
 	var holdTime:Float = 0;
 	var stopMusicPlay:Bool = false;
 
@@ -116,16 +135,12 @@ class FreeplayState extends MusicBeatState
 			}
 		}
 
-		// Elimina entradas de variantes Erect duplicadas en week.json.
-		// Solo se oculta "cancion-erect" cuando existe su canción base.
+		// Oculta una entrada Erect duplicada si existe la canción base.
+		// No oculta canciones Erect independientes sin canción base.
 		var baseSongNames:Array<String> = [];
 
 		for (song in songs)
-		{
-			baseSongNames.push(
-				Paths.formatToSongPath(song.songName)
-			);
-		}
+			baseSongNames.push(Paths.formatToSongPath(song.songName));
 
 		var filteredSongs:Array<SongMetadata> = [];
 
@@ -312,7 +327,6 @@ class FreeplayState extends MusicBeatState
 		baseDifficulty:Int
 	):FreeplayDifficulty
 	{
-		// Busca primero cada nombre de chart en las carpetas candidatas.
 		for (folder in folders)
 		{
 			for (chart in charts)
@@ -362,11 +376,6 @@ class FreeplayState extends MusicBeatState
 			));
 		}
 
-		// Ejemplo:
-		// data/Blissful erect/blissful-erect-erect.json
-		// data/blissful erect/blissful-erect-erect.json
-		// data/blissful-erect/blissful-erect-erect.json
-		// data/blissful/blissful-erect-erect.json
 		var erectFolders:Array<String> = [
 			songs[curSelected].songName + " erect",
 			songLowercase + " erect",
@@ -374,9 +383,6 @@ class FreeplayState extends MusicBeatState
 			songLowercase
 		];
 
-		// ERECT:
-		// Nombre visible: Erect
-		// Nombre habitual del chart: blissful-erect-erect
 		var erect:FreeplayDifficulty = findVariant(
 			"Erect",
 			[
@@ -390,9 +396,6 @@ class FreeplayState extends MusicBeatState
 		if (erect != null)
 			selectedDifficulties.push(erect);
 
-		// NIGHTMARE:
-		// Nombre visible: Nightmare
-		// Nombre del chart: blissful-erect-nightmare
 		var nightmare:FreeplayDifficulty = findVariant(
 			"Nightmare",
 			[
@@ -465,6 +468,28 @@ class FreeplayState extends MusicBeatState
 	{
 		var selected:FreeplayDifficulty = getSelectedDifficulty();
 		return selected.folder + "/" + selected.chart;
+	}
+
+	// Copia las dificultades actuales para que PauseSubState pueda usarlas.
+	function syncPauseDifficulties():Void
+	{
+		pauseDifficultyNames = [];
+		pauseDifficultyCharts = [];
+		pauseDifficultyFolders = [];
+		pauseDifficultyCustom = [];
+		pauseDifficultyBase = [];
+
+		for (difficulty in selectedDifficulties)
+		{
+			pauseDifficultyNames.push(difficulty.name);
+			pauseDifficultyCharts.push(difficulty.chart);
+			pauseDifficultyFolders.push(difficulty.folder);
+			pauseDifficultyCustom.push(difficulty.custom);
+			pauseDifficultyBase.push(difficulty.baseDifficulty);
+		}
+
+		pauseCurrentDifficulty = curDifficulty;
+		pauseModDirectory = songs[curSelected].folder;
 	}
 
 	// -------------------------------------------------------------------------
@@ -931,6 +956,17 @@ class FreeplayState extends MusicBeatState
 				PlayState.isStoryMode = false;
 				PlayState.storyDifficulty = getScoreDifficulty();
 
+				// Guarda el chart elegido para el menú de pausa.
+				var selected:FreeplayDifficulty = getSelectedDifficulty();
+
+				currentCustomDifficulty = selected.custom ? selected.saveName : null;
+				currentCustomChart = selected.custom ? selected.chart : null;
+				currentCustomFolder = selected.custom ? selected.folder : null;
+				currentFreeplaySong = songs[curSelected].songName;
+
+				// El menú de pausa recibirá también todas las dificultades disponibles.
+				syncPauseDifficulties();
+
 				trace('CURRENT WEEK: ' + WeekData.getWeekFileName());
 			}
 			catch (e:Dynamic)
@@ -1056,15 +1092,34 @@ class FreeplayState extends MusicBeatState
 		var selected:FreeplayDifficulty = getSelectedDifficulty();
 		var scoreDiff:Int = getScoreDifficulty();
 
+		// Mantiene actualizada la lista de dificultades del pause.
+		syncPauseDifficulties();
+
 		#if !switch
-		intendedScore = Highscore.getScore(
-			songs[curSelected].songName,
-			scoreDiff
-		);
-		intendedRating = Highscore.getRating(
-			songs[curSelected].songName,
-			scoreDiff
-		);
+		if (selected.custom)
+		{
+			intendedScore = Highscore.getCustomScore(
+				songs[curSelected].songName,
+				selected.saveName
+			);
+
+			intendedRating = Highscore.getCustomRating(
+				songs[curSelected].songName,
+				selected.saveName
+			);
+		}
+		else
+		{
+			intendedScore = Highscore.getScore(
+				songs[curSelected].songName,
+				scoreDiff
+			);
+
+			intendedRating = Highscore.getRating(
+				songs[curSelected].songName,
+				scoreDiff
+			);
+		}
 		#end
 
 		lastDifficultyName = selected.name;
@@ -1186,6 +1241,8 @@ class FreeplayState extends MusicBeatState
 
 			songs[curSelected].lastDifficulty = selected.saveName;
 			lastDifficultyName = selected.name;
+
+			syncPauseDifficulties();
 		}
 	}
 
