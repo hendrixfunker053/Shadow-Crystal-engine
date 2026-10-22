@@ -7,7 +7,7 @@ import flixel.FlxBasic;
 import flixel.FlxCamera;
 import flixel.graphics.frames.FlxAtlasFrames;
 import flixel.math.FlxPoint;
-import flxanimate.FlxAnimate; // spritemaps de Adobe Animate
+import flxanimate.PsychFlxAnimate as FlxAnimate; // spritemaps de Adobe Animate (la versión de Psych, la que espera Paths.loadAnimateAtlas)
 import flixel.graphics.FlxGraphic;
 import flixel.group.FlxSpriteGroup;
 import flixel.math.FlxMath;
