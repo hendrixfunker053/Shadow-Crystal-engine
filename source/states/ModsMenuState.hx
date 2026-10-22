@@ -99,6 +99,7 @@ class ModsMenuState extends MusicBeatState
 	var bg:FlxSprite;
 	var bgWires:FlxSprite;
 	var battery:FlxSprite;
+	var gfWire:FlxSprite = null; // cable que sale de la silla de GF (gfwire de V-Slice)
 	var fgWires:FlxAnimate = null; // cables del frente (foreground-wires de V-Slice)
 	var charBF:ModsMenuChar;
 	var charGF:ModsMenuChar;
@@ -192,9 +193,7 @@ class ModsMenuState extends MusicBeatState
 		bgWires.antialiasing = ClientPrefs.data.antialiasing;
 		bgWires.scale.set(0.7, 0.7);
 		bgWires.updateHitbox();
-		bgWires.alpha = 0.6;
-		bgWires.setPosition(FlxG.width - bgWires.width, FlxG.height - bgWires.height);
-		add(bgWires);
+		// (bgWires se coloca y se añade más abajo, detrás de la batería y de BF/GF, como en V-Slice)
 
 		// ===== Batería + BF y GF en la silla eléctrica (atlas prerenderizados) =====
 		battery = new FlxSprite(947 + ox, 80);
@@ -298,7 +297,14 @@ class ModsMenuState extends MusicBeatState
 		add(itemsGroup);
 
 		// ===== Capa de personajes: encima de los paneles (GF debajo, BF encima) =====
+		// Orden de V-Slice: bgWires (10) < batería (20) < gfWire (21) < GF (25) < BF (30) < fgWires (35)
+		bgWires.setPosition(battery.x + 75, battery.y + 170);
+		add(bgWires);
 		add(battery);
+
+		gfWire = makeGfWire();
+		if(gfWire != null) add(gfWire);
+
 		add(charGF);
 		add(charBF);
 
@@ -340,6 +346,7 @@ class ModsMenuState extends MusicBeatState
 		applyCharacter(charGF, 'gf');
 		placeSmoke(smokeBF, charBF);
 		placeSmoke(smokeGF, charGF);
+		if(gfWire != null) gfWire.visible = (charGF.modFolder == ''); // un GF de mod trae sus propios cables
 
 		if(selectedItem == null)
 		{
@@ -421,6 +428,31 @@ class ModsMenuState extends MusicBeatState
 			catch(e:Dynamic) {}
 		}
 		an.addBySymbolIndices(name, 'wires foreground all', indices, 24, loop);
+	}
+
+	/** Cable de GF: assets/shared/images/modsMenu/gfwire.png + .xml (animaciones: idle0, idle empty chair0, shock). */
+	function makeGfWire():FlxSprite
+	{
+		try
+		{
+			var w:FlxSprite = new FlxSprite(battery.x - 117, battery.y - 18);
+			w.frames = Paths.getSparrowAtlas('modsMenu/gfwire');
+			if(w.frames == null) return null;
+
+			w.animation.addByPrefix('idle', 'idle0', 24, false);
+			w.animation.addByPrefix('idle-emptychair', 'idle empty chair0', 24, false);
+			w.animation.addByPrefix('shock', 'shock', 24, false);
+			w.animation.play('idle');
+			w.scale.set(0.7, 0.7);
+			w.updateHitbox();
+			w.antialiasing = ClientPrefs.data.antialiasing;
+			return w;
+		}
+		catch(e:Dynamic)
+		{
+			trace('No se pudo cargar el cable de GF (modsMenu/gfwire): $e');
+			return null;
+		}
 	}
 
 	function playWires(name:String):Void
@@ -928,6 +960,11 @@ class ModsMenuState extends MusicBeatState
 		charGF.playAnim('shock', true, true);
 		battery.animation.resume();
 		playWires('shock');
+		if(gfWire != null)
+		{
+			gfWire.visible = true;
+			if(gfWire.animation.exists('shock')) gfWire.animation.play('shock', true);
+		}
 		sparks.startElectrocution();
 
 		// Igual que V-Slice: la electrocución dura 81/24 s (no depende de la duración reportada por el audio)
@@ -956,6 +993,7 @@ class ModsMenuState extends MusicBeatState
 		battery.visible = false;
 		bgWires.visible = false;
 		if(fgWires != null) fgWires.visible = false;
+		if(gfWire != null) gfWire.visible = false; // como V-Slice: no vuelve a mostrarse tras el flash
 		for (b in buttons) b.visible = false;
 
 		// 2) 2 frames después: flash blanco de 1 frame, se cambian los personajes y sale el humo
