@@ -31,7 +31,6 @@ class PauseSubState extends MusicBeatSubstate
 
 	public static var songName:String = null;
 
-	// Dificultades personalizadas.
 	var customDifficultyChoices:Array<String> = [];
 	var showingDifficultyMenu:Bool = false;
 
@@ -101,7 +100,7 @@ class PauseSubState extends MusicBeatSubstate
 		var displayedDifficulty:String = Difficulty.getString().toUpperCase();
 
 		if (FreeplayState.currentCustomDifficulty != null)
-			displayedDifficulty = FreeplayState.currentCustomDifficultyName.toUpperCase();
+			displayedDifficulty = FreeplayState.currentCustomDifficulty.toUpperCase();
 
 		var levelDifficulty:FlxText = new FlxText(20, 15 + 32, 0, displayedDifficulty, 32);
 		levelDifficulty.scrollFactor.set();
@@ -195,11 +194,6 @@ class PauseSubState extends MusicBeatSubstate
 		super.create();
 	}
 
-	/**
-	 * Construye la lista de dificultades.
-	 * Las dificultades personalizadas se muestran cuando Freeplay
-	 * ha iniciado una chart personalizada.
-	 */
 	function buildDifficultyChoices():Void
 	{
 		difficultyChoices = [];
@@ -259,13 +253,10 @@ class PauseSubState extends MusicBeatSubstate
 		if (controls.BACK)
 		{
 			if (showingDifficultyMenu)
-			{
 				returnToPauseMenu();
-			}
 			else
-			{
 				close();
-			}
+
 			return;
 		}
 
@@ -302,6 +293,38 @@ class PauseSubState extends MusicBeatSubstate
 
 		var daSelected:String = menuItems[curSelected];
 
+		if (daSelected == 'Skip Time')
+		{
+			if (controls.UI_LEFT_P)
+			{
+				FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
+				curTime -= 1000;
+				holdTime = 0;
+			}
+
+			if (controls.UI_RIGHT_P)
+			{
+				FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
+				curTime += 1000;
+				holdTime = 0;
+			}
+
+			if (controls.UI_LEFT || controls.UI_RIGHT)
+			{
+				holdTime += elapsed;
+
+				if (holdTime > 0.5)
+					curTime += 45000 * elapsed * (controls.UI_LEFT ? -1 : 1);
+
+				if (curTime >= FlxG.sound.music.length)
+					curTime -= FlxG.sound.music.length;
+				else if (curTime < 0)
+					curTime += FlxG.sound.music.length;
+
+				updateSkipTimeText();
+			}
+		}
+
 		if ((controls.ACCEPT || touchAccept) && (cantUnpause <= 0 || !controls.controllerMode))
 		{
 			if (showingDifficultyMenu)
@@ -312,9 +335,7 @@ class PauseSubState extends MusicBeatSubstate
 					return;
 				}
 
-				if (loadChosenDifficulty(daSelected))
-					return;
-
+				loadChosenDifficulty(daSelected);
 				return;
 			}
 
@@ -402,7 +423,6 @@ class PauseSubState extends MusicBeatSubstate
 
 					PlayState.deathCounter = 0;
 					PlayState.seenCutscene = false;
-
 					PlayState.instance.canResync = false;
 					Mods.loadTopMod();
 
@@ -417,45 +437,8 @@ class PauseSubState extends MusicBeatSubstate
 					FlxG.camera.followLerp = 0;
 			}
 		}
-
-		if (daSelected == 'Skip Time')
-		{
-			if (controls.UI_LEFT_P)
-			{
-				FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
-				curTime -= 1000;
-				holdTime = 0;
-			}
-
-			if (controls.UI_RIGHT_P)
-			{
-				FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
-				curTime += 1000;
-				holdTime = 0;
-			}
-
-			if (controls.UI_LEFT || controls.UI_RIGHT)
-			{
-				holdTime += elapsed;
-
-				if (holdTime > 0.5)
-					curTime += 45000 * elapsed * (controls.UI_LEFT ? -1 : 1);
-
-				if (curTime >= FlxG.sound.music.length)
-					curTime -= FlxG.sound.music.length;
-				else if (curTime < 0)
-					curTime += FlxG.sound.music.length;
-
-				updateSkipTimeText();
-			}
-		}
 	}
 
-	/**
-	 * Carga la dificultad seleccionada.
-	 * Las dificultades normales usan el sistema original de Psych.
-	 * Las personalizadas prueban los nombres de chart habituales de Erect/Nightmare.
-	 */
 	function loadChosenDifficulty(selected:String):Bool
 	{
 		var songLowercase:String = Paths.formatToSongPath(PlayState.SONG.song);
@@ -483,7 +466,6 @@ class PauseSubState extends MusicBeatSubstate
 					];
 				}
 
-				// Prioriza la carpeta de la chart actual.
 				if (FreeplayState.currentCustomFolder != null
 					&& FreeplayState.currentCustomFolder != '')
 				{
@@ -508,10 +490,11 @@ class PauseSubState extends MusicBeatSubstate
 						try
 						{
 							Song.loadFromJson(chart, folder);
+
 							FreeplayState.currentCustomDifficulty = customName;
 							FreeplayState.currentCustomChart = chart;
 							FreeplayState.currentCustomFolder = folder;
-							FreeplayState.currentCustomDifficultyName = selected;
+
 							loaded = true;
 							break;
 						}
@@ -525,7 +508,6 @@ class PauseSubState extends MusicBeatSubstate
 				if (!loaded)
 					throw (lastError != null ? lastError : 'No se encontró la chart $selected');
 
-				// Las charts personalizadas se ejecutan sobre la dificultad base más alta.
 				PlayState.storyDifficulty = Difficulty.list.length - 1;
 			}
 			else
@@ -549,18 +531,16 @@ class PauseSubState extends MusicBeatSubstate
 
 				PlayState.storyDifficulty = selectedIndex;
 
-				// Limpiar metadatos personalizados al volver a una dificultad normal.
 				FreeplayState.currentCustomDifficulty = null;
 				FreeplayState.currentCustomChart = null;
 				FreeplayState.currentCustomFolder = null;
-				FreeplayState.currentCustomDifficultyName = null;
 			}
 
 			PlayState.changedDifficulty = true;
 			PlayState.chartingMode = false;
-
 			FlxG.sound.music.volume = 0;
 			MusicBeatState.resetState();
+
 			return true;
 		}
 		catch (e:Dynamic)
@@ -646,7 +626,6 @@ class PauseSubState extends MusicBeatSubstate
 
 		missingText.visible = false;
 		missingTextBG.visible = false;
-
 		FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
 	}
 
