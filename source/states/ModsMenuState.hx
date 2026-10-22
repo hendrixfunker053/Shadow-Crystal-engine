@@ -7,7 +7,7 @@ import flixel.FlxBasic;
 import flixel.FlxCamera;
 import flixel.graphics.frames.FlxAtlasFrames;
 import flixel.math.FlxPoint;
-import animate.FlxAnimate; // spritemaps de Adobe Animate (si tu fork usa la librería vieja: import flxanimate.FlxAnimate;)
+import flxanimate.FlxAnimate; // spritemaps de Adobe Animate
 import flixel.graphics.FlxGraphic;
 import flixel.group.FlxSpriteGroup;
 import flixel.math.FlxMath;
@@ -1360,6 +1360,7 @@ class ModsMenuChar extends FlxSprite
 	var homeY:Float;
 	var atlas:FlxAnimate = null;
 	var animOffsets:Map<String, Array<Float>> = new Map();
+	var atlasAnims:Map<String, Bool> = new Map(); // animaciones registradas en el spritemap
 	var globalOffX:Float = 0;
 	var globalOffY:Float = 0;
 	var curOffX:Float = 0;
@@ -1406,6 +1407,7 @@ class ModsMenuChar extends FlxSprite
 		isAtlas = false;
 		animation.destroyAnimations();
 		animOffsets = new Map();
+		atlasAnims = new Map();
 		globalOffX = globalOffY = curOffX = curOffY = 0;
 		smokeOffX = smokeOffY = 0;
 		smokeScaleX = smokeScaleY = 0.5;
@@ -1528,10 +1530,28 @@ class ModsMenuChar extends FlxSprite
 		if(isAtlas)
 		{
 			var an = atlas.anim;
-			if(hasIdx) an.addBySymbolIndices(n, prefix, indices, fps, loop);
-			else an.addBySymbol(n, prefix, fps, loop);
-			// Si no hay símbolo con ese nombre, se busca como etiqueta de la línea de tiempo (como V-Slice)
-			if(!an.exists(n)) an.addByFrameLabel(n, prefix, fps, loop);
+			try
+			{
+				if(hasIdx) an.addBySymbolIndices(n, prefix, indices, fps, loop);
+				else an.addBySymbol(n, prefix, fps, loop);
+				atlasAnims.set(n, true);
+			}
+			catch(e:Dynamic) { trace('Símbolo "$prefix" no encontrado en el spritemap: $e'); }
+
+			// Si no hay símbolo con ese nombre, se prueba como etiqueta de la línea de tiempo (solo si la librería lo soporta)
+			if(!atlasHas(n))
+			{
+				var addLabel:Dynamic = Reflect.field(an, 'addByFrameLabel');
+				if(addLabel != null)
+				{
+					try
+					{
+						Reflect.callMethod(an, addLabel, [n, prefix, fps, loop]);
+						atlasAnims.set(n, true);
+					}
+					catch(e:Dynamic) {}
+				}
+			}
 		}
 		else
 		{
@@ -1540,8 +1560,17 @@ class ModsMenuChar extends FlxSprite
 		}
 	}
 
+	/** Comprueba si el spritemap tiene esa animación (FlxAnim de flxanimate no trae `exists`). */
+	function atlasHas(name:String):Bool
+	{
+		if(atlas == null) return false;
+		var m:Dynamic = Reflect.field(atlas.anim, 'animsMap');
+		if(m != null) return m.exists(name);
+		return atlasAnims.exists(name);
+	}
+
 	public function hasAnim(name:String):Bool
-		return isAtlas ? (atlas != null && atlas.anim.exists(name)) : animation.exists(name);
+		return isAtlas ? atlasHas(name) : animation.exists(name);
 
 	public function playAnim(name:String, force:Bool = true):Void
 	{
