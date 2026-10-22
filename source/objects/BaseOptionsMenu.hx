@@ -137,14 +137,20 @@ class BaseOptionsMenu extends MusicBeatSubstate
 
 		var touchAccept:Bool = false;
 		#if mobile
-		var tapped:Int = mobile.TouchInput.tappedRow(cast grpOptions.members);
-		mobile.TouchInput.consumeTap();
-		if (tapped > -1)
-		{
-			if (tapped == curSelected) touchAccept = true;
-			else changeSelection(tapped - curSelected);
-		}
-		#end
+var tapped:Int = mobile.TouchInput.tappedRow(cast grpOptions.members);
+if (tapped >= 0 && tapped < grpOptions.members.length)
+{
+    if (tapped != curSelected)
+    {
+        changeSelection(tapped - curSelected);
+    }
+    else
+    {
+        touchAccept = true;
+    }
+    mobile.TouchInput.consumeTap();
+}
+#end
 
 		if (controls.UI_UP_P)
 		{
