@@ -2,8 +2,6 @@ package options;
 
 import flixel.input.keyboard.FlxKey;
 import flixel.input.gamepad.FlxGamepadInputID;
-import flixel.input.touch.FlxTouch;
-import flixel.math.FlxMath;
 
 import objects.Character;
 
@@ -14,22 +12,6 @@ class ModSettingsSubState extends BaseOptionsMenu
 	var save:Map<String, Dynamic> = new Map<String, Dynamic>();
 	var folder:String;
 	private var _crashed:Bool = false;
-
-	// --- Touch controls ---
-	var activeTouch:FlxTouch = null;
-	var lastTX:Float = 0;
-	var lastTY:Float = 0;
-	var totalTX:Float = 0;
-	var totalTY:Float = 0;
-	var accumX:Float = 0;
-	var accumY:Float = 0;
-	var dragAxis:Int = 0; // 0 = nada, 1 = vertical, 2 = horizontal
-	var dragging:Bool = false;
-	var usingMouse:Bool = false; // en algunos builds el touch llega como mouse
-	static inline var TAP_DIST:Float = 20;
-	static inline var STEP_Y:Float = 45;
-	static inline var STEP_X:Float = 50;
-
 	public function new(options:Array<Dynamic>, folder:String, name:String)
 	{
 		this.folder = folder;
@@ -167,11 +149,6 @@ class ModSettingsSubState extends BaseOptionsMenu
 		bg.alpha = 0.75;
 		bg.color = FlxColor.WHITE;
 		reloadCheckboxes();
-
-		#if mobile
-		var backButton:mobile.MobileButton = mobile.MobileButton.back(null, true);
-		add(backButton);
-		#end
 	}
 
 	private function convertType(str:String):OptionType
@@ -203,137 +180,6 @@ class ModSettingsSubState extends BaseOptionsMenu
 			return;
 		}
 		super.update(elapsed);
-		updateTouch();
-	}
-
-	// ------------------------------------------------------------
-	// Touch controls
-	// ------------------------------------------------------------
-	inline function ptX():Float return usingMouse ? FlxG.mouse.screenX : activeTouch.screenX;
-	inline function ptY():Float return usingMouse ? FlxG.mouse.screenY : activeTouch.screenY;
-	inline function ptDown():Bool return usingMouse ? FlxG.mouse.pressed : activeTouch.pressed;
-
-	function startDrag()
-	{
-		dragging = true;
-		lastTX = ptX();
-		lastTY = ptY();
-		totalTX = totalTY = accumX = accumY = 0;
-		dragAxis = 0;
-	}
-
-	function updateTouch()
-	{
-		if(curOption == null) return;
-
-		if(!dragging)
-		{
-			for(t in FlxG.touches.list)
-			{
-				if(t.justPressed)
-				{
-					activeTouch = t;
-					usingMouse = false;
-					startDrag();
-					return;
-				}
-			}
-			// respaldo: si el touch llega como mouse
-			if(FlxG.mouse.justPressed)
-			{
-				activeTouch = null;
-				usingMouse = true;
-				startDrag();
-			}
-			return;
-		}
-
-		if(ptDown())
-		{
-			var dx = ptX() - lastTX;
-			var dy = ptY() - lastTY;
-			lastTX = ptX();
-			lastTY = ptY();
-			totalTX += dx;
-			totalTY += dy;
-
-			// decide el eje una vez que el dedo se movió lo suficiente
-			if(dragAxis == 0 && (Math.abs(totalTX) > TAP_DIST || Math.abs(totalTY) > TAP_DIST))
-				dragAxis = Math.abs(totalTX) > Math.abs(totalTY) ? 2 : 1;
-
-			if(dragAxis == 1)
-			{
-				accumY += dy;
-				while(accumY <= -STEP_Y) { accumY += STEP_Y; changeSelection(1); }
-				while(accumY >= STEP_Y) { accumY -= STEP_Y; changeSelection(-1); }
-			}
-			else if(dragAxis == 2)
-			{
-				accumX += dx;
-				while(accumX <= -STEP_X) { accumX += STEP_X; changeValueTouch(-1); }
-				while(accumX >= STEP_X) { accumX -= STEP_X; changeValueTouch(1); }
-			}
-		}
-		else
-		{
-			// se soltó el dedo
-			if(dragAxis == 0) handleTap();
-			dragging = false;
-			activeTouch = null;
-			dragAxis = 0;
-		}
-	}
-
-	function handleTap()
-	{
-		for(i in 0...grpOptions.members.length)
-		{
-			var item = grpOptions.members[i];
-			if(item == null) continue;
-
-			var hit:Bool = usingMouse ? FlxG.mouse.overlaps(item, item.camera) : activeTouch.overlaps(item, item.camera);
-			if(hit)
-			{
-				if(i != curSelected) changeSelection(i - curSelected);
-				else if(curOption.type == BOOL) toggleBoolTouch();
-				return;
-			}
-		}
-	}
-
-	function toggleBoolTouch()
-	{
-		FlxG.sound.play(Paths.sound('scrollMenu'));
-		curOption.setValue(curOption.getValue() == true ? false : true);
-		curOption.change();
-		reloadCheckboxes();
-	}
-
-	function changeValueTouch(dir:Int)
-	{
-		switch(curOption.type)
-		{
-			case BOOL:
-				toggleBoolTouch();
-				return;
-			case INT, FLOAT, PERCENT:
-				var val:Float = curOption.getValue() + (dir * curOption.changeValue);
-				val = FlxMath.bound(val, curOption.minValue, curOption.maxValue);
-				if(curOption.type == INT) val = Math.round(val);
-				else val = FlxMath.roundDecimal(val, curOption.decimals);
-				curOption.setValue(val);
-			case STRING:
-				var num:Int = curOption.curOption + dir;
-				if(num < 0) num = curOption.options.length - 1;
-				else if(num >= curOption.options.length) num = 0;
-				curOption.curOption = num;
-				curOption.setValue(curOption.options[num]);
-			default:
-				return; // KEYBIND no se maneja por touch
-		}
-		updateTextFrom(curOption);
-		curOption.change();
-		FlxG.sound.play(Paths.sound('scrollMenu'));
 	}
 
 	override public function close()
