@@ -10,6 +10,8 @@ import openfl.display.BitmapData;
 import openfl.geom.Rectangle;
 import states.editors.MasterEditorMenu;
 import options.OptionsState;
+import backend.MainMenuData;
+import objects.quickpanel.QuickPanelState;
 
 enum MainMenuColumn
 {
@@ -30,15 +32,14 @@ class MainMenuState extends MusicBeatState
 	var leftItem:FlxSprite;
 	var rightItem:FlxSprite;
 
-	var optionShit:Array<String> = [
-		'story_mode',
-		'freeplay',
-		#if MODS_ALLOWED 'mods', #end
-		'credits'
-	];
+	// Menú cargado desde data/mainmenu.json (o el de por defecto)
+	var menuData:MainMenuFile;
+	var optionShit:Array<MenuItemData>;
+	var leftOption:MenuItemData;
+	var rightOption:MenuItemData;
 
-	var leftOption:String = 'options';
-	var rightOption:String = #if ACHIEVEMENTS_ALLOWED 'achievements' #else null #end;
+	// Panel rápido: solo existe si el mod tiene "Custom menu": true en su pack.json
+	var quickPanel:QuickPanelState = null;
 
 	var magenta:FlxSprite;
 	var camFollow:FlxObject;
@@ -108,18 +109,25 @@ class MainMenuState extends MusicBeatState
 		checkerPattern.antialiasing = false;
 		add(checkerPattern);
 
-		// Menú principal
+		// Menú principal (data/mainmenu.json)
+		menuData = MainMenuData.load();
+		optionShit = menuData.items;
+		leftOption = menuData.left;
+		rightOption = menuData.right;
+
 		menuItems = new FlxTypedGroup<FlxSprite>();
 		add(menuItems);
 
-		var menuSpacing:Float = 150;
-		var startMenuY:Float = 40;
+		var menuSpacing:Float = menuData.spacing;
+		var startMenuY:Float = menuData.startY;
 
 		for (num => option in optionShit)
 		{
 			var item:FlxSprite = createMenuItem(option, 0, startMenuY + num * menuSpacing);
 			item.screenCenter(X);
 		}
+
+		var story:FlxSprite = menuItems.members[0];
 
 		// Logros: alineado a la derecha en móvil
 		if (rightOption != null)
@@ -129,14 +137,12 @@ class MainMenuState extends MusicBeatState
 			#if mobile
 			rightItem.x = FlxG.width - rightItem.width - 16;
 			#else
-			var story:FlxSprite = menuItems.members[0];
 			rightItem.x = Math.min(
 				story.x + story.width + 40,
 				FlxG.width - rightItem.width - 20
 			);
 			#end
 
-			var story:FlxSprite = menuItems.members[0];
 			rightItem.y = startMenuY + (story.height - rightItem.height) / 2;
 		}
 
@@ -204,15 +210,31 @@ class MainMenuState extends MusicBeatState
 		editorsButton = new mobile.ImageButton(16, 50, 'editorButton', 0.6);
 		add(editorsButton);
 		#end
+
+		// Panel rápido (solo si pack.json tiene "Custom menu": true)
+		if (MainMenuData.hasCustomMenu())
+		{
+			quickPanel = new QuickPanelState();
+			add(quickPanel);
+		}
 	}
 
-	function createMenuItem(name:String, x:Float, y:Float):FlxSprite
+	function createMenuItem(data:MenuItemData, x:Float, y:Float):FlxSprite
 	{
 		var menuItem:FlxSprite = new FlxSprite(x, y);
-		menuItem.frames = Paths.getSparrowAtlas('mainmenu/menu_$name');
-		menuItem.animation.addByPrefix('idle', '$name idle', 24, true);
-		menuItem.animation.addByPrefix('selected', '$name selected', 24, true);
-		menuItem.animation.play('idle');
+
+		if (Paths.fileExists('images/${data.image}.xml', TEXT))
+		{
+			menuItem.frames = Paths.getSparrowAtlas(data.image);
+			menuItem.animation.addByPrefix('idle', '${data.id} idle', 24, true);
+			menuItem.animation.addByPrefix('selected', '${data.id} selected', 24, true);
+			menuItem.animation.play('idle');
+		}
+		else
+		{
+			trace('Atlas no encontrado: ${data.image}');
+			menuItem.makeGraphic(400, 100, 0xFF444444);
+		}
 		menuItem.updateHitbox();
 
 		menuItem.antialiasing = ClientPrefs.data.antialiasing;
@@ -232,13 +254,18 @@ class MainMenuState extends MusicBeatState
 
 	override function update(elapsed:Float)
 	{
-		if (FlxG.sound.music.volume < 0.8)
+		// Mientras el panel rápido está abierto (o arrastrándose) el menú de debajo no responde
+		var panelBusy:Bool = quickPanel != null && quickPanel.isBusy();
+		if (quickPanel != null)
+			quickPanel.panel.blocked = selectedSomethin;
+
+		if (!panelBusy && FlxG.sound.music != null && FlxG.sound.music.volume < 0.8)
 		{
 			FlxG.sound.music.volume = Math.min(
 				FlxG.sound.music.volume + 0.5 * elapsed, 0.8);
 		}
 
-		if (!selectedSomethin)
+		if (!selectedSomethin && !panelBusy)
 		{
 			if (controls.UI_UP_P)
 				changeItem(-1);
@@ -443,7 +470,7 @@ class MainMenuState extends MusicBeatState
 					FlxFlicker.flicker(magenta, 1.1, 0.15, false);
 
 				var item:FlxSprite;
-				var option:String;
+				var option:MenuItemData;
 
 				switch (curColumn)
 				{
@@ -461,48 +488,7 @@ class MainMenuState extends MusicBeatState
 				FlxFlicker.flicker(item, 1, 0.06, false, false,
 					function(flick:FlxFlicker)
 				{
-					switch (option)
-					{
-						case 'story_mode':
-							MusicBeatState.switchState(new StoryMenuState());
-
-						case 'freeplay':
-							MusicBeatState.switchState(new FreeplayState());
-
-						#if MODS_ALLOWED
-						case 'mods':
-							MusicBeatState.switchState(new ModsMenuState());
-						#end
-
-						#if ACHIEVEMENTS_ALLOWED
-						case 'achievements':
-							MusicBeatState.switchState(new AchievementsMenuState());
-						#end
-
-						case 'credits':
-							MusicBeatState.switchState(new CreditsState());
-
-						case 'options':
-							MusicBeatState.switchState(new OptionsState());
-							OptionsState.onPlayState = false;
-
-							if (PlayState.SONG != null)
-							{
-								PlayState.SONG.arrowSkin = null;
-								PlayState.SONG.splashSkin = null;
-								PlayState.stageUI = 'normal';
-							}
-
-						case 'donate':
-							CoolUtil.browserLoad('https://ninja-muffin24.itch.io/funkin');
-							selectedSomethin = false;
-							item.visible = true;
-
-						default:
-							trace('Menu Item ${option} doesn\'t do anything');
-							selectedSomethin = false;
-							item.visible = true;
-					}
+					runAction(option, item);
 				});
 
 				for (memb in menuItems)
@@ -526,6 +512,65 @@ class MainMenuState extends MusicBeatState
 		}
 
 		super.update(elapsed);
+	}
+
+	function runAction(option:MenuItemData, item:FlxSprite)
+	{
+		switch (option.action)
+		{
+			case 'story_mode':
+				MusicBeatState.switchState(new StoryMenuState());
+
+			case 'freeplay':
+				MusicBeatState.switchState(new FreeplayState());
+
+			#if MODS_ALLOWED
+			case 'mods':
+				MusicBeatState.switchState(new ModsMenuState());
+			#end
+
+			#if ACHIEVEMENTS_ALLOWED
+			case 'achievements':
+				MusicBeatState.switchState(new AchievementsMenuState());
+			#end
+
+			case 'credits':
+				MusicBeatState.switchState(new CreditsState());
+
+			case 'options':
+				MusicBeatState.switchState(new OptionsState());
+				OptionsState.onPlayState = false;
+
+				if (PlayState.SONG != null)
+				{
+					PlayState.SONG.arrowSkin = null;
+					PlayState.SONG.splashSkin = null;
+					PlayState.stageUI = 'normal';
+				}
+
+			case 'url':
+				CoolUtil.browserLoad(option.args);
+				selectedSomethin = false;
+				item.visible = true;
+
+			case 'state':
+				var cls:Class<Dynamic> = Type.resolveClass(option.args);
+				if (cls == null) cls = Type.resolveClass('states.' + option.args);
+
+				if (cls != null)
+					MusicBeatState.switchState(cast Type.createInstance(cls, []));
+				else
+				{
+					trace('Clase no encontrada: ${option.args}');
+					selectedSomethin = false;
+					item.visible = true;
+				}
+
+			default:
+				trace('Menu Item ${option.id} doesn\'t do anything');
+				selectedSomethin = false;
+				item.visible = true;
+		}
 	}
 
 	function changeItem(change:Int = 0)
