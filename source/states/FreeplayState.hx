@@ -31,7 +31,6 @@ class FreeplayState extends MusicBeatState
 	var curDifficulty:Int = -1;
 	private static var lastDifficultyName:String = Difficulty.getDefault();
 
-	// Dificultades disponibles para la canción seleccionada.
 	var selectedDifficulties:Array<FreeplayDifficulty> = [];
 
 	var scoreBG:FlxSprite;
@@ -59,10 +58,20 @@ class FreeplayState extends MusicBeatState
 
 	var player:MusicPlayer;
 
+	var instPlaying:Int = -1;
+	var instPlayingChart:String = null;
+
+	public static var vocals:FlxSound = null;
+	public static var opponentVocals:FlxSound = null;
+
+	var holdTime:Float = 0;
+	var stopMusicPlay:Bool = false;
+
 	override function create()
 	{
 		persistentUpdate = true;
 		PlayState.isStoryMode = false;
+
 		WeekData.reloadWeekFiles(false);
 
 		#if DISCORD_ALLOWED
@@ -107,7 +116,53 @@ class FreeplayState extends MusicBeatState
 			}
 		}
 
+		// Elimina entradas de variantes Erect duplicadas en week.json.
+		// Solo se oculta "cancion-erect" cuando existe su canción base.
+		var baseSongNames:Array<String> = [];
+
+		for (song in songs)
+		{
+			baseSongNames.push(
+				Paths.formatToSongPath(song.songName)
+			);
+		}
+
+		var filteredSongs:Array<SongMetadata> = [];
+
+		for (song in songs)
+		{
+			var songPath:String = Paths.formatToSongPath(song.songName);
+
+			if (songPath.endsWith("-erect"))
+			{
+				var baseName:String = songPath.substr(
+					0,
+					songPath.length - "-erect".length
+				);
+
+				if (baseSongNames.contains(baseName))
+					continue;
+			}
+
+			filteredSongs.push(song);
+		}
+
+		songs = filteredSongs;
+
 		Mods.loadTopMod();
+
+		if (songs.length == 0)
+		{
+			FlxTransitionableState.skipNextTransIn = true;
+			persistentUpdate = false;
+
+			MusicBeatState.switchState(new states.ErrorState(
+				"No songs available for Freeplay.",
+				function() MusicBeatState.switchState(new states.editors.WeekEditorState()),
+				function() MusicBeatState.switchState(new states.MainMenuState())
+			));
+			return;
+		}
 
 		bg = new FlxSprite().loadGraphic(Paths.image('menuDesat'));
 		bg.antialiasing = ClientPrefs.data.antialiasing;
@@ -154,7 +209,11 @@ class FreeplayState extends MusicBeatState
 
 		add(scoreText);
 
-		missingTextBG = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
+		missingTextBG = new FlxSprite().makeGraphic(
+			FlxG.width,
+			FlxG.height,
+			FlxColor.BLACK
+		);
 		missingTextBG.alpha = 0.6;
 		missingTextBG.visible = false;
 		add(missingTextBG);
@@ -172,16 +231,19 @@ class FreeplayState extends MusicBeatState
 		missingText.visible = false;
 		add(missingText);
 
-		if (curSelected >= songs.length)
+		if (curSelected >= songs.length || curSelected < 0)
 			curSelected = 0;
 
 		bg.color = songs[curSelected].color;
 		intendedColor = bg.color;
 		lerpSelected = curSelected;
 
-		curDifficulty = Math.round(Math.max(0, Difficulty.defaultList.indexOf(lastDifficultyName)));
+		curDifficulty = Math.round(
+			Math.max(0, Difficulty.defaultList.indexOf(lastDifficultyName))
+		);
 
-		bottomBG = new FlxSprite(0, FlxG.height - 26).makeGraphic(FlxG.width, 26, 0xFF000000);
+		bottomBG = new FlxSprite(0, FlxG.height - 26)
+			.makeGraphic(FlxG.width, 26, 0xFF000000);
 		bottomBG.alpha = 0.6;
 		add(bottomBG);
 
@@ -200,7 +262,13 @@ class FreeplayState extends MusicBeatState
 		bottomString = leText;
 
 		var size:Int = 16;
-		bottomText = new FlxText(bottomBG.x, bottomBG.y + 4, FlxG.width, leText, size);
+		bottomText = new FlxText(
+			bottomBG.x,
+			bottomBG.y + 4,
+			FlxG.width,
+			leText,
+			size
+		);
 		bottomText.setFormat(Paths.font("vcr.ttf"), size, FlxColor.WHITE, CENTER);
 		bottomText.scrollFactor.set();
 		add(bottomText);
@@ -222,15 +290,6 @@ class FreeplayState extends MusicBeatState
 	// DIFICULTADES PERSONALIZADAS
 	// -------------------------------------------------------------------------
 
-	/**
-	 * Comprueba si existe un chart en la carpeta indicada.
-	 *
-	 * Estructura normal:
-	 * data/bopeebo/bopeebo.json
-	 *
-	 * Estructura alternativa:
-	 * data/bopeebo-erect/bopeebo-erect.json
-	 */
 	function chartExists(folder:String, chart:String):Bool
 	{
 		if (folder == null || folder.length == 0 || chart == null || chart.length == 0)
@@ -246,10 +305,6 @@ class FreeplayState extends MusicBeatState
 		return Assets.exists(path);
 	}
 
-	/**
-	 * Busca una variante tanto en la carpeta de la canción base
-	 * como en una carpeta separada.
-	 */
 	function findVariant(
 		displayName:String,
 		charts:Array<String>,
@@ -257,6 +312,7 @@ class FreeplayState extends MusicBeatState
 		baseDifficulty:Int
 	):FreeplayDifficulty
 	{
+		// Busca primero cada nombre de chart en las carpetas candidatas.
 		for (folder in folders)
 		{
 			for (chart in charts)
@@ -268,7 +324,8 @@ class FreeplayState extends MusicBeatState
 						chart,
 						folder,
 						baseDifficulty,
-						true
+						true,
+						displayName
 					);
 				}
 			}
@@ -277,21 +334,18 @@ class FreeplayState extends MusicBeatState
 		return null;
 	}
 
-	/**
-	 * Construye las dificultades para la canción seleccionada.
-	 *
-	 * Las dificultades normales siguen utilizando el sistema de
-	 * Difficulty de Psych Engine.
-	 *
-	 * Erect y Erect Nightmare se añaden solo si existen sus charts.
-	 * Nightmare se trata como una dificultad de Erect, no como
-	 * una canción nueva.
-	 */
 	function buildSongDifficulties():Void
 	{
 		selectedDifficulties = [];
 
-		var songLowercase:String = Paths.formatToSongPath(songs[curSelected].songName);
+		var songLowercase:String =
+			Paths.formatToSongPath(songs[curSelected].songName);
+
+		var defaultDifficulty:Int =
+			Difficulty.defaultList.indexOf(Difficulty.getDefault());
+
+		if (defaultDifficulty < 0 || defaultDifficulty >= Difficulty.list.length)
+			defaultDifficulty = 0;
 
 		// Dificultades estándar de Psych Engine.
 		for (i in 0...Difficulty.list.length)
@@ -308,50 +362,49 @@ class FreeplayState extends MusicBeatState
 			));
 		}
 
-		// Si no hay dificultades normales configuradas, se conserva
-		// al menos la dificultad predeterminada.
-		var defaultDifficulty:Int = Math.round(
-			Math.max(0, Difficulty.defaultList.indexOf(Difficulty.getDefault()))
-		);
+		// Ejemplo:
+		// data/Blissful erect/blissful-erect-erect.json
+		// data/blissful erect/blissful-erect-erect.json
+		// data/blissful-erect/blissful-erect-erect.json
+		// data/blissful/blissful-erect-erect.json
+		var erectFolders:Array<String> = [
+			songs[curSelected].songName + " erect",
+			songLowercase + " erect",
+			songLowercase + "-erect",
+			songLowercase
+		];
 
-		if (defaultDifficulty >= Difficulty.list.length)
-			defaultDifficulty = 0;
-
-		// Chart Erect:
-		// data/bopeebo/bopeebo-erect.json
-		// o data/bopeebo-erect/bopeebo-erect.json
+		// ERECT:
+		// Nombre visible: Erect
+		// Nombre habitual del chart: blissful-erect-erect
 		var erect:FreeplayDifficulty = findVariant(
 			"Erect",
-			[songLowercase + "-erect"],
-			[songLowercase, songLowercase + "-erect"],
+			[
+				songLowercase + "-erect-erect",
+				songLowercase + "-erect"
+			],
+			erectFolders,
 			defaultDifficulty
 		);
 
 		if (erect != null)
 			selectedDifficulties.push(erect);
 
-		// Chart Erect Nightmare:
-		// data/bopeebo/bopeebo-erect-nightmare.json
-		// o data/bopeebo-erect/bopeebo-erect-nightmare.json
-		// o data/bopeebo-erect-nightmare/bopeebo-erect-nightmare.json
+		// NIGHTMARE:
+		// Nombre visible: Nightmare
+		// Nombre del chart: blissful-erect-nightmare
 		var nightmare:FreeplayDifficulty = findVariant(
-			"Erect Nightmare",
+			"Nightmare",
 			[
-				songLowercase + "-erect-nightmare",
-				songLowercase + "-nightmare"
-			],
-			[
-				songLowercase,
-				songLowercase + "-erect",
 				songLowercase + "-erect-nightmare"
 			],
+			erectFolders,
 			defaultDifficulty
 		);
 
 		if (nightmare != null)
 			selectedDifficulties.push(nightmare);
 
-		// Evita que Freeplay se quede sin una dificultad seleccionable.
 		if (selectedDifficulties.length == 0)
 		{
 			selectedDifficulties.push(new FreeplayDifficulty(
@@ -359,8 +412,7 @@ class FreeplayState extends MusicBeatState
 				songLowercase,
 				songLowercase,
 				0,
-				false,
-				Difficulty.getDefault()
+				false
 			));
 		}
 	}
@@ -368,16 +420,28 @@ class FreeplayState extends MusicBeatState
 	function getSelectedDifficulty():FreeplayDifficulty
 	{
 		if (selectedDifficulties == null || selectedDifficulties.length == 0)
-			return new FreeplayDifficulty("Normal", songs[curSelected].songName, songs[curSelected].songName, 0, false);
+		{
+			var songLowercase:String =
+				Paths.formatToSongPath(songs[curSelected].songName);
 
-		curDifficulty = FlxMath.wrap(curDifficulty, 0, selectedDifficulties.length - 1);
+			return new FreeplayDifficulty(
+				"Normal",
+				songLowercase,
+				songLowercase,
+				0,
+				false
+			);
+		}
+
+		curDifficulty = FlxMath.wrap(
+			curDifficulty,
+			0,
+			selectedDifficulties.length - 1
+		);
+
 		return selectedDifficulties[curDifficulty];
 	}
 
-	/**
-	 * Carga el chart de la dificultad actualmente seleccionada.
-	 * Se utiliza tanto en SPACE como al iniciar la canción.
-	 */
 	function loadSelectedChart():Void
 	{
 		var selected:FreeplayDifficulty = getSelectedDifficulty();
@@ -387,13 +451,6 @@ class FreeplayState extends MusicBeatState
 		Song.loadFromJson(selected.chart, selected.folder);
 	}
 
-	/**
-	 * Devuelve el índice de dificultad estándar usado para puntuaciones
-	 * y para PlayState.storyDifficulty.
-	 *
-	 * Las variantes personalizadas utilizan el índice base para mantener
-	 * la compatibilidad con las APIs originales de Psych.
-	 */
 	function getScoreDifficulty():Int
 	{
 		var selected:FreeplayDifficulty = getSelectedDifficulty();
@@ -402,6 +459,12 @@ class FreeplayState extends MusicBeatState
 			return 0;
 
 		return selected.baseDifficulty;
+	}
+
+	function getPreviewChartKey():String
+	{
+		var selected:FreeplayDifficulty = getSelectedDifficulty();
+		return selected.folder + "/" + selected.chart;
 	}
 
 	// -------------------------------------------------------------------------
@@ -444,7 +507,12 @@ class FreeplayState extends MusicBeatState
 		);
 	}
 
-	function makeTouchButton(label:String, image:String, x:Float, y:Float):mobile.TouchButton
+	function makeTouchButton(
+		label:String,
+		image:String,
+		x:Float,
+		y:Float
+	):mobile.TouchButton
 	{
 		var button:mobile.TouchButton = new mobile.TouchButton(x, y, label);
 		button.useImage(Paths.image('mobile/freeplay/$image'));
@@ -484,7 +552,10 @@ class FreeplayState extends MusicBeatState
 			return;
 		}
 
-		if (mobile.TouchInput.justSwiped('ui_left') || mobile.TouchInput.justSwiped('ui_right'))
+		if (
+			mobile.TouchInput.justSwiped('ui_left')
+			|| mobile.TouchInput.justSwiped('ui_right')
+		)
 		{
 			changeDiff(mobile.TouchInput.justSwiped('ui_left') ? -1 : 1);
 			_updateSongLastDifficulty();
@@ -561,7 +632,12 @@ class FreeplayState extends MusicBeatState
 		super.closeSubState();
 	}
 
-	public function addSong(songName:String, weekNum:Int, songCharacter:String, color:Int)
+	public function addSong(
+		songName:String,
+		weekNum:Int,
+		songCharacter:String,
+		color:Int
+	)
 	{
 		songs.push(new SongMetadata(songName, weekNum, songCharacter, color));
 	}
@@ -580,13 +656,6 @@ class FreeplayState extends MusicBeatState
 		);
 	}
 
-	var instPlaying:Int = -1;
-	public static var vocals:FlxSound = null;
-	public static var opponentVocals:FlxSound = null;
-	var holdTime:Float = 0;
-
-	var stopMusicPlay:Bool = false;
-
 	override function update(elapsed:Float)
 	{
 		if (WeekData.weeksList.length < 1)
@@ -595,8 +664,14 @@ class FreeplayState extends MusicBeatState
 		if (FlxG.sound.music.volume < 0.7)
 			FlxG.sound.music.volume += 0.5 * elapsed;
 
-		lerpScore = Math.floor(FlxMath.lerp(intendedScore, lerpScore, Math.exp(-elapsed * 24)));
-		lerpRating = FlxMath.lerp(intendedRating, lerpRating, Math.exp(-elapsed * 12));
+		lerpScore = Math.floor(
+			FlxMath.lerp(intendedScore, lerpScore, Math.exp(-elapsed * 24))
+		);
+		lerpRating = FlxMath.lerp(
+			intendedRating,
+			lerpRating,
+			Math.exp(-elapsed * 12)
+		);
 
 		if (Math.abs(lerpScore - intendedScore) <= 10)
 			lerpScore = intendedScore;
@@ -620,6 +695,7 @@ class FreeplayState extends MusicBeatState
 			ratingSplit[1] += '0';
 
 		var shiftMult:Int = 1;
+
 		if (FlxG.keys.pressed.SHIFT)
 			shiftMult = 3;
 
@@ -702,6 +778,7 @@ class FreeplayState extends MusicBeatState
 				destroyFreeplayVocals();
 				FlxG.sound.music.volume = 0;
 				instPlaying = -1;
+				instPlayingChart = null;
 
 				player.playingMusic = false;
 				player.switchPlayMusic();
@@ -717,14 +794,19 @@ class FreeplayState extends MusicBeatState
 			}
 		}
 
-		if ((FlxG.keys.justPressed.CONTROL || touchChangers) && !player.playingMusic)
+		if (
+			(FlxG.keys.justPressed.CONTROL || touchChangers)
+			&& !player.playingMusic
+		)
 		{
 			persistentUpdate = false;
 			openSubState(new GameplayChangersSubstate());
 		}
 		else if (FlxG.keys.justPressed.SPACE || touchPreview)
 		{
-			if (instPlaying != curSelected && !player.playingMusic)
+			var previewKey:String = getPreviewChartKey();
+
+			if (instPlayingChart != previewKey && !player.playingMusic)
 			{
 				destroyFreeplayVocals();
 				FlxG.sound.music.volume = 0;
@@ -733,7 +815,6 @@ class FreeplayState extends MusicBeatState
 
 				try
 				{
-					// La vista previa carga el mismo chart elegido en Freeplay.
 					loadSelectedChart();
 
 					if (PlayState.SONG.needsVoices)
@@ -742,7 +823,8 @@ class FreeplayState extends MusicBeatState
 
 						try
 						{
-							var playerVocals:String = getVocalFromCharacter(PlayState.SONG.player1);
+							var playerVocals:String =
+								getVocalFromCharacter(PlayState.SONG.player1);
 
 							var loadedVocals = Paths.voices(
 								PlayState.SONG.song,
@@ -777,7 +859,8 @@ class FreeplayState extends MusicBeatState
 
 						try
 						{
-							var oppVocals:String = getVocalFromCharacter(PlayState.SONG.player2);
+							var oppVocals:String =
+								getVocalFromCharacter(PlayState.SONG.player2);
 
 							var loadedVocals = Paths.voices(
 								PlayState.SONG.song,
@@ -810,6 +893,7 @@ class FreeplayState extends MusicBeatState
 					FlxG.sound.music.pause();
 
 					instPlaying = curSelected;
+					instPlayingChart = previewKey;
 
 					player.playingMusic = true;
 					player.curTime = 0;
@@ -820,7 +904,8 @@ class FreeplayState extends MusicBeatState
 				{
 					destroyFreeplayVocals();
 
-					missingText.text = 'ERROR WHILE LOADING PREVIEW:\n' + Std.string(e);
+					missingText.text =
+						'ERROR WHILE LOADING PREVIEW:\n' + Std.string(e);
 					missingText.screenCenter(Y);
 					missingText.visible = true;
 					missingTextBG.visible = true;
@@ -828,7 +913,7 @@ class FreeplayState extends MusicBeatState
 					FlxG.sound.play(Paths.sound('cancelMenu'));
 				}
 			}
-			else if (instPlaying == curSelected && player.playingMusic)
+			else if (instPlayingChart == previewKey && player.playingMusic)
 			{
 				player.pauseOrResume(!player.playing);
 			}
@@ -841,7 +926,6 @@ class FreeplayState extends MusicBeatState
 			{
 				Mods.currentModDirectory = songs[curSelected].folder;
 
-				// Carga el chart correspondiente a Normal, Erect o Erect Nightmare.
 				loadSelectedChart();
 
 				PlayState.isStoryMode = false;
@@ -857,7 +941,9 @@ class FreeplayState extends MusicBeatState
 
 				if (errorStr.contains('There is no TEXT asset with an ID of'))
 				{
-					var songLowercase:String = Paths.formatToSongPath(songs[curSelected].songName);
+					var songLowercase:String =
+						Paths.formatToSongPath(songs[curSelected].songName);
+
 					var startIndex:Int = errorStr.indexOf(songLowercase);
 
 					if (startIndex >= 0)
@@ -903,8 +989,6 @@ class FreeplayState extends MusicBeatState
 		{
 			persistentUpdate = false;
 
-			// El sistema estándar de reset de Psych solo recibe índices
-			// de Difficulty, por lo que se usa el índice base de la variante.
 			openSubState(new ResetScoreSubState(
 				songs[curSelected].songName,
 				getScoreDifficulty(),
@@ -956,7 +1040,11 @@ class FreeplayState extends MusicBeatState
 
 	function changeDiff(change:Int = 0)
 	{
-		if (player.playingMusic || selectedDifficulties == null || selectedDifficulties.length == 0)
+		if (
+			player.playingMusic
+			|| selectedDifficulties == null
+			|| selectedDifficulties.length == 0
+		)
 			return;
 
 		curDifficulty = FlxMath.wrap(
@@ -969,8 +1057,14 @@ class FreeplayState extends MusicBeatState
 		var scoreDiff:Int = getScoreDifficulty();
 
 		#if !switch
-		intendedScore = Highscore.getScore(songs[curSelected].songName, scoreDiff);
-		intendedRating = Highscore.getRating(songs[curSelected].songName, scoreDiff);
+		intendedScore = Highscore.getScore(
+			songs[curSelected].songName,
+			scoreDiff
+		);
+		intendedRating = Highscore.getRating(
+			songs[curSelected].songName,
+			scoreDiff
+		);
 		#end
 
 		lastDifficultyName = selected.name;
@@ -1026,10 +1120,8 @@ class FreeplayState extends MusicBeatState
 
 		Difficulty.loadFromWeek();
 
-		// Primero crea las dificultades disponibles para esta canción.
 		buildSongDifficulties();
 
-		// Restaura la última dificultad usada, incluidas las personalizadas.
 		var savedDiff:String = songs[curSelected].lastDifficulty;
 		var foundDifficulty:Bool = false;
 
@@ -1091,6 +1183,7 @@ class FreeplayState extends MusicBeatState
 		if (selectedDifficulties != null && selectedDifficulties.length > 0)
 		{
 			var selected:FreeplayDifficulty = getSelectedDifficulty();
+
 			songs[curSelected].lastDifficulty = selected.saveName;
 			lastDifficultyName = selected.name;
 		}
@@ -1137,8 +1230,10 @@ class FreeplayState extends MusicBeatState
 			var item:Alphabet = grpSongs.members[i];
 
 			item.visible = item.active = true;
-			item.x = ((item.targetY - lerpSelected) * item.distancePerItem.x) + item.startPosition.x;
-			item.y = ((item.targetY - lerpSelected) * 1.3 * item.distancePerItem.y) + item.startPosition.y;
+			item.x = ((item.targetY - lerpSelected) * item.distancePerItem.x)
+				+ item.startPosition.x;
+			item.y = ((item.targetY - lerpSelected) * 1.3 * item.distancePerItem.y)
+				+ item.startPosition.y;
 
 			var icon:HealthIcon = iconArray[i];
 			icon.visible = icon.active = true;
@@ -1202,7 +1297,12 @@ class SongMetadata
 	public var folder:String = "";
 	public var lastDifficulty:String = null;
 
-	public function new(song:String, week:Int, songCharacter:String, color:Int)
+	public function new(
+		song:String,
+		week:Int,
+		songCharacter:String,
+		color:Int
+	)
 	{
 		this.songName = song;
 		this.week = week;
