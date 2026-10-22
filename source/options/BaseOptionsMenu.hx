@@ -2,683 +2,231 @@
 package options;
 
 import flixel.input.keyboard.FlxKey;
-import flixel.input.gamepad.FlxGamepad;
 import flixel.input.gamepad.FlxGamepadInputID;
-import flixel.input.gamepad.FlxGamepadManager;
 
-import objects.CheckboxThingie;
-import objects.AttachedText;
-import options.Option;
-import backend.InputFormatter;
+import objects.Character;
+import options.Option.OptionType;
 
-class BaseOptionsMenu extends MusicBeatSubstate
+class ModSettingsSubState extends BaseOptionsMenu
 {
-	private var curOption:Option = null;
-	private var curSelected:Int = 0;
-	private var optionsArray:Array<Option> = [];
+	var save:Map<String, Dynamic> = new Map<String, Dynamic>();
+	var folder:String;
+	private var _crashed:Bool = false;
 
-	private var grpOptions:FlxTypedGroup<Alphabet>;
-	private var checkboxGroup:FlxTypedGroup<CheckboxThingie>;
-	private var grpTexts:FlxTypedGroup<AttachedText>;
-
-	private var descBox:FlxSprite;
-	private var descText:FlxText;
-
-	public var title:String;
-	public var rpcTitle:String;
-
-	public var bg:FlxSprite;
-
-	public function new()
+	public function new(options:Array<Dynamic>, folder:String, name:String)
 	{
-		super();
+		this.folder = folder;
 
-		if (title == null) title = 'Options';
-		if (rpcTitle == null) rpcTitle = 'Options Menu';
+		title = '';
+		rpcTitle = 'Mod Settings ($name)';
 
-		#if DISCORD_ALLOWED
-		DiscordClient.changePresence(rpcTitle, null);
-		#end
-
-		bg = new FlxSprite().loadGraphic(Paths.image('menuDesat'));
-		bg.color = 0xFFea71fd;
-		bg.screenCenter();
-		bg.antialiasing = ClientPrefs.data.antialiasing;
-		add(bg);
-		mobile.WideScreen.fit(bg);
-
-		grpOptions = new FlxTypedGroup<Alphabet>();
-		add(grpOptions);
-
-		grpTexts = new FlxTypedGroup<AttachedText>();
-		add(grpTexts);
-
-		checkboxGroup = new FlxTypedGroup<CheckboxThingie>();
-		add(checkboxGroup);
-
-		descBox = new FlxSprite().makeGraphic(1, 1, FlxColor.BLACK);
-		descBox.alpha = 0.6;
-		add(descBox);
-
-		var titleText:Alphabet = new Alphabet(75, 45, title, true);
-		titleText.setScale(0.6);
-		titleText.alpha = 0.4;
-		add(titleText);
-
-		descText = new FlxText(50, 600, 1180, "", 32);
-		descText.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE,
-			CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
-		descText.scrollFactor.set();
-		descText.borderSize = 2.4;
-		add(descText);
-
-		for (i in 0...optionsArray.length)
-		{
-			var optionText:Alphabet = new Alphabet(
-				220, 260, optionsArray[i].name, false
-			);
-			optionText.isMenuItem = true;
-			optionText.targetY = i;
-			grpOptions.add(optionText);
-
-			if (optionsArray[i].type == BOOL)
-			{
-				var checkbox:CheckboxThingie = new CheckboxThingie(
-					optionText.x - 105,
-					optionText.y,
-					Std.string(optionsArray[i].getValue()) == 'true'
-				);
-				checkbox.sprTracker = optionText;
-				checkbox.ID = i;
-				checkboxGroup.add(checkbox);
-			}
-			else if (optionsArray[i].type != BUTTON)
-			{
-				optionText.x -= 80;
-				optionText.startPosition.x -= 80;
-
-				var valueText:AttachedText = new AttachedText(
-					'' + optionsArray[i].getValue(),
-					optionText.width + 60
-				);
-				valueText.sprTracker = optionText;
-				valueText.copyAlpha = true;
-				valueText.ID = i;
-				grpTexts.add(valueText);
-				optionsArray[i].child = valueText;
-			}
-
-			updateTextFrom(optionsArray[i]);
-		}
-
-		changeSelection();
-		reloadCheckboxes();
-
-		#if mobile
-		add(mobile.MobileButton.back());
-		#end
-	}
-
-	public function addOption(option:Option)
-	{
-		if (optionsArray == null)
-			optionsArray = [];
-
-		optionsArray.push(option);
-		return option;
-	}
-
-	var nextAccept:Int = 5;
-	var holdTime:Float = 0;
-	var holdValue:Float = 0;
-
-	var bindingKey:Bool = false;
-	var holdingEsc:Float = 0;
-
-	var bindingBlack:FlxSprite;
-	var bindingText:Alphabet;
-	var bindingText2:Alphabet;
-
-	override function update(elapsed:Float)
-	{
-		super.update(elapsed);
-
-		if (bindingKey)
-		{
-			bindingKeyUpdate(elapsed);
-			return;
-		}
-
-		var touchAccept:Bool = false;
-
-		#if mobile
-		var tapped:Int = mobile.TouchInput.tappedRow(cast grpOptions.members);
-
-		if (tapped >= 0 && tapped < optionsArray.length)
-		{
-			if (tapped == curSelected)
-				touchAccept = true;
-			else
-				changeSelection(tapped - curSelected);
-		}
-		#end
-
-		if (controls.UI_UP_P)
-			changeSelection(-1);
-
-		if (controls.UI_DOWN_P)
-			changeSelection(1);
-
-		if (controls.BACK)
-		{
-			close();
-			FlxG.sound.play(Paths.sound('cancelMenu'));
-			return;
-		}
-
-		if (optionsArray == null || optionsArray.length == 0)
-			return;
-
-		if (nextAccept > 0)
-		{
-			nextAccept--;
-			return;
-		}
-
-		if (curOption == null)
-			return;
-
-		switch (curOption.type)
-		{
-			case BOOL:
-				if (controls.ACCEPT || touchAccept)
-				{
-					FlxG.sound.play(Paths.sound('scrollMenu'));
-					curOption.setValue(curOption.getValue() != true);
-					curOption.change();
-					reloadCheckboxes();
-					updateTextFrom(curOption);
-				}
-
-			case BUTTON:
-				if (controls.ACCEPT || touchAccept)
-				{
-					FlxG.sound.play(Paths.sound('scrollMenu'));
-					curOption.change();
-				}
-
-			case KEYBIND:
-				if (controls.ACCEPT || touchAccept)
-				{
-					bindingBlack = new FlxSprite().makeGraphic(
-						1, 1, FlxColor.WHITE
-					);
-					bindingBlack.scale.set(FlxG.width, FlxG.height);
-					bindingBlack.updateHitbox();
-					bindingBlack.alpha = 0;
-
-					FlxTween.tween(bindingBlack, {alpha: 0.6}, 0.35,
-						{ease: FlxEase.linear});
-					add(bindingBlack);
-
-					bindingText = new Alphabet(
-						FlxG.width / 2,
-						160,
-						Language.getPhrase(
-							'controls_rebinding',
-							'Rebinding {1}',
-							[curOption.name]
-						),
-						false
-					);
-					bindingText.alignment = CENTERED;
-					add(bindingText);
-
-					bindingText2 = new Alphabet(
-						FlxG.width / 2,
-						340,
-						Language.getPhrase(
-							'controls_rebinding2',
-							'Hold ESC to Cancel\nHold Backspace to Delete'
-						),
-						true
-					);
-					bindingText2.alignment = CENTERED;
-					add(bindingText2);
-
-					bindingKey = true;
-					holdingEsc = 0;
-					ClientPrefs.toggleVolumeKeys(false);
-					FlxG.sound.play(Paths.sound('scrollMenu'));
-				}
-
-			default:
-				if (controls.UI_LEFT_P || controls.UI_RIGHT_P)
-				{
-					changeOptionValue(controls.UI_LEFT ? -1 : 1);
-					holdTime = 0;
-					holdValue = curOption.getValue();
-				}
-
-				if (controls.UI_LEFT || controls.UI_RIGHT)
-				{
-					if (curOption.type != STRING)
-					{
-						if (holdTime == 0)
-							holdValue = curOption.getValue();
-
-						if (holdTime > 0.5)
-						{
-							holdValue += curOption.scrollSpeed * elapsed
-								* (controls.UI_LEFT ? -1 : 1);
-
-							holdValue = Math.max(
-								curOption.minValue,
-								Math.min(curOption.maxValue, holdValue)
-							);
-
-							switch (curOption.type)
-							{
-								case INT:
-									curOption.setValue(Math.round(holdValue));
-
-								case FLOAT, PERCENT:
-									curOption.setValue(
-										FlxMath.roundDecimal(
-											holdValue,
-											curOption.decimals
-										)
-									);
-
-								default:
-							}
-
-							updateTextFrom(curOption);
-							curOption.change();
-						}
-					}
-
-					holdTime += elapsed;
-				}
-				else if (controls.UI_LEFT_R || controls.UI_RIGHT_R)
-				{
-					if (holdTime > 0.5)
-						FlxG.sound.play(Paths.sound('scrollMenu'));
-
-					holdTime = 0;
-				}
-		}
-
-		if (controls.RESET && curOption.type != BUTTON)
-		{
-			if (curOption.type != KEYBIND)
-			{
-				curOption.setValue(curOption.defaultValue);
-
-				if (curOption.type == STRING)
-					curOption.curOption =
-						curOption.options.indexOf(curOption.getValue());
-
-				updateTextFrom(curOption);
-			}
-			else
-			{
-				curOption.setValue(
-					!Controls.instance.controllerMode
-						? curOption.defaultKeys.keyboard
-						: curOption.defaultKeys.gamepad
-				);
-				updateBind(curOption);
-			}
-
-			curOption.change();
-			FlxG.sound.play(Paths.sound('cancelMenu'));
-			reloadCheckboxes();
-		}
-	}
-
-	function changeOptionValue(direction:Int)
-	{
-		if (curOption == null)
-			return;
-
-		switch (curOption.type)
-		{
-			case INT, FLOAT, PERCENT:
-				var value:Float = curOption.getValue();
-				value += curOption.changeValue * direction;
-
-				value = Math.max(
-					curOption.minValue,
-					Math.min(curOption.maxValue, value)
-				);
-
-				if (curOption.type == INT)
-					curOption.setValue(Math.round(value));
-				else
-					curOption.setValue(
-						FlxMath.roundDecimal(value, curOption.decimals)
-					);
-
-			case STRING:
-				if (curOption.options == null || curOption.options.length == 0)
-					return;
-
-				var num:Int = curOption.curOption + direction;
-
-				if (num < 0)
-					num = curOption.options.length - 1;
-				else if (num >= curOption.options.length)
-					num = 0;
-
-				curOption.curOption = num;
-				curOption.setValue(curOption.options[num]);
-
-			default:
-				return;
-		}
-
-		updateTextFrom(curOption);
-		curOption.change();
-		FlxG.sound.play(Paths.sound('scrollMenu'));
-	}
-
-	function bindingKeyUpdate(elapsed:Float)
-	{
-		if (FlxG.keys.pressed.ESCAPE || FlxG.gamepads.anyPressed(B))
-		{
-			holdingEsc += elapsed;
-
-			if (holdingEsc > 0.5)
-			{
-				FlxG.sound.play(Paths.sound('cancelMenu'));
-				closeBinding();
-			}
-		}
-		else if (FlxG.keys.pressed.BACKSPACE || FlxG.gamepads.anyPressed(BACK))
-		{
-			holdingEsc += elapsed;
-
-			if (holdingEsc > 0.5)
-			{
-				if (!controls.controllerMode)
-					curOption.keys.keyboard = NONE;
-				else
-					curOption.keys.gamepad = NONE;
-
-				updateBind(
-					!controls.controllerMode
-						? InputFormatter.getKeyName(NONE)
-						: InputFormatter.getGamepadName(NONE)
-				);
-
-				FlxG.sound.play(Paths.sound('cancelMenu'));
-				closeBinding();
-			}
-		}
+		if (FlxG.save.data.modSettings == null)
+			FlxG.save.data.modSettings = new Map<String, Dynamic>();
 		else
 		{
-			holdingEsc = 0;
-			var changed:Bool = false;
-
-			if (!controls.controllerMode)
-			{
-				if (FlxG.keys.justPressed.ANY || FlxG.keys.justReleased.ANY)
-				{
-					var keyPressed:FlxKey =
-						cast (FlxG.keys.firstJustPressed(), FlxKey);
-					var keyReleased:FlxKey =
-						cast (FlxG.keys.firstJustReleased(), FlxKey);
-
-					if (keyPressed != NONE && keyPressed != ESCAPE
-						&& keyPressed != BACKSPACE)
-					{
-						changed = true;
-						curOption.keys.keyboard = keyPressed;
-					}
-					else if (keyReleased != NONE
-						&& (keyReleased == ESCAPE || keyReleased == BACKSPACE))
-					{
-						changed = true;
-						curOption.keys.keyboard = keyReleased;
-					}
-				}
-			}
-			else if (
-				FlxG.gamepads.anyJustPressed(ANY)
-				|| FlxG.gamepads.anyJustPressed(LEFT_TRIGGER)
-				|| FlxG.gamepads.anyJustPressed(RIGHT_TRIGGER)
-				|| FlxG.gamepads.anyJustReleased(ANY)
-			)
-			{
-				var keyPressed:FlxGamepadInputID = NONE;
-				var keyReleased:FlxGamepadInputID = NONE;
-
-				if (FlxG.gamepads.anyJustPressed(LEFT_TRIGGER))
-					keyPressed = LEFT_TRIGGER;
-				else if (FlxG.gamepads.anyJustPressed(RIGHT_TRIGGER))
-					keyPressed = RIGHT_TRIGGER;
-				else
-				{
-					for (i in 0...FlxG.gamepads.numActiveGamepads)
-					{
-						var gamepad:FlxGamepad = FlxG.gamepads.getByID(i);
-
-						if (gamepad != null)
-						{
-							keyPressed = gamepad.firstJustPressedID();
-							keyReleased = gamepad.firstJustReleasedID();
-
-							if (keyPressed != NONE || keyReleased != NONE)
-								break;
-						}
-					}
-				}
-
-				if (keyPressed != NONE
-					&& keyPressed != FlxGamepadInputID.BACK
-					&& keyPressed != FlxGamepadInputID.B)
-				{
-					changed = true;
-					curOption.keys.gamepad = keyPressed;
-				}
-				else if (keyReleased != NONE
-					&& (keyReleased == FlxGamepadInputID.BACK
-						|| keyReleased == FlxGamepadInputID.B))
-				{
-					changed = true;
-					curOption.keys.gamepad = keyReleased;
-				}
-			}
-
-			if (changed)
-			{
-				var key:String = null;
-
-				if (!controls.controllerMode)
-				{
-					if (curOption.keys.keyboard == null)
-						curOption.keys.keyboard = 'NONE';
-
-					curOption.setValue(curOption.keys.keyboard);
-					key = InputFormatter.getKeyName(
-						FlxKey.fromString(curOption.keys.keyboard)
-					);
-				}
-				else
-				{
-					if (curOption.keys.gamepad == null)
-						curOption.keys.gamepad = 'NONE';
-
-					curOption.setValue(curOption.keys.gamepad);
-					key = InputFormatter.getGamepadName(
-						FlxGamepadInputID.fromString(curOption.keys.gamepad)
-					);
-				}
-
-				updateBind(key);
-				FlxG.sound.play(Paths.sound('confirmMenu'));
-				closeBinding();
-			}
+			var saveMap:Map<String, Dynamic> = FlxG.save.data.modSettings;
+			save = saveMap[folder] != null ? saveMap[folder] : new Map<String, Dynamic>();
 		}
-	}
 
-	final MAX_KEYBIND_WIDTH = 320;
-
-	function updateBind(?text:String = null, ?option:Option = null)
-	{
-		if (option == null)
-			option = curOption;
-
-		if (text == null)
+		try
 		{
-			text = option.getValue();
-			if (text == null) text = 'NONE';
-
-			if (!controls.controllerMode)
-				text = InputFormatter.getKeyName(FlxKey.fromString(text));
-			else
-				text = InputFormatter.getGamepadName(
-					FlxGamepadInputID.fromString(text)
+			for (option in options)
+			{
+				var newOption = new Option(
+					option.name != null ? option.name : option.save,
+					option.description != null ? option.description : 'No description provided.',
+					option.save,
+					convertType(option.type),
+					option.options,
+					option.translation_key
 				);
-		}
 
-		var bind:AttachedText = cast option.child;
-		if (bind == null)
-			return;
+				switch (newOption.type)
+				{
+					case KEYBIND:
+						var keyboardStr:String = option.keyboard;
+						var gamepadStr:String = option.gamepad;
 
-		var attach:AttachedText = new AttachedText(text, bind.offsetX);
-		attach.sprTracker = bind.sprTracker;
-		attach.copyAlpha = true;
-		attach.ID = bind.ID;
+						if (keyboardStr == null) keyboardStr = 'NONE';
+						if (gamepadStr == null) gamepadStr = 'NONE';
 
-		playstationCheck(attach);
+						newOption.defaultKeys.keyboard = keyboardStr;
+						newOption.defaultKeys.gamepad = gamepadStr;
 
-		attach.scaleX = Math.min(1, MAX_KEYBIND_WIDTH / attach.width);
-		attach.x = bind.x;
-		attach.y = bind.y;
+						if (save.get(option.save) == null)
+						{
+							newOption.keys.keyboard = keyboardStr;
+							newOption.keys.gamepad = gamepadStr;
+							save.set(option.save, newOption.keys);
+						}
 
-		option.child = attach;
-		grpTexts.insert(grpTexts.members.indexOf(bind), attach);
-		grpTexts.remove(bind);
-		bind.destroy();
-	}
+						@:privateAccess
+						{
+							newOption.getValue = function()
+							{
+								var data = save.get(newOption.variable);
 
-	function playstationCheck(alpha:Alphabet)
-	{
-		if (!controls.controllerMode)
-			return;
+								if (data == null)
+									return 'NONE';
 
-		var gamepad:FlxGamepad = FlxG.gamepads.firstActive;
-		var model:FlxGamepadModel = gamepad != null
-			? gamepad.detectedModel
-			: UNKNOWN;
+								return !Controls.instance.controllerMode
+									? data.keyboard
+									: data.gamepad;
+							};
 
-		var letter = alpha.letters[0];
+							newOption.setValue = function(value:Dynamic)
+							{
+								var data = save.get(newOption.variable);
 
-		if (model == PS4)
-		{
-			switch (alpha.text)
-			{
-				case '[', ']':
-					letter.image = 'alphabet_playstation';
-					letter.updateHitbox();
-					letter.offset.x += 4;
-					letter.offset.y -= 5;
+								if (data == null)
+									data = {keyboard: 'NONE', gamepad: 'NONE'};
+
+								if (!controls.controllerMode)
+									data.keyboard = value;
+								else
+									data.gamepad = value;
+
+								save.set(newOption.variable, data);
+							};
+						}
+
+					default:
+						if (option.value != null)
+							newOption.defaultValue = option.value;
+
+						@:privateAccess
+						{
+							newOption.getValue = function()
+								return save.get(newOption.variable);
+
+							newOption.setValue = function(value:Dynamic)
+								save.set(newOption.variable, value);
+						}
+				}
+
+				if (newOption.type != KEYBIND)
+				{
+					if (option.format != null)
+						newOption.displayFormat = option.format;
+
+					if (option.min != null)
+						newOption.minValue = option.min;
+
+					if (option.max != null)
+						newOption.maxValue = option.max;
+
+					if (option.step != null)
+						newOption.changeValue = option.step;
+
+					if (option.scroll != null)
+						newOption.scrollSpeed = option.scroll;
+
+					if (option.decimals != null)
+						newOption.decimals = option.decimals;
+
+					var myValue:Dynamic = null;
+
+					if (save.get(option.save) != null)
+					{
+						myValue = save.get(option.save);
+						newOption.setValue(myValue);
+					}
+					else
+					{
+						myValue = newOption.defaultValue;
+						newOption.setValue(myValue);
+					}
+
+					switch (newOption.type)
+					{
+						case STRING:
+							if (newOption.options != null)
+							{
+								var num:Int = newOption.options.indexOf(myValue);
+
+								if (num > -1)
+									newOption.curOption = num;
+							}
+
+						default:
+					}
+
+					save.set(option.save, myValue);
+				}
+
+				addOption(newOption);
 			}
 		}
-	}
-
-	function closeBinding()
-	{
-		bindingKey = false;
-
-		if (bindingBlack != null)
+		catch (e:Dynamic)
 		{
-			bindingBlack.destroy();
-			remove(bindingBlack);
-		}
+			var errorTitle = 'Mod name: ' + folder;
+			var errorMsg = 'An error occurred: $e';
 
-		if (bindingText != null)
-		{
-			bindingText.destroy();
-			remove(bindingText);
-		}
+			#if windows
+			lime.app.Application.current.window.alert(errorMsg, errorTitle);
+			#end
 
-		if (bindingText2 != null)
-		{
-			bindingText2.destroy();
-			remove(bindingText2);
-		}
+			trace('$errorTitle - $errorMsg');
 
-		ClientPrefs.toggleVolumeKeys(true);
-	}
-
-	function updateTextFrom(option:Option)
-	{
-		if (option.type == BUTTON)
-			return;
-
-		if (option.type == KEYBIND)
-		{
-			updateBind(option);
+			_crashed = true;
+			close();
 			return;
 		}
 
-		var text:String = option.displayFormat;
-		var val:Dynamic = option.getValue();
+		super();
 
-		if (option.type == PERCENT)
-			val *= 100;
+		bg.alpha = 0.75;
+		bg.color = FlxColor.WHITE;
 
-		var def:Dynamic = option.defaultValue;
-		option.text = text.replace('%v', Std.string(val))
-			.replace('%d', Std.string(def));
+		reloadCheckboxes();
 	}
 
-	function changeSelection(change:Int = 0)
+	private function convertType(str:String):OptionType
 	{
-		if (optionsArray == null || optionsArray.length == 0)
+		switch (str.toLowerCase().trim())
+		{
+			case 'bool':
+				return BOOL;
+
+			case 'int', 'integer':
+				return INT;
+
+			case 'float', 'fl':
+				return FLOAT;
+
+			case 'percent':
+				return PERCENT;
+
+			case 'string', 'str':
+				return STRING;
+
+			case 'keybind', 'key':
+				return KEYBIND;
+		}
+
+		FlxG.log.error('Could not find option type: ' + str);
+		return BOOL;
+	}
+
+	override public function update(elapsed:Float)
+	{
+		if (_crashed)
+		{
+			close();
 			return;
-
-		curSelected = FlxMath.wrap(
-			curSelected + change,
-			0,
-			optionsArray.length - 1
-		);
-
-		descText.text = optionsArray[curSelected].description;
-		descText.screenCenter(Y);
-		descText.y += 270;
-
-		for (num => item in grpOptions.members)
-		{
-			item.targetY = num - curSelected;
-			item.alpha = item.targetY == 0 ? 1 : 0.6;
 		}
 
-		for (text in grpTexts)
-		{
-			text.alpha = text.ID == curSelected ? 1 : 0.6;
-		}
-
-		descBox.setPosition(descText.x - 10, descText.y - 10);
-		descBox.setGraphicSize(
-			Std.int(descText.width + 20),
-			Std.int(descText.height + 25)
-		);
-		descBox.updateHitbox();
-
-		curOption = optionsArray[curSelected];
-		FlxG.sound.play(Paths.sound('scrollMenu'));
+		super.update(elapsed);
 	}
 
-	function reloadCheckboxes()
+	override public function close()
 	{
-		for (checkbox in checkboxGroup)
-		{
-			checkbox.daValue =
-				Std.string(optionsArray[checkbox.ID].getValue()) == 'true';
-		}
+		if (FlxG.save.data.modSettings == null)
+			FlxG.save.data.modSettings = new Map<String, Dynamic>();
+
+		FlxG.save.data.modSettings.set(folder, save);
+		FlxG.save.flush();
+
+		super.close();
 	}
 }
