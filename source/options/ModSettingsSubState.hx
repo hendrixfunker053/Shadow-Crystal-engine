@@ -14,11 +14,6 @@ class ModSettingsSubState extends BaseOptionsMenu
 	var folder:String;
 	private var _crashed:Bool = false;
 
-	#if mobile
-	private var touchStartY:Float = 0;
-	private var trackingTouch:Bool = false;
-	#end
-
 	public function new(options:Array<Dynamic>, folder:String, name:String)
 	{
 		this.folder = folder;
@@ -210,34 +205,6 @@ class ModSettingsSubState extends BaseOptionsMenu
 		return BOOL;
 	}
 
-	#if mobile
-	private function handleModSettingsTouch():Void
-	{
-		for (touch in FlxG.touches.list)
-		{
-			if (touch.justPressed)
-			{
-				touchStartY = touch.screenY;
-				trackingTouch = true;
-			}
-			else if (touch.justReleased && trackingTouch)
-			{
-				var distance:Float = touch.screenY - touchStartY;
-
-				if (Math.abs(distance) >= 50)
-				{
-					if (distance < 0)
-						changeSelection(1);
-					else
-						changeSelection(-1);
-				}
-
-				trackingTouch = false;
-			}
-		}
-	}
-	#end
-
 	override public function update(elapsed:Float)
 	{
 		if (_crashed)
@@ -246,10 +213,7 @@ class ModSettingsSubState extends BaseOptionsMenu
 			return;
 		}
 
-		#if mobile
-		handleModSettingsTouch();
-		#end
-
+		// Los gestos táctiles se procesan en BaseOptionsMenu.
 		super.update(elapsed);
 	}
 
