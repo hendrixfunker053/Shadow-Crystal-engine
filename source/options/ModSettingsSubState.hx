@@ -24,6 +24,8 @@ class ModSettingsSubState extends BaseOptionsMenu
 	var accumX:Float = 0;
 	var accumY:Float = 0;
 	var dragAxis:Int = 0; // 0 = nada, 1 = vertical, 2 = horizontal
+	var dragging:Bool = false;
+	var usingMouse:Bool = false; // en algunos builds el touch llega como mouse
 	static inline var TAP_DIST:Float = 20;
 	static inline var STEP_Y:Float = 45;
 	static inline var STEP_X:Float = 50;
@@ -207,34 +209,51 @@ class ModSettingsSubState extends BaseOptionsMenu
 	// ------------------------------------------------------------
 	// Touch controls
 	// ------------------------------------------------------------
+	inline function ptX():Float return usingMouse ? FlxG.mouse.screenX : activeTouch.screenX;
+	inline function ptY():Float return usingMouse ? FlxG.mouse.screenY : activeTouch.screenY;
+	inline function ptDown():Bool return usingMouse ? FlxG.mouse.pressed : activeTouch.pressed;
+
+	function startDrag()
+	{
+		dragging = true;
+		lastTX = ptX();
+		lastTY = ptY();
+		totalTX = totalTY = accumX = accumY = 0;
+		dragAxis = 0;
+	}
+
 	function updateTouch()
 	{
 		if(curOption == null) return;
 
-		if(activeTouch == null)
+		if(!dragging)
 		{
 			for(t in FlxG.touches.list)
 			{
 				if(t.justPressed)
 				{
 					activeTouch = t;
-					lastTX = t.screenX;
-					lastTY = t.screenY;
-					totalTX = totalTY = accumX = accumY = 0;
-					dragAxis = 0;
-					break;
+					usingMouse = false;
+					startDrag();
+					return;
 				}
+			}
+			// respaldo: si el touch llega como mouse
+			if(FlxG.mouse.justPressed)
+			{
+				activeTouch = null;
+				usingMouse = true;
+				startDrag();
 			}
 			return;
 		}
 
-		var t = activeTouch;
-		if(t.pressed)
+		if(ptDown())
 		{
-			var dx = t.screenX - lastTX;
-			var dy = t.screenY - lastTY;
-			lastTX = t.screenX;
-			lastTY = t.screenY;
+			var dx = ptX() - lastTX;
+			var dy = ptY() - lastTY;
+			lastTX = ptX();
+			lastTY = ptY();
 			totalTX += dx;
 			totalTY += dy;
 
@@ -255,20 +274,25 @@ class ModSettingsSubState extends BaseOptionsMenu
 				while(accumX >= STEP_X) { accumX -= STEP_X; changeValueTouch(1); }
 			}
 		}
-		else if(t.justReleased)
+		else
 		{
-			if(dragAxis == 0) handleTap(t);
+			// se soltó el dedo
+			if(dragAxis == 0) handleTap();
+			dragging = false;
 			activeTouch = null;
 			dragAxis = 0;
 		}
 	}
 
-	function handleTap(t:FlxTouch)
+	function handleTap()
 	{
 		for(i in 0...grpOptions.members.length)
 		{
 			var item = grpOptions.members[i];
-			if(item != null && t.overlaps(item, item.camera))
+			if(item == null) continue;
+
+			var hit:Bool = usingMouse ? FlxG.mouse.overlaps(item, item.camera) : activeTouch.overlaps(item, item.camera);
+			if(hit)
 			{
 				if(i != curSelected) changeSelection(i - curSelected);
 				else if(curOption.type == BOOL) toggleBoolTouch();
