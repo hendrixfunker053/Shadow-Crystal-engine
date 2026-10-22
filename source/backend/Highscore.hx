@@ -1,3 +1,4 @@
+
 package backend;
 
 class Highscore
@@ -5,6 +6,83 @@ class Highscore
 	public static var weekScores:Map<String, Int> = new Map();
 	public static var songScores:Map<String, Int> = new Map<String, Int>();
 	public static var songRating:Map<String, Float> = new Map<String, Float>();
+
+	/**
+	 * Crea una clave de puntuación personalizada.
+	 * Ejemplos:
+	 * blissful-erect
+	 * blissful-nightmare
+	 */
+	public static function formatCustomSong(song:String, difficulty:String):String
+	{
+		return Paths.formatToSongPath(song)
+			+ "-"
+			+ Paths.formatToSongPath(difficulty);
+	}
+
+	public static function resetCustomSong(song:String, difficulty:String):Void
+	{
+		var key:String = formatCustomSong(song, difficulty);
+		setScore(key, 0);
+		setRating(key, 0);
+	}
+
+	public static function saveCustomScore(
+		song:String,
+		score:Int = 0,
+		difficulty:String = "normal",
+		?rating:Float = -1
+	):Void
+	{
+		if (song == null)
+			return;
+
+		var key:String = formatCustomSong(song, difficulty);
+
+		if (songScores.exists(key))
+		{
+			if (songScores.get(key) < score)
+			{
+				setScore(key, score);
+
+				if (rating >= 0)
+					setRating(key, rating);
+			}
+		}
+		else
+		{
+			setScore(key, score);
+
+			if (rating >= 0)
+				setRating(key, rating);
+		}
+	}
+
+	public static function getCustomScore(
+		song:String,
+		difficulty:String
+	):Int
+	{
+		var key:String = formatCustomSong(song, difficulty);
+
+		if (!songScores.exists(key))
+			setScore(key, 0);
+
+		return songScores.get(key);
+	}
+
+	public static function getCustomRating(
+		song:String,
+		difficulty:String
+	):Float
+	{
+		var key:String = formatCustomSong(song, difficulty);
+
+		if (!songRating.exists(key))
+			setRating(key, 0);
+
+		return songRating.get(key);
+	}
 
 	public static function resetSong(song:String, diff:Int = 0):Void
 	{
@@ -19,9 +97,16 @@ class Highscore
 		setWeekScore(daWeek, 0);
 	}
 
-	public static function saveScore(song:String, score:Int = 0, ?diff:Int = 0, ?rating:Float = -1):Void
+	public static function saveScore(
+		song:String,
+		score:Int = 0,
+		?diff:Int = 0,
+		?rating:Float = -1
+	):Void
 	{
-		if(song == null) return;
+		if (song == null)
+			return;
+
 		var daSong:String = formatSong(song, diff);
 
 		if (songScores.exists(daSong))
@@ -29,17 +114,25 @@ class Highscore
 			if (songScores.get(daSong) < score)
 			{
 				setScore(daSong, score);
-				if(rating >= 0) setRating(daSong, rating);
+
+				if (rating >= 0)
+					setRating(daSong, rating);
 			}
 		}
 		else
 		{
 			setScore(daSong, score);
-			if(rating >= 0) setRating(daSong, rating);
+
+			if (rating >= 0)
+				setRating(daSong, rating);
 		}
 	}
 
-	public static function saveWeekScore(week:String, score:Int = 0, ?diff:Int = 0):Void
+	public static function saveWeekScore(
+		week:String,
+		score:Int = 0,
+		?diff:Int = 0
+	):Void
 	{
 		var daWeek:String = formatSong(week, diff);
 
@@ -48,22 +141,21 @@ class Highscore
 			if (weekScores.get(daWeek) < score)
 				setWeekScore(daWeek, score);
 		}
-		else setWeekScore(daWeek, score);
+		else
+		{
+			setWeekScore(daWeek, score);
+		}
 	}
 
-	/**
-	 * YOU SHOULD FORMAT SONG WITH formatSong() BEFORE TOSSING IN SONG VARIABLE
-	 */
 	static function setScore(song:String, score:Int):Void
 	{
-		// Reminder that I don't need to format this song, it should come formatted!
 		songScores.set(song, score);
 		FlxG.save.data.songScores = songScores;
 		FlxG.save.flush();
 	}
+
 	static function setWeekScore(week:String, score:Int):Void
 	{
-		// Reminder that I don't need to format this song, it should come formatted!
 		weekScores.set(week, score);
 		FlxG.save.data.weekScores = weekScores;
 		FlxG.save.flush();
@@ -71,7 +163,6 @@ class Highscore
 
 	static function setRating(song:String, rating:Float):Void
 	{
-		// Reminder that I don't need to format this song, it should come formatted!
 		songRating.set(song, rating);
 		FlxG.save.data.songRating = songRating;
 		FlxG.save.flush();
@@ -85,6 +176,7 @@ class Highscore
 	public static function getScore(song:String, diff:Int):Int
 	{
 		var daSong:String = formatSong(song, diff);
+
 		if (!songScores.exists(daSong))
 			setScore(daSong, 0);
 
@@ -94,6 +186,7 @@ class Highscore
 	public static function getRating(song:String, diff:Int):Float
 	{
 		var daSong:String = formatSong(song, diff);
+
 		if (!songRating.exists(daSong))
 			setRating(daSong, 0);
 
@@ -103,6 +196,7 @@ class Highscore
 	public static function getWeekScore(week:String, diff:Int):Int
 	{
 		var daWeek:String = formatSong(week, diff);
+
 		if (!weekScores.exists(daWeek))
 			setWeekScore(daWeek, 0);
 
