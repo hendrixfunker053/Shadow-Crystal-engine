@@ -439,9 +439,50 @@ class PauseSubState extends MusicBeatSubstate
 		}
 	}
 
+	/**
+	 * Obtiene el nombre base de la canción para evitar que una chart personalizada
+	 * convierta "song-hard" en "song-erect-hard".
+	 *
+	 * Solo elimina los sufijos de variante si el estado actual indica que se está
+	 * jugando una dificultad personalizada.
+	 */
+	function getBaseSongName():String
+	{
+		var baseSong:String = Paths.formatToSongPath(PlayState.SONG.song);
+
+		if (FreeplayState.currentCustomDifficulty != null)
+		{
+			var customChart:String = FreeplayState.currentCustomChart;
+
+			if (customChart != null && customChart != '')
+			{
+				var normalizedChart:String = Paths.formatToSongPath(customChart);
+
+				// Elimina únicamente el sufijo de dificultad personalizado conocido.
+				if (StringTools.endsWith(normalizedChart, '-erect-nightmare'))
+					baseSong = normalizedChart.substr(0, normalizedChart.length - '-erect-nightmare'.length);
+				else if (StringTools.endsWith(normalizedChart, '-erect-erect'))
+					baseSong = normalizedChart.substr(0, normalizedChart.length - '-erect-erect'.length);
+				else if (StringTools.endsWith(normalizedChart, '-nightmare'))
+					baseSong = normalizedChart.substr(0, normalizedChart.length - '-nightmare'.length);
+				else if (StringTools.endsWith(normalizedChart, '-erect'))
+					baseSong = normalizedChart.substr(0, normalizedChart.length - '-erect'.length);
+			}
+			else
+			{
+				if (StringTools.endsWith(baseSong, '-erect'))
+					baseSong = baseSong.substr(0, baseSong.length - '-erect'.length);
+				else if (StringTools.endsWith(baseSong, '-nightmare'))
+					baseSong = baseSong.substr(0, baseSong.length - '-nightmare'.length);
+			}
+		}
+
+		return baseSong;
+	}
+
 	function loadChosenDifficulty(selected:String):Bool
 	{
-		var songLowercase:String = Paths.formatToSongPath(PlayState.SONG.song);
+		var songLowercase:String = getBaseSongName();
 
 		try
 		{
@@ -526,6 +567,7 @@ class PauseSubState extends MusicBeatSubstate
 				if (selectedIndex < 0)
 					throw 'Dificultad desconocida: $selected';
 
+				// Usar el nombre base, no el nombre de la variante Erect/Nightmare.
 				var chartName:String = Highscore.formatSong(songLowercase, selectedIndex);
 				Song.loadFromJson(chartName, songLowercase);
 
