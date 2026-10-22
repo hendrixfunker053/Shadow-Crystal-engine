@@ -4,6 +4,10 @@ import backend.WeekData;
 import backend.Mods;
 
 import flixel.FlxBasic;
+import flixel.FlxCamera;
+import flixel.graphics.frames.FlxAtlasFrames;
+import flixel.math.FlxPoint;
+import animate.FlxAnimate; // spritemaps de Adobe Animate (si tu fork usa la librería vieja: import flxanimate.FlxAnimate;)
 import flixel.graphics.FlxGraphic;
 import flixel.group.FlxSpriteGroup;
 import flixel.math.FlxMath;
@@ -95,8 +99,8 @@ class ModsMenuState extends MusicBeatState
 	var bg:FlxSprite;
 	var bgWires:FlxSprite;
 	var battery:FlxSprite;
-	var charBF:FlxSprite;
-	var charGF:FlxSprite;
+	var charBF:ModsMenuChar;
+	var charGF:ModsMenuChar;
 	var smokeBF:FlxSprite;
 	var smokeGF:FlxSprite;
 	var smokeCloud:FlxSprite;
@@ -208,6 +212,12 @@ class ModsMenuState extends MusicBeatState
 			[8, 9, 10, 11, 12, 8, 13, 14, 12, 15, 11, 10, 13, 8, 13, 12, 11, 8, 9, 10, 11, 12, 8, 13, 14, 12, 15, 11, 10, 13, 8, 13, 12, 11, 8, 9, 10, 11, 12, 8, 13, 14, 12, 15, 11, 10, 13, 8, 13, 12, 11, 8, 9, 10, 11, 12, 8, 13, 14, 12],
 			[16, 17, 18, 19, 20, 21, 22, 23]);
 
+		// Personajes de mods: misma posición que en V-Slice (BF = batería + (-119, 50), GF = BF - 166)
+		charBF.modHomeX = battery.x - 119;
+		charBF.modHomeY = battery.y + 50;
+		charGF.modHomeX = charBF.modHomeX - 166;
+		charGF.modHomeY = charBF.modHomeY;
+
 		// Humo de los chamuscados (aparece al terminar la electrocución)
 		smokeBF = makeCrispySmoke(charBF.x + 70, charBF.y - 180, 13);
 		smokeGF = makeCrispySmoke(charGF.x + 70, charGF.y - 180, 0);
@@ -311,6 +321,12 @@ class ModsMenuState extends MusicBeatState
 
 		for (list in [disabledList, enabledList]) list.snapAll();
 
+		// Personajes según los mods ENABLED al abrir el menú
+		applyCharacter(charBF, 'bf');
+		applyCharacter(charGF, 'gf');
+		placeSmoke(smokeBF, charBF);
+		placeSmoke(smokeGF, charGF);
+
 		if(selectedItem == null)
 		{
 			if(disabledList.items.length > 0) selectedItem = disabledList.items[0];
@@ -347,16 +363,39 @@ class ModsMenuState extends MusicBeatState
 		add(title);
 	}
 
-	function makeChar(name:String, x:Float, y:Float, idle:Array<Int>, shock:Array<Int>, crispy:Array<Int>):FlxSprite
+	function makeChar(name:String, x:Float, y:Float, idle:Array<Int>, shock:Array<Int>, crispy:Array<Int>):ModsMenuChar
 	{
-		var spr:FlxSprite = new FlxSprite(x, y);
-		spr.frames = Paths.getSparrowAtlas('modsMenu/char_' + name);
-		spr.animation.add('idle', idle, 24, true);
-		spr.animation.add('shock', shock, 24, true);
-		spr.animation.add('crispy', crispy, 24, false);
-		spr.animation.play('idle');
-		spr.antialiasing = ClientPrefs.data.antialiasing;
+		var spr:ModsMenuChar = new ModsMenuChar(x, y, name);
+		spr.setBuiltin(idle, shock, crispy);
 		return spr;
+	}
+
+	/** Primer mod ENABLED (de arriba a abajo = más prioridad) que trae ese personaje; '' = el del juego. */
+	function pickCharMod(name:String):String
+	{
+		for (it in enabledList.items)
+		{
+			if(it.isBase) continue;
+			if(ModsMenuChar.modHasChar(it.folder, name)) return it.folder;
+		}
+		return '';
+	}
+
+	/** Pone en `c` el personaje del mod que corresponda. Devuelve true si cambió respecto al anterior. */
+	function applyCharacter(c:ModsMenuChar, name:String):Bool
+	{
+		var before:String = c.modFolder;
+		var mod:String = pickCharMod(name);
+		if(mod == before) return false;
+		if(mod == '' || !c.loadMod(mod)) c.applyBuiltin();
+		return c.modFolder != before;
+	}
+
+	function placeSmoke(smoke:FlxSprite, c:ModsMenuChar):Void
+	{
+		smoke.scale.set(c.smokeScaleX, c.smokeScaleY);
+		smoke.updateHitbox();
+		smoke.setPosition(c.x + 70 + c.smokeOffX, c.y - 180 + c.smokeOffY);
 	}
 
 	function makeCrispySmoke(x:Float, y:Float, startFrame:Int):FlxSprite
@@ -810,8 +849,8 @@ class ModsMenuState extends MusicBeatState
 		saveTxt(); // guardamos ya, por si se cierra el juego durante la secuencia
 
 		shockSound = playSafeSound('modsMenu/sparks/electrocution', 0.8);
-		charBF.animation.play('shock', true);
-		charGF.animation.play('shock', true);
+		charBF.playAnim('shock', true);
+		charGF.playAnim('shock', true);
 		battery.animation.resume();
 		sparks.startElectrocution();
 
@@ -831,8 +870,16 @@ class ModsMenuState extends MusicBeatState
 		sparks.endElectrocution();
 		battery.animation.pause();
 
-		charBF.animation.play('crispy', true);
-		charGF.animation.play('crispy', true);
+		// Como V-Slice: al terminar la electrocución se aplican los personajes de la lista final.
+		// Si cambiaron (otro mod), salen en idle y sin humo; si siguen igual, quedan chamuscados.
+		var bfChanged:Bool = applyCharacter(charBF, 'bf');
+		var gfChanged:Bool = applyCharacter(charGF, 'gf');
+		placeSmoke(smokeBF, charBF);
+		placeSmoke(smokeGF, charGF);
+		var bfCrispy:Bool = !bfChanged && charBF.hasAnim('crispy');
+		var gfCrispy:Bool = !gfChanged && charGF.hasAnim('crispy');
+		charBF.playAnim(bfCrispy ? 'crispy' : 'idle', true);
+		charGF.playAnim(gfCrispy ? 'crispy' : 'idle', true);
 
 		smokeCloud.visible = true;
 		smokeCloud.alpha = 1;
@@ -843,7 +890,8 @@ class ModsMenuState extends MusicBeatState
 		playSafeSound('modsMenu/smoke-cloud', 0.8);
 		playSafeSound('modsMenu/crispy', 0.8);
 
-		smokeBF.visible = smokeGF.visible = true;
+		smokeBF.visible = bfCrispy;
+		smokeGF.visible = gfCrispy;
 
 		new FlxTimer().start(CRISPY_TIME, function(_) leaveMenu());
 	}
@@ -1279,6 +1327,301 @@ class ModItem extends FlxSpriteGroup
 			var sy:Float = (m.scale.y == 0) ? 1 : m.scale.y;
 			m.clipRect = new FlxRect(0, cutTop / sy, m.frameWidth, (h - cutTop - cutBot) / sy);
 		}
+	}
+}
+
+// =======================================================================
+// Personaje del menú (BF / GF). Puede ser:
+//  - el del juego: atlas prerenderizado 'modsMenu/char_<bf|gf>' con animaciones por índices de frames, o
+//  - uno de un mod, en mods/<mod>/images/modsMenu/:
+//      char_<bf|gf>/Animation.json + spritemap1.json/.png  -> spritemap de Adobe Animate (si existe, tiene prioridad)
+//      char_<bf|gf>.png + char_<bf|gf>.xml                 -> Sparrow (si no hay spritemap)
+//      char_<bf|gf>.json (opcional)                        -> escala, offsets, animaciones, humo (formato de V-Slice)
+// Animaciones: idle, electrocuted (= 'shock'), crispy, crispy-loop.
+// =======================================================================
+class ModsMenuChar extends FlxSprite
+{
+	public var charName:String;
+	public var modFolder:String = ''; // '' = personaje del juego
+	public var isAtlas(default, null):Bool = false;
+	public var curName:String = '';
+
+	// Posición del personaje del mod (la del juego es la del constructor)
+	public var modHomeX:Float = 0;
+	public var modHomeY:Float = 0;
+
+	// Humo de chamuscado
+	public var smokeOffX:Float = 0;
+	public var smokeOffY:Float = 0;
+	public var smokeScaleX:Float = 0.5;
+	public var smokeScaleY:Float = 0.5;
+
+	var homeX:Float;
+	var homeY:Float;
+	var atlas:FlxAnimate = null;
+	var animOffsets:Map<String, Array<Float>> = new Map();
+	var globalOffX:Float = 0;
+	var globalOffY:Float = 0;
+	var curOffX:Float = 0;
+	var curOffY:Float = 0;
+	var startFrame:Int = 0;
+	var startFrameUsed:Bool = false;
+	var idleLoops:Bool = true;
+	var idleWait:Float = 2;
+
+	var bIdle:Array<Int>;
+	var bShock:Array<Int>;
+	var bCrispy:Array<Int>;
+
+	public function new(x:Float, y:Float, name:String)
+	{
+		super(x, y);
+		homeX = x;
+		homeY = y;
+		charName = name;
+		antialiasing = ClientPrefs.data.antialiasing;
+	}
+
+	public static function modHasChar(folder:String, name:String):Bool
+	{
+		var base:String = Paths.mods(folder + '/images/modsMenu/char_' + name);
+		return FileSystem.exists(base + '/Animation.json') || (FileSystem.exists(base + '.xml') && FileSystem.exists(base + '.png'));
+	}
+
+	public function setBuiltin(idle:Array<Int>, shock:Array<Int>, crispy:Array<Int>):Void
+	{
+		bIdle = idle;
+		bShock = shock;
+		bCrispy = crispy;
+		applyBuiltin();
+	}
+
+	function resetState():Void
+	{
+		if(atlas != null)
+		{
+			atlas.destroy();
+			atlas = null;
+		}
+		isAtlas = false;
+		animation.destroyAnimations();
+		animOffsets = new Map();
+		globalOffX = globalOffY = curOffX = curOffY = 0;
+		smokeOffX = smokeOffY = 0;
+		smokeScaleX = smokeScaleY = 0.5;
+		startFrame = 0;
+		startFrameUsed = false;
+		idleLoops = true;
+		idleWait = 2;
+		scale.set(1, 1);
+		setPosition(homeX, homeY);
+		curName = '';
+		modFolder = '';
+	}
+
+	/** Vuelve al personaje incluido en el juego. */
+	public function applyBuiltin():Void
+	{
+		resetState();
+		frames = Paths.getSparrowAtlas('modsMenu/char_' + charName);
+		animation.add('idle', bIdle, 24, true);
+		animation.add('shock', bShock, 24, true);
+		animation.add('crispy', bCrispy, 24, false);
+		playAnim('idle', true);
+	}
+
+	/** Carga el personaje de un mod. Devuelve false (y no cambia nada raro) si falla. */
+	public function loadMod(folder:String):Bool
+	{
+		var base:String = Paths.mods(folder + '/images/modsMenu/char_' + charName);
+		var useAtlas:Bool = FileSystem.exists(base + '/Animation.json');
+		if(!useAtlas && !(FileSystem.exists(base + '.xml') && FileSystem.exists(base + '.png'))) return false;
+
+		var data:Dynamic = null;
+		if(FileSystem.exists(base + '.json'))
+		{
+			try { data = Json.parse(File.getContent(base + '.json')); }
+			catch(e:Dynamic) { trace('JSON del personaje inválido ($base.json): $e'); }
+		}
+
+		try
+		{
+			resetState();
+			modFolder = folder;
+			setPosition(modHomeX, modHomeY);
+
+			if(useAtlas)
+			{
+				var a:FlxAnimate = new FlxAnimate();
+				// Paths resuelve las rutas con el mod "actual"; lo cambiamos solo durante la carga
+				var prev:String = Mods.currentModDirectory;
+				Mods.currentModDirectory = folder;
+				try { Paths.loadAnimateAtlas(a, 'modsMenu/char_' + charName); }
+				catch(e:Dynamic)
+				{
+					Mods.currentModDirectory = prev;
+					a.destroy();
+					throw e;
+				}
+				Mods.currentModDirectory = prev;
+				atlas = a;
+				isAtlas = true;
+			}
+			else
+			{
+				var png:String = base + '.png';
+				var graphic:FlxGraphic = Paths.cacheBitmap(png, BitmapData.fromFile(png));
+				frames = FlxAtlasFrames.fromSparrow(graphic, File.getContent(base + '.xml'));
+			}
+
+			var defs:Array<Dynamic> = (data != null && data.animations != null) ? data.animations : defaultDefs();
+			for (d in defs) addDef(d);
+
+			var sc:Float = (data != null && data.scale != null) ? data.scale : 0.7;
+			scale.set(sc, sc);
+			if(data != null)
+			{
+				if(data.offsets != null) { globalOffX = data.offsets[0]; globalOffY = data.offsets[1]; }
+				if(data.smokeOffsets != null) { smokeOffX = data.smokeOffsets[0]; smokeOffY = data.smokeOffsets[1]; }
+				if(data.smokeScale != null) { smokeScaleX = data.smokeScale[0]; smokeScaleY = data.smokeScale[1]; }
+				var sf:Dynamic = data.startingFrame;
+				if(sf != null)
+				{
+					if(Std.isOfType(sf, Int) || Std.isOfType(sf, Float)) startFrame = Std.int(sf);
+					else if(Reflect.field(sf, charName) != null) startFrame = Std.int(Reflect.field(sf, charName));
+				}
+			}
+
+			playAnim('idle', true);
+			return true;
+		}
+		catch(e:Dynamic)
+		{
+			trace('No se pudo cargar el personaje "$charName" del mod "$folder": $e');
+			return false;
+		}
+	}
+
+	static function defaultDefs():Array<Dynamic>
+	{
+		return [
+			{name: 'idle', prefix: 'idle', looped: false},
+			{name: 'electrocuted', prefix: 'electrocuted', looped: true},
+			{name: 'crispy', prefix: 'crispy', looped: false},
+			{name: 'crispy-loop', prefix: 'crispy loop', looped: true}
+		];
+	}
+
+	function addDef(d:Dynamic):Void
+	{
+		var n:String = d.name;
+		if(n == 'electrocuted') n = 'shock'; // el menú usa 'shock' internamente
+		var prefix:String = (d.prefix != null) ? d.prefix : d.name;
+		var fps:Int = (d.frameRate != null) ? Std.int(d.frameRate) : ((d.fps != null) ? Std.int(d.fps) : 24);
+		var loop:Bool = (d.looped == true);
+		var indices:Array<Int> = (d.frameIndices != null) ? d.frameIndices : d.indices;
+
+		if(d.offsets != null && d.offsets.length >= 2) animOffsets.set(n, [d.offsets[0], d.offsets[1]]);
+		if(n == 'idle') idleLoops = loop;
+
+		var hasIdx:Bool = indices != null && indices.length > 0;
+		if(isAtlas)
+		{
+			var an = atlas.anim;
+			if(hasIdx) an.addBySymbolIndices(n, prefix, indices, fps, loop);
+			else an.addBySymbol(n, prefix, fps, loop);
+			// Si no hay símbolo con ese nombre, se busca como etiqueta de la línea de tiempo (como V-Slice)
+			if(!an.exists(n)) an.addByFrameLabel(n, prefix, fps, loop);
+		}
+		else
+		{
+			if(hasIdx) animation.addByIndices(n, prefix, indices, '', fps, loop);
+			else animation.addByPrefix(n, prefix, fps, loop);
+		}
+	}
+
+	public function hasAnim(name:String):Bool
+		return isAtlas ? (atlas != null && atlas.anim.exists(name)) : animation.exists(name);
+
+	public function playAnim(name:String, force:Bool = true):Void
+	{
+		if(!hasAnim(name))
+		{
+			if(name == 'idle' || !hasAnim('idle')) return;
+			name = 'idle'; // animación que el personaje no tiene: se queda en idle
+		}
+
+		var frame:Int = 0;
+		if(name == 'idle' && !startFrameUsed && startFrame > 0)
+		{
+			frame = startFrame;
+			startFrameUsed = true;
+		}
+
+		curName = name;
+		var off:Array<Float> = animOffsets.get(name);
+		curOffX = (off != null) ? off[0] : 0;
+		curOffY = (off != null) ? off[1] : 0;
+
+		if(isAtlas) atlas.anim.play(name, force, false, frame);
+		else animation.play(name, force, false, frame);
+	}
+
+	override function update(elapsed:Float):Void
+	{
+		super.update(elapsed);
+		if(isAtlas) atlas.update(elapsed);
+
+		var done:Bool = isAtlas ? atlas.anim.finished : animation.finished;
+		if(!done) return;
+
+		if(curName == 'crispy' && hasAnim('crispy-loop')) playAnim('crispy-loop', true);
+		else if(curName == 'idle' && !idleLoops)
+		{
+			// idle sin bucle: se repite de vez en cuando (parpadeo)
+			idleWait -= elapsed;
+			if(idleWait <= 0)
+			{
+				playAnim('idle', true);
+				idleWait = FlxG.random.float(1, 6);
+			}
+		}
+	}
+
+	override function draw():Void
+	{
+		if(!isAtlas)
+		{
+			super.draw();
+			return;
+		}
+		if(!visible || alpha <= 0) return;
+
+		atlas.setPosition(x - (curOffX - globalOffX), y - (curOffY - globalOffY));
+		atlas.scale.copyFrom(scale);
+		atlas.alpha = alpha;
+		atlas.antialiasing = antialiasing;
+		atlas.scrollFactor.copyFrom(scrollFactor);
+		atlas.cameras = cameras;
+		atlas.draw();
+	}
+
+	override function getScreenPosition(?result:FlxPoint, ?camera:FlxCamera):FlxPoint
+	{
+		var out:FlxPoint = super.getScreenPosition(result, camera);
+		out.x -= curOffX - globalOffX;
+		out.y -= curOffY - globalOffY;
+		return out;
+	}
+
+	override function destroy():Void
+	{
+		if(atlas != null)
+		{
+			atlas.destroy();
+			atlas = null;
+		}
+		super.destroy();
 	}
 }
 
