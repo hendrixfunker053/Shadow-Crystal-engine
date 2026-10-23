@@ -3,7 +3,7 @@ package objects.quickpanel;
 import backend.Paths;
 import flixel.FlxSprite;
 import flixel.group.FlxSpriteGroup;
-import flxanimate._PsychFlxAnimate.FlxAnimate;
+import flxanimate.FlxAnimate;
 import objects.quickpanel.QuickPanelGroup;
 
 /**
