@@ -1,7 +1,6 @@
 package states.editors;
 
 import backend.MenuScreenLayout;
-import backend.MenuScreenLayoutFile;
 
 /** Editor for Freeplay/Options visual-layout overrides. Does not instantiate QuickPanelState. */
 class MenuScreenLayoutEditorState extends MusicBeatState
@@ -66,8 +65,8 @@ class MenuScreenLayoutEditorState extends MusicBeatState
     if (controls.UI_UP_P) { selected = FlxMath.wrap(selected - 1, 0, fields.length - 1); refresh(); }
     if (controls.UI_DOWN_P) { selected = FlxMath.wrap(selected + 1, 0, fields.length - 1); refresh(); }
     if (controls.UI_LEFT_P) adjust(-1); if (controls.UI_RIGHT_P) adjust(1);
-    if (FlxG.keys.justPressed.MINUS) adjust(-1, true); if (FlxG.keys.justPressed.PLUS || FlxG.keys.justPressed.EQUAL) adjust(1, true);
-    if (FlxG.keys.justPressed.S) saveLayout();
+    if (FlxG.keys.justPressed.MINUS) adjust(-1, true);
+if (FlxG.keys.justPressed.PLUS) adjust(1, true);
     #if mobile
     if (mobile.TouchInput.justTapped())
     {
