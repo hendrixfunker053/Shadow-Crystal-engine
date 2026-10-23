@@ -1,3 +1,4 @@
+
 package states;
 
 import flixel.FlxObject;
@@ -8,10 +9,8 @@ import flixel.util.FlxColor;
 import lime.app.Application;
 import openfl.display.BitmapData;
 import openfl.geom.Rectangle;
-import states.editors.MasterEditorMenu;
 import options.OptionsState;
 import backend.MainMenuData;
-import objects.quickpanel.QuickPanelState;
 
 enum MainMenuColumn
 {
@@ -32,14 +31,11 @@ class MainMenuState extends MusicBeatState
 	var leftItem:FlxSprite;
 	var rightItem:FlxSprite;
 
-	// Menú cargado desde data/mainmenu.json (o el de por defecto)
+	// Menú cargado desde data/mainmenu.json o con los valores predeterminados.
 	var menuData:MainMenuFile;
 	var optionShit:Array<MenuItemData>;
 	var leftOption:MenuItemData;
 	var rightOption:MenuItemData;
-
-	// Panel rápido: solo existe si el mod tiene "Custom menu": true en su pack.json
-	var quickPanel:QuickPanelState = null;
 
 	var magenta:FlxSprite;
 	var camFollow:FlxObject;
@@ -66,7 +62,7 @@ class MainMenuState extends MusicBeatState
 
 		var yScroll:Float = 0.25;
 
-		// Fondo original
+		// Fondo original.
 		var bg:FlxSprite = new FlxSprite(-80).loadGraphic(Paths.image('menuBG'));
 		bg.antialiasing = ClientPrefs.data.antialiasing;
 		bg.scrollFactor.set(0, yScroll);
@@ -79,7 +75,7 @@ class MainMenuState extends MusicBeatState
 		camFollow = new FlxObject(0, 0, 1, 1);
 		add(camFollow);
 
-		// Fondo magenta original
+		// Fondo magenta original.
 		magenta = new FlxSprite(-80).loadGraphic(Paths.image('menuDesat'));
 		magenta.antialiasing = ClientPrefs.data.antialiasing;
 		magenta.scrollFactor.set(0, yScroll);
@@ -91,16 +87,28 @@ class MainMenuState extends MusicBeatState
 		add(magenta);
 		mobile.WideScreen.fit(magenta);
 
-		// Fondo de cuadros de Shadow Crystal
+		// Fondo de cuadros de Shadow Crystal.
 		var checkerSize:Int = 64;
 		var patternSize:Int = checkerSize * 2;
 
 		checkerBitmap = new BitmapData(patternSize, patternSize, false, 0xFF777777);
 
-		checkerBitmap.fillRect(new Rectangle(0, 0, checkerSize, checkerSize), 0xFF777777);
-		checkerBitmap.fillRect(new Rectangle(checkerSize, 0, checkerSize, checkerSize), 0xFF999999);
-		checkerBitmap.fillRect(new Rectangle(0, checkerSize, checkerSize, checkerSize), 0xFF999999);
-		checkerBitmap.fillRect(new Rectangle(checkerSize, checkerSize, checkerSize, checkerSize), 0xFF777777);
+		checkerBitmap.fillRect(
+			new Rectangle(0, 0, checkerSize, checkerSize),
+			0xFF777777
+		);
+		checkerBitmap.fillRect(
+			new Rectangle(checkerSize, 0, checkerSize, checkerSize),
+			0xFF999999
+		);
+		checkerBitmap.fillRect(
+			new Rectangle(0, checkerSize, checkerSize, checkerSize),
+			0xFF999999
+		);
+		checkerBitmap.fillRect(
+			new Rectangle(checkerSize, checkerSize, checkerSize, checkerSize),
+			0xFF777777
+		);
 
 		checkerPattern = new FlxBackdrop(checkerBitmap, FlxAxes.XY, 0, 0);
 		checkerPattern.alpha = 0.20;
@@ -109,7 +117,7 @@ class MainMenuState extends MusicBeatState
 		checkerPattern.antialiasing = false;
 		add(checkerPattern);
 
-		// Menú principal (data/mainmenu.json)
+		// Menú principal personalizado.
 		menuData = MainMenuData.load();
 		optionShit = menuData.items;
 		leftOption = menuData.left;
@@ -123,13 +131,23 @@ class MainMenuState extends MusicBeatState
 
 		for (num => option in optionShit)
 		{
-			var item:FlxSprite = createMenuItem(option, 0, startMenuY + num * menuSpacing);
+			var item:FlxSprite = createMenuItem(
+				option,
+				0,
+				startMenuY + num * menuSpacing
+			);
 			item.screenCenter(X);
+		}
+
+		if (menuItems.members.length == 0)
+		{
+			trace('Error: el menú principal no contiene elementos.');
+			return;
 		}
 
 		var story:FlxSprite = menuItems.members[0];
 
-		// Logros: alineado a la derecha en móvil
+		// Logros: alineados a la derecha en móvil.
 		if (rightOption != null)
 		{
 			rightItem = createMenuItem(rightOption, 0, 0);
@@ -146,36 +164,69 @@ class MainMenuState extends MusicBeatState
 			rightItem.y = startMenuY + (story.height - rightItem.height) / 2;
 		}
 
-		// Opciones: abajo a la izquierda
+		// Opciones: abajo a la izquierda.
 		if (leftOption != null)
 		{
 			leftItem = createMenuItem(leftOption, 36, 0);
 			leftItem.y = FlxG.height - leftItem.height - 50;
 		}
 
-		// Versión de Psych Engine
-		var psychVer:FlxText = new FlxText(12, FlxG.height - 44, 0,
-			"Psych Engine v" + psychEngineVersion, 12);
+		// Versión de Psych Engine.
+		var psychVer:FlxText = new FlxText(
+			12,
+			FlxG.height - 44,
+			0,
+			"Psych Engine v" + psychEngineVersion,
+			12
+		);
 		psychVer.scrollFactor.set();
-		psychVer.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, LEFT,
-			FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		psychVer.setFormat(
+			Paths.font("vcr.ttf"),
+			16,
+			FlxColor.WHITE,
+			LEFT,
+			FlxTextBorderStyle.OUTLINE,
+			FlxColor.BLACK
+		);
 		add(psychVer);
 
-		// Versión de Friday Night Funkin'
-		var fnfVer:FlxText = new FlxText(12, FlxG.height - 24, 0,
-			"Friday Night Funkin' v" + Application.current.meta.get('version'), 12);
+		// Versión de Friday Night Funkin'.
+		var fnfVer:FlxText = new FlxText(
+			12,
+			FlxG.height - 24,
+			0,
+			"Friday Night Funkin' v" + Application.current.meta.get('version'),
+			12
+		);
 		fnfVer.scrollFactor.set();
-		fnfVer.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, LEFT,
-			FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		fnfVer.setFormat(
+			Paths.font("vcr.ttf"),
+			16,
+			FlxColor.WHITE,
+			LEFT,
+			FlxTextBorderStyle.OUTLINE,
+			FlxColor.BLACK
+		);
 		add(fnfVer);
 
-		// Shadow Crystal Engine
+		// Shadow Crystal Engine.
 		var shadowWidth:Float = FlxG.width - 12 #if mobile - 150 #end;
-		var shadowVer:FlxText = new FlxText(0, FlxG.height - 24, shadowWidth,
-			"Shadow Crystal Engine 1.0", 12);
+		var shadowVer:FlxText = new FlxText(
+			0,
+			FlxG.height - 24,
+			shadowWidth,
+			"Shadow Crystal Engine 1.0",
+			12
+		);
 		shadowVer.scrollFactor.set();
-		shadowVer.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, RIGHT,
-			FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		shadowVer.setFormat(
+			Paths.font("vcr.ttf"),
+			16,
+			FlxColor.WHITE,
+			RIGHT,
+			FlxTextBorderStyle.OUTLINE,
+			FlxColor.BLACK
+		);
 		add(shadowVer);
 
 		changeItem();
@@ -206,17 +257,7 @@ class MainMenuState extends MusicBeatState
 		#if mobile
 		var backButton:mobile.MobileButton = mobile.MobileButton.back(null, false);
 		add(backButton);
-
-		editorsButton = new mobile.ImageButton(16, 50, 'editorButton', 0.6);
-		add(editorsButton);
 		#end
-
-		// Panel rápido (solo si pack.json tiene "Custom menu": true)
-		if (MainMenuData.hasCustomMenu())
-		{
-			quickPanel = new QuickPanelState();
-			add(quickPanel);
-		}
 	}
 
 	function createMenuItem(data:MenuItemData, x:Float, y:Float):FlxSprite
@@ -235,8 +276,8 @@ class MainMenuState extends MusicBeatState
 			trace('Atlas no encontrado: ${data.image}');
 			menuItem.makeGraphic(400, 100, 0xFF444444);
 		}
-		menuItem.updateHitbox();
 
+		menuItem.updateHitbox();
 		menuItem.antialiasing = ClientPrefs.data.antialiasing;
 		menuItem.scrollFactor.set();
 		menuItems.add(menuItem);
@@ -245,27 +286,20 @@ class MainMenuState extends MusicBeatState
 	}
 
 	var selectedSomethin:Bool = false;
-
-	#if mobile
-	var editorsButton:mobile.ImageButton;
-	#end
-
 	var timeNotMoving:Float = 0;
 
 	override function update(elapsed:Float)
 	{
-		// Mientras el panel rápido está abierto (o arrastrándose) el menú de debajo no responde
-		var panelBusy:Bool = quickPanel != null && quickPanel.isBusy();
-		if (quickPanel != null)
-			quickPanel.panel.blocked = selectedSomethin;
-
-		if (!panelBusy && FlxG.sound.music != null && FlxG.sound.music.volume < 0.8)
+		if (!selectedSomethin && FlxG.sound.music != null
+			&& FlxG.sound.music.volume < 0.8)
 		{
 			FlxG.sound.music.volume = Math.min(
-				FlxG.sound.music.volume + 0.5 * elapsed, 0.8);
+				FlxG.sound.music.volume + 0.5 * elapsed,
+				0.8
+			);
 		}
 
-		if (!selectedSomethin && !panelBusy)
+		if (!selectedSomethin)
 		{
 			if (controls.UI_UP_P)
 				changeItem(-1);
@@ -275,8 +309,10 @@ class MainMenuState extends MusicBeatState
 
 			var mouseAllowed:Bool = allowMouse;
 
-			if (mouseAllowed && ((FlxG.mouse.deltaScreenX != 0
-				&& FlxG.mouse.deltaScreenY != 0) || FlxG.mouse.justPressed))
+			if (mouseAllowed && (
+				(FlxG.mouse.deltaScreenX != 0 && FlxG.mouse.deltaScreenY != 0)
+				|| FlxG.mouse.justPressed
+			))
 			{
 				mouseAllowed = false;
 				FlxG.mouse.visible = true;
@@ -327,7 +363,8 @@ class MainMenuState extends MusicBeatState
 						{
 							var distance:Float = Math.sqrt(
 								Math.pow(memb.getGraphicMidpoint().x - FlxG.mouse.screenX, 2)
-								+ Math.pow(memb.getGraphicMidpoint().y - FlxG.mouse.screenY, 2));
+								+ Math.pow(memb.getGraphicMidpoint().y - FlxG.mouse.screenY, 2)
+							);
 
 							if (dist < 0 || distance < dist)
 							{
@@ -338,7 +375,8 @@ class MainMenuState extends MusicBeatState
 						}
 					}
 
-					if (distItem != -1 && selectedItem != menuItems.members[distItem])
+					if (distItem != -1
+						&& selectedItem != menuItems.members[distItem])
 					{
 						curColumn = CENTER;
 						curSelected = distItem;
@@ -354,7 +392,7 @@ class MainMenuState extends MusicBeatState
 					FlxG.mouse.visible = false;
 			}
 
-			// Navegación por teclado y gamepad
+			// Navegación por teclado y gamepad.
 			switch (curColumn)
 			{
 				case CENTER:
@@ -396,7 +434,7 @@ class MainMenuState extends MusicBeatState
 					case CENTER: menuItems.members[curSelected];
 					case LEFT: leftItem;
 					case RIGHT: rightItem;
-				}
+				};
 
 				var tappedItem:FlxSprite = null;
 
@@ -441,12 +479,6 @@ class MainMenuState extends MusicBeatState
 						changeItem();
 				}
 			}
-
-			if (editorsButton.justTapped)
-			{
-				selectedSomethin = true;
-				MusicBeatState.switchState(new MasterEditorMenu());
-			}
 			#end
 
 			if (controls.BACK)
@@ -477,38 +509,41 @@ class MainMenuState extends MusicBeatState
 					case CENTER:
 						option = optionShit[curSelected];
 						item = menuItems.members[curSelected];
+
 					case LEFT:
 						option = leftOption;
 						item = leftItem;
+
 					case RIGHT:
 						option = rightOption;
 						item = rightItem;
 				}
 
-				FlxFlicker.flicker(item, 1, 0.06, false, false,
+				FlxFlicker.flicker(
+					item,
+					1,
+					0.06,
+					false,
+					false,
 					function(flick:FlxFlicker)
-				{
-					runAction(option, item);
-				});
+					{
+						runAction(option, item);
+					}
+				);
 
 				for (memb in menuItems)
 				{
 					if (memb == item)
 						continue;
 
-					FlxTween.tween(memb, {alpha: 0}, 0.4,
-						{ease: FlxEase.quadOut});
+					FlxTween.tween(
+						memb,
+						{alpha: 0},
+						0.4,
+						{ease: FlxEase.quadOut}
+					);
 				}
 			}
-
-			#if desktop
-			if (controls.justPressed('debug_1'))
-			{
-				selectedSomethin = true;
-				FlxG.mouse.visible = false;
-				MusicBeatState.switchState(new MasterEditorMenu());
-			}
-			#end
 		}
 
 		super.update(elapsed);
@@ -555,10 +590,16 @@ class MainMenuState extends MusicBeatState
 
 			case 'state':
 				var cls:Class<Dynamic> = Type.resolveClass(option.args);
-				if (cls == null) cls = Type.resolveClass('states.' + option.args);
+
+				if (cls == null)
+					cls = Type.resolveClass('states.' + option.args);
 
 				if (cls != null)
-					MusicBeatState.switchState(cast Type.createInstance(cls, []));
+				{
+					MusicBeatState.switchState(
+						cast Type.createInstance(cls, [])
+					);
+				}
 				else
 				{
 					trace('Clase no encontrada: ${option.args}');
@@ -575,11 +616,18 @@ class MainMenuState extends MusicBeatState
 
 	function changeItem(change:Int = 0)
 	{
+		if (optionShit == null || optionShit.length == 0)
+			return;
+
 		if (change != 0)
 			curColumn = CENTER;
 
 		curSelected = FlxMath.wrap(
-			curSelected + change, 0, optionShit.length - 1);
+			curSelected + change,
+			0,
+			optionShit.length - 1
+		);
+
 		FlxG.sound.play(Paths.sound('scrollMenu'));
 
 		for (item in menuItems)
@@ -594,10 +642,18 @@ class MainMenuState extends MusicBeatState
 		{
 			case CENTER:
 				selectedItem = menuItems.members[curSelected];
+
 			case LEFT:
 				selectedItem = leftItem;
+
 			case RIGHT:
 				selectedItem = rightItem;
+		}
+
+		if (selectedItem == null)
+		{
+			curColumn = CENTER;
+			selectedItem = menuItems.members[curSelected];
 		}
 
 		selectedItem.animation.play('selected');
