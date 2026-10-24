@@ -160,6 +160,16 @@ class FreeplaySongs
 		x.set('getSongColor', function(i:Int) return ok(i) ? hex(songs[i].color) : '#FFFFFF');
 		x.set('getSongFolder', function(i:Int) return ok(i) ? songs[i].folder : '');
 		x.set('getSongDifficulties', function(i:Int) return ok(i) ? diffList(songs[i].difficulties).join(',') : '');
+		x.set('getSongScore', function(i:Int, diff:Int = 0) return ok(i) ? Highscore.getScore(songs[i].name, diff) : 0);
+		// HScript: devuelve un HealthIcon listo para add(). En Lua no se puede devolver el objeto.
+		x.set('makeSongIcon', function(i:Int) {
+			if (!ok(i)) return null;
+			var prev:String = Mods.currentModDirectory;
+			Mods.currentModDirectory = songs[i].folder; // el icono se busca en la carpeta de su mod
+			var icon:objects.HealthIcon = new objects.HealthIcon(songs[i].icon);
+			Mods.currentModDirectory = prev;
+			return icon;
+		});
 		x.set('startSong', function(i:Int, diff:Int = -1) return ok(i) ? start(songs[i], diff) : false);
 	}
 }

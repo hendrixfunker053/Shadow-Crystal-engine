@@ -72,6 +72,18 @@ class MenuScripts
 	inline function blocked():Bool
 		return inputBlocked != null && inputBlocked();
 
+	/** Enfriamiento (segundos) tras aceptar/atrás con controlPressed: evita doble pulsación durante transiciones. */
+	public static final BUTTON_COOLDOWN:Float = 0.3;
+	var coolLeft:Float = 0;
+	var hitThisFrame:Bool = false;
+
+	/** El state lo llama una vez por frame, antes de los hooks onUpdate. */
+	public function tick(elapsed:Float):Void
+	{
+		hitThisFrame = false;
+		if (coolLeft > 0) coolLeft -= elapsed;
+	}
+
 	var objects:Map<String, FlxObject> = new Map();
 	var tweens:Map<String, FlxTween> = new Map();
 	var timers:Map<String, FlxTimer> = new Map();
@@ -517,7 +529,18 @@ class MenuScripts
 
 	/** controlPressed('ACCEPT'), 'BACK', 'UI_UP_P', 'UI_DOWN_P'... (propiedades de Controls). */
 	function controlDown(name:String):Bool
-		return !blocked() && Reflect.getProperty(Controls.instance, name.toUpperCase()) == true;
+	{
+		if (blocked()) return false;
+		var n:String = name.toUpperCase();
+		var v:Bool = Reflect.getProperty(Controls.instance, n) == true;
+		if (v && (n == 'ACCEPT' || n == 'BACK'))
+		{
+			if (coolLeft > 0 && !hitThisFrame) return false; // enfriamiento
+			hitThisFrame = true; // varios scripts en el mismo frame ven la misma pulsación
+			coolLeft = BUTTON_COOLDOWN;
+		}
+		return v;
+	}
 
 	/** Rectángulo de color sólido. Lo registra con `tag`; en Lua hay que añadirlo con addLuaSprite(tag). En HScript devuelve el sprite. */
 	function makeGraphicObj(tag:String, width:Int, height:Int, color:String = '#FFFFFF'):FlxSprite
@@ -611,9 +634,9 @@ class MenuScripts
 	/** Cambia a un state propio (scripts/states/<name>) o a una clase por nombre. */
 	function switchStateByName(name:String):Bool
 	{
-		if (onLeave != null) onLeave();
 		if (MainMenuData.overridden(name)) // respeta "Exit mod" (forceOriginal)
 		{
+			if (onLeave != null) onLeave();
 			MusicBeatState.switchState(new states.ScriptedState(name));
 			return true;
 		}
@@ -626,6 +649,7 @@ class MenuScripts
 		}
 		// Options abierto desde un menú: que ATRÁS vuelva al menú (si antes se abrió desde la pausa quedaba en true y cargaba PlayState)
 		if (name == 'OptionsState') options.OptionsState.onPlayState = false;
+		if (onLeave != null) onLeave();
 		MusicBeatState.switchState(cast Type.createInstance(cls, []));
 		return true;
 	}
