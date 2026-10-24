@@ -5,6 +5,8 @@ import flixel.FlxG;
 import flixel.FlxObject;
 import flixel.FlxSprite;
 import flixel.FlxState;
+import flixel.addons.transition.FlxTransitionableState;
+import flixel.sound.FlxSound;
 import flixel.text.FlxText;
 import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
@@ -140,7 +142,15 @@ class MenuScripts
 				getModName: modName,
 				setBPM: setBpmValue,
 				controlPressed: controlDown,
-				makeGraphic: makeGraphicObj
+				makeGraphic: makeGraphicObj,
+				mobileBuild: #if mobile true #else false #end,
+				playMenuMusic: playMenuMusic,
+				skipTransition: skipTransition,
+				tapJustPressed: tapJustPressed,
+				tapOverlaps: tapOverlaps,
+				tapConsume: tapConsume,
+				wideFit: wideFit,
+				textOutline: textOutline
 			};
 			// objetos registrados por el state (bg, ...) como variables del script
 			for (k => o in objects) Reflect.setField(vars, k, o);
@@ -325,6 +335,16 @@ class MenuScripts
 		cb(l, 'controlPressed', function(name:String) return controlDown(name));
 		cb(l, 'makeGraphic', function(tag:String, width:Int, height:Int, color:String = '#FFFFFF') { makeGraphicObj(tag, width, height, color); });
 
+		cb(l, 'playMenuMusic', function(name:String, volume:Float = 1) playMenuMusic(name, volume));
+		cb(l, 'skipTransition', function() skipTransition());
+		cb(l, 'tapJustPressed', function() return tapJustPressed());
+		cb(l, 'tapConsume', function() tapConsume());
+		cb(l, 'tapOverlapsObject', function(tag:String)
+		{
+			var o:Dynamic = getObj(tag);
+			return o != null && Std.isOfType(o, FlxSprite) && tapOverlaps(cast o);
+		});
+
 		// --- funciones propias de cada menú (FreePlay: getSongName, startSelectedSong...)
 		for (k => f in extras) cb(l, k, f);
 	}
@@ -499,6 +519,63 @@ class MenuScripts
 		objects.set(tag, s);
 		return s;
 	}
+
+	/** Música de menú que NO se reinicia si ya está sonando (misma pista) al pasar de un state a otro. name = ruta en music/ (sin extensión). */
+	static var menuMusicName:String = null;
+	static var menuMusicRef:FlxSound = null;
+
+	function playMenuMusic(name:String, volume:Float = 1):Void
+	{
+		if (FlxG.sound.music != null && FlxG.sound.music == menuMusicRef && menuMusicName == name && FlxG.sound.music.playing)
+		{
+			FlxG.sound.music.volume = volume;
+			return;
+		}
+		FlxG.sound.playMusic(Paths.music(name), volume, true);
+		menuMusicName = name;
+		menuMusicRef = FlxG.sound.music;
+	}
+
+	/** El próximo switchState no usa el fade por defecto de Psych (para transiciones propias). */
+	function skipTransition():Void
+	{
+		FlxTransitionableState.skipNextTransIn = true;
+		FlxTransitionableState.skipNextTransOut = true;
+	}
+
+	/** Toque (Android, TouchInput de tu fork) o clic (PC). */
+	function tapJustPressed():Bool
+	{
+		#if mobile
+		return mobile.TouchInput.justTapped();
+		#else
+		return FlxG.mouse.justPressed;
+		#end
+	}
+
+	function tapOverlaps(o:FlxSprite):Bool
+	{
+		#if mobile
+		return mobile.TouchInput.justTapped() && mobile.TouchInput.tappedOn(o);
+		#else
+		return FlxG.mouse.justPressed && FlxG.mouse.overlaps(o);
+		#end
+	}
+
+	function tapConsume():Void
+	{
+		#if mobile
+		mobile.TouchInput.consumeTap();
+		#end
+	}
+
+	/** Contorno para un FlxText: textOutline(txt, '#RRGGBB', grosor). */
+	function textOutline(t:FlxText, color:String = '#000000', size:Float = 1):Void
+		t.setBorderStyle(FlxTextBorderStyle.OUTLINE, MainMenuData.parseColor(color, FlxColor.BLACK), size);
+
+	/** Ajusta un fondo a pantallas anchas (igual que el MainMenuState original). */
+	function wideFit(o:FlxSprite):Void
+		mobile.WideScreen.fit(o);
 
 	/** Abre un substate propio (scripts/substates/<name>) o una clase FlxSubState por nombre. */
 	function openSubStateByName(name:String):Bool

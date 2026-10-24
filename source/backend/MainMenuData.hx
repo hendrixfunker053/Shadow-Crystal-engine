@@ -212,6 +212,7 @@ class MainMenuData
 			if (n == null || n.length < 1) continue;
 			var c:Class<Dynamic> = Type.resolveClass(n);
 			if (c == null) c = Type.resolveClass('states.' + n);
+			if (c == null) c = Type.resolveClass('options.' + n); // OptionsState vive en options.*
 			if (c != null) return c;
 		}
 		return null;
