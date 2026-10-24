@@ -217,7 +217,7 @@ class QuickPanelGroup extends FlxSpriteGroup
 		add(pullExtra);
 
 		pullHint = new FlxText(0, 0, 600, "you're not supposed to see this! if you do, i seriously messed up!", 30);
-		pullHint.setFormat(Paths.font('vcr.ttf'), 32, HINT_COLOR_NORMAL, RIGHT);
+		pullHint.setFormat(QuickPanelButton.panelFont(), 32, HINT_COLOR_NORMAL, RIGHT);
 		pullHint.y = (FlxG.height / 2) - (pullHint.height / 2);
 		pullHint.alpha = 0;
 		add(pullHint);

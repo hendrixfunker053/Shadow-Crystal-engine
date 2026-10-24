@@ -14,6 +14,22 @@ import objects.quickpanel.QuickPanelGroup;
  */
 class QuickPanelButton extends FlxSpriteGroup
 {
+	static var _panelFont:String = null;
+
+	/** Fuente del panel rápido: fonts/FunkinOptions.otf (assets/fonts o mods/<mod>/fonts). Si no existe, vcr.ttf. */
+	public static function panelFont():String
+	{
+		if (_panelFont != null) return _panelFont;
+		var f:String = Paths.font('FunkinOptions.otf');
+		var ok:Bool = false;
+		#if sys
+		ok = sys.FileSystem.exists(f);
+		#end
+		if (!ok) ok = openfl.utils.Assets.exists(f);
+		if (ok) _panelFont = f;
+		return ok ? f : Paths.font('vcr.ttf');
+	}
+
 	public static final ITEM_WIDTH:Int = 320;
 	public static final ITEM_HEIGHT:Int = 100;
 	public static final ICON_WIDTH:Int = 100;
@@ -58,7 +74,7 @@ class QuickPanelButton extends FlxSpriteGroup
 		add(guide);
 
 		buttonText = new FlxText(0, 0, ITEM_WIDTH - (ICON_WIDTH + 20), data.text != null ? data.text : 'NO TEXT', 38);
-		buttonText.setFormat(Paths.font('vcr.ttf'), 38, 0xFFCCCCCC, LEFT);
+		buttonText.setFormat(QuickPanelButton.panelFont(), 38, 0xFFCCCCCC, LEFT);
 		buttonText.x = ICON_WIDTH + 20;
 		buttonText.y = (ITEM_HEIGHT / 2) - (buttonText.height / 2);
 		add(buttonText);

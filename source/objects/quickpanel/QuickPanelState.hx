@@ -65,7 +65,7 @@ class QuickPanelState extends FlxGroup
 		add(descriptionPanel);
 
 		descriptionText = new FlxText(0, 0, 800, 'lol', 30);
-		descriptionText.setFormat(Paths.font('vcr.ttf'), 30, 0xFFE6E6E6, CENTER);
+		descriptionText.setFormat(QuickPanelButton.panelFont(), 30, 0xFFE6E6E6, CENTER);
 		descriptionText.scrollFactor.set(0, 0);
 		add(descriptionText);
 
