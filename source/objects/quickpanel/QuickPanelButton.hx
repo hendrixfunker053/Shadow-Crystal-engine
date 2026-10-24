@@ -59,6 +59,9 @@ class QuickPanelButton extends FlxSpriteGroup
 
 	public var panelGroup:QuickPanelGroup;
 
+	/** El toque actual empezó sobre este botón (con el panel listo). Sin esto un release suelto no selecciona ni confirma nada. */
+	var pressedHere:Bool = false;
+
 	var iconScale:Float = 1;
 	var left:Bool = true;
 	var alphaMultiplier:Float = 1;
@@ -150,10 +153,11 @@ class QuickPanelButton extends FlxSpriteGroup
 		paFade.update(elapsed);
 		paScale.update(elapsed);
 
-		if (panelGroup != null && panelGroup.curState == OPEN && !panelGroup.lock)
+		if (panelGroup != null && panelGroup.inputReady())
 		{
 			if (QuickPanelPointer.justPressed && QuickPanelPointer.overlaps(guide))
 			{
+				pressedHere = true;
 				paFade.play('press');
 				FlxG.sound.play(Paths.sound('quick-panel/menu-press'), 0.1);
 			}
@@ -162,10 +166,14 @@ class QuickPanelButton extends FlxSpriteGroup
 			{
 				paFade.play('release');
 
-				if (QuickPanelPointer.overlaps(guide))
+				if (pressedHere && QuickPanelPointer.overlaps(guide))
 					panelGroup.changeSelection(curIndex, true);
+
+				pressedHere = false;
 			}
 		}
+		else
+			pressedHere = false;
 	}
 
 	/** Llama al callback del botón, si existe. */

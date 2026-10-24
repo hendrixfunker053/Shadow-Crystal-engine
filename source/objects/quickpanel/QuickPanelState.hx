@@ -186,7 +186,17 @@ class QuickPanelState extends FlxGroup
 	function finish():Void
 	{
 		FlxTween.tween(selectedIcon, {alpha: 0}, 8 / 24, {ease: FlxEase.expoOut});
-		panel.currentButton.doCallback();
+		var b:QuickPanelButton = panel.committedButton != null ? panel.committedButton : panel.currentButton;
+		if (b != null) b.doCallback();
+
+		// Red de seguridad: si el botón no cambió de state (clase no encontrada, etc.) el panel vuelve a responder
+		new FlxTimer().start(1.5, function(_)
+		{
+			if (panel == null || !panel.alive) return;
+			panel.committed = false;
+			panel.committedButton = null;
+			panel.lock = false;
+		});
 	}
 
 	override public function update(elapsed:Float):Void

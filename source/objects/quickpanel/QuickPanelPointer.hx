@@ -30,6 +30,12 @@ class QuickPanelPointer
 	static var rawY:Float = 0;
 	static var touchId:Int = -1;
 
+	// Anti-duplicados: el mismo toque puede llegar por FlxG.mouse, FlxG.touches y los eventos crudos en frames distintos
+	static var frameCount:Int = 0;
+	static var lastPressFrame:Int = -100;
+	static var lastReleaseFrame:Int = -100;
+	static final DUP_FRAMES:Int = 3;
+
 	static function init():Void
 	{
 		if (inited || FlxG.stage == null) return;
@@ -125,6 +131,18 @@ class QuickPanelPointer
 		{
 			x = rawX;
 			y = rawY;
+		}
+
+		frameCount++;
+		if (justPressed)
+		{
+			if (frameCount - lastPressFrame <= DUP_FRAMES) justPressed = false;
+			lastPressFrame = frameCount;
+		}
+		if (justReleased)
+		{
+			if (frameCount - lastReleaseFrame <= DUP_FRAMES) justReleased = false;
+			lastReleaseFrame = frameCount;
 		}
 
 		if (justPressed) trace('QuickPanel pointer: toque en (${Std.int(x)}, ${Std.int(y)})');

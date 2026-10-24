@@ -66,6 +66,23 @@ class QuickPanelGroup extends FlxSpriteGroup
 	/** Bloquea el input del panel. */
 	public var lock:Bool = false;
 
+	/** true desde que se confirma un botón hasta que cambia el state: no se acepta nada más (ni cerrar, ni cambiar de botón). */
+	public var committed:Bool = false;
+
+	/** El botón que se confirmó (el callback se ejecuta sobre ESTE, aunque la selección cambie mientras dura la animación). */
+	public var committedButton:QuickPanelButton = null;
+
+	/** Tras abrir, un tiempo en el que se ignora ACCEPT y los toques (el toque que abrió el panel no debe confirmar nada). */
+	var openGrace:Float = 0;
+	static final OPEN_GRACE:Float = 0.3;
+
+	/** Desbloqueo tras el sonido de "denegado" (antes dependía de onFinish, que otro play() borraba y dejaba el panel trabado). */
+	var denyTimer:Float = 0;
+
+	/** true si el panel acepta input de selección ahora mismo. */
+	public function inputReady():Bool
+		return curState == OPEN && !lock && !committed && openGrace <= 0;
+
 	/** El state de debajo lo pone a true mientras está en transición (no deja abrir el panel). */
 	public var blocked:Bool = false;
 
@@ -534,6 +551,15 @@ class QuickPanelGroup extends FlxSpriteGroup
 		curState = OPEN;
 		duck();
 
+		openGrace = instant ? 0 : OPEN_GRACE;
+		if (!committed)
+		{
+			lock = false;
+			denyTimer = 0;
+			// Nunca empezar sobre "Exit mod": un ACCEPT / toque perdido lo confirmaría
+			if (buttons.length > 1 && curSelected == 0 && buttons[0].data.text == 'Exit mod') curSelected = 1;
+		}
+
 		if (moveTween != null) moveTween.cancel();
 
 		if (instant)
@@ -552,6 +578,12 @@ class QuickPanelGroup extends FlxSpriteGroup
 	{
 		curState = CLOSED;
 		unduck();
+
+		if (!committed)
+		{
+			lock = false;
+			denyTimer = 0;
+		}
 
 		if (moveTween != null) moveTween.cancel();
 
@@ -584,6 +616,13 @@ class QuickPanelGroup extends FlxSpriteGroup
 
 	function handleState(elapsed:Float):Void
 	{
+		// Ya se confirmó un botón: el panel se queda quieto hasta que cambie el state
+		if (committed)
+		{
+			trackDist = false;
+			return;
+		}
+
 		// No dejar abrir el panel mientras el state de debajo está en transición
 		if (blocked && curState == CLOSED)
 		{
@@ -750,7 +789,19 @@ class QuickPanelGroup extends FlxSpriteGroup
 			pullHint.color = FlxColor.interpolate(HINT_COLOR_DARK, HINT_COLOR_NORMAL, (Math.cos(breatheTimer * 2) / 2) + 0.5);
 		}
 
-		if (lock || curState != OPEN) return;
+		if (openGrace > 0) openGrace -= elapsed;
+
+		if (denyTimer > 0)
+		{
+			denyTimer -= elapsed;
+			if (denyTimer <= 0 && !committed)
+			{
+				lock = false;
+				panelShader.doLerp = true;
+			}
+		}
+
+		if (lock || committed || curState != OPEN || openGrace > 0) return;
 
 		var upP:Bool = controls.UI_UP_P;
 		var downP:Bool = controls.UI_DOWN_P;
@@ -851,7 +902,7 @@ class QuickPanelGroup extends FlxSpriteGroup
 	/** Confirma el botón actual y le pide al state que haga la transición. */
 	function clickSelected():Void
 	{
-		if (curState != OPEN || currentButton == null) return;
+		if (lock || committed || curState != OPEN || currentButton == null) return;
 
 		lock = true;
 
@@ -861,14 +912,12 @@ class QuickPanelGroup extends FlxSpriteGroup
 			paScroll.play('deny');
 			snd('menu-deny');
 
-			paScroll.onFinish = function()
-			{
-				lock = false;
-				panelShader.doLerp = true;
-			};
-
+			denyTimer = 0.35;
 			return;
 		}
+
+		committed = true;
+		committedButton = currentButton;
 
 		paScroll.play('accept');
 		FlxG.sound.play(Paths.sound('confirmMenu'));
