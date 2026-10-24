@@ -1,6 +1,7 @@
 package states;
 
 import flixel.FlxObject;
+import flixel.addons.transition.FlxTransitionableState;
 import flixel.effects.FlxFlicker;
 import flixel.addons.display.FlxBackdrop;
 import flixel.util.FlxAxes;
@@ -53,21 +54,31 @@ class MainMenuState extends MusicBeatState
 
 	static var showOutdatedWarning:Bool = true;
 
+	/** true si este MainMenuState solo existe para saltar al menú custom del mod (ScriptedState). No debe ejecutar nada más. */
+	var redirected:Bool = false;
+
 	override function create()
 	{
-		super.create();
-
-		// El mod reemplaza todo el menú principal con scripts/states/MainMenuState.(lua|hx)
-		if (MainMenuData.overridden('MainMenuState'))
-		{
-			MusicBeatState.switchState(new ScriptedState('MainMenuState'));
-			return;
-		}
-
+		// IMPORTANTE: primero el mod "top". FreePlay / Story / Options cambian Mods.currentModDirectory
+		// (a la carpeta de la canción o semana) y sin esto no se encontraría scripts/states/MainMenuState del mod.
 		#if MODS_ALLOWED
 		Mods.pushGlobalMods();
 		#end
 		Mods.loadTopMod();
+
+		// El mod reemplaza todo el menú principal con scripts/states/MainMenuState.(lua|hx)
+		if (MainMenuData.overridden('MainMenuState'))
+		{
+			redirected = true;
+			// Sin fade extra: el de la pantalla anterior ya tapó todo y ScriptedState hace su propio fade-in
+			FlxTransitionableState.skipNextTransOut = true;
+			FlxTransitionableState.skipNextTransIn = true;
+			super.create();
+			MusicBeatState.switchState(new ScriptedState('MainMenuState'));
+			return;
+		}
+
+		super.create();
 
 		#if DISCORD_ALLOWED
 		DiscordClient.changePresence("In the Menus", null);
@@ -214,7 +225,7 @@ class MainMenuState extends MusicBeatState
 		scripts.call('onCreatePost');
 
 		// Panel rápido (solo si pack.json tiene "Custom menu": true)
-		if (MainMenuData.hasCustomMenu())
+		if (MainMenuData.isCustomMainMenu())
 		{
 			quickPanel = new QuickPanelState();
 			add(quickPanel);
@@ -258,6 +269,13 @@ class MainMenuState extends MusicBeatState
 
 	override function update(elapsed:Float)
 	{
+		// Redirigido al menú custom: aún no hay scripts ni items, solo esperamos el cambio de state
+		if (redirected)
+		{
+			super.update(elapsed);
+			return;
+		}
+
 		// Mientras el panel rápido está abierto (o arrastrándose) el menú de debajo no responde
 		scripts.call('onUpdate', [elapsed]);
 
@@ -667,7 +685,7 @@ class MainMenuState extends MusicBeatState
 	override function closeSubState()
 	{
 		super.closeSubState();
-		persistentUpdate = true;
+		if (!redirected) persistentUpdate = true;
 	}
 
 	override function destroy()

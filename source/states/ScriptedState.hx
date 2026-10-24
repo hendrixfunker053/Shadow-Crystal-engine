@@ -3,6 +3,7 @@ package states;
 import backend.FreeplaySongs;
 import backend.MainMenuData;
 import backend.MenuScripts;
+import objects.quickpanel.QuickPanelState;
 
 /**
  * State propio hecho 100% con scripts: scripts/states/<nombre>.lua | .hx (y scripts/states/<nombre>/*).
@@ -19,6 +20,13 @@ class ScriptedState extends MusicBeatState
 	public var scriptName:String;
 	public var scripts:MenuScripts;
 	var bg:FlxSprite;
+
+	/** Panel rápido: solo en el menú principal custom (ScriptedState('MainMenuState')). Se dibuja encima de todo. */
+	var quickPanel:QuickPanelState = null;
+	var panelLocked:Bool = false;
+
+	inline function panelBusy():Bool
+		return quickPanel != null && quickPanel.isBusy();
 
 	public function new(name:String)
 	{
@@ -47,6 +55,10 @@ class ScriptedState extends MusicBeatState
 		scripts.registerObject('bg', bg);
 		scripts.extras.set('closeState', function() goBack());
 		scripts.extras.set('closeSubState', function() closeSubState());
+		scripts.extras.set('panelBusy', function() return panelBusy());
+		scripts.extras.set('panelBlock', function(b:Bool) panelLocked = b);
+		scripts.inputBlocked = function() return panelBusy();
+		scripts.onLeave = function() panelLocked = true;
 		FreeplaySongs.registerExtras(scripts.extras);
 		scripts.load();
 
@@ -62,6 +74,13 @@ class ScriptedState extends MusicBeatState
 
 		super.create();
 		scripts.call('onCreatePost');
+
+		// Panel rápido por ENCIMA de todo lo que haya creado el script (cámara propia)
+		if (scriptName == 'MainMenuState' && MainMenuData.isCustomMainMenu())
+		{
+			quickPanel = new QuickPanelState();
+			add(quickPanel);
+		}
 	}
 
 	/** A dónde vuelve ATRÁS: MainMenuState -> Title; cualquier otro -> menú principal (TitleState no vuelve). */
@@ -79,9 +98,12 @@ class ScriptedState extends MusicBeatState
 
 	override function update(elapsed:Float)
 	{
+		if (quickPanel != null)
+			quickPanel.panel.blocked = panelLocked;
+
 		scripts.call('onUpdate', [elapsed]);
 
-		if (scriptName != 'TitleState' && controls.BACK && !scripts.call('onBack'))
+		if (scriptName != 'TitleState' && !panelBusy() && controls.BACK && !scripts.call('onBack'))
 		{
 			FlxG.sound.play(Paths.sound('cancelMenu'));
 			goBack();
