@@ -5,6 +5,7 @@ import backend.ui.PsychUIBox;
 import backend.ui.PsychUIButton;
 import backend.ui.PsychUICheckBox;
 import backend.ui.PsychUIDropDownMenu;
+import backend.ui.PsychUIInputText;
 import flixel.group.FlxGroup;
 import flixel.text.FlxText;
 import haxe.Json;
@@ -13,7 +14,7 @@ import haxe.Json;
  * Editor del menú principal.
  *  - Lista de items + vista previa del layout completo (arrastra un item con el mouse o el dedo para fijar su X/Y).
  *  - Por item: id, imagen, acción, args, X, Y y escala.
- *  - Pestaña Scripts: crea scripts del menú principal (scripts/mainmenu/). Los states y substates se escriben directamente en sus carpetas.
+ *  - Pestaña Scripts: crea scripts del menú (scripts/mainmenu/) y states / substates propios (scripts/states/, scripts/substates/).
  *
  * Atajos: ARRIBA/ABAJO seleccionar, CTRL+S guardar, CTRL+Z deshacer, CTRL+D duplicar, ESC salir.
  * Todo tiene botón para poder usarlo sin teclado (Android).
@@ -66,6 +67,7 @@ class MainMenuEditorState extends MusicBeatState
 	var startYInput:PsychUIInputText;
 	var customMenuBox:PsychUICheckBox;
 	var scriptsText:FlxText;
+	var stateNameInput:PsychUIInputText;
 
 	override function create()
 	{
@@ -235,13 +237,19 @@ class MainMenuEditorState extends MusicBeatState
 		sc.add(new PsychUIButton(125, 170, 'Nuevo HScript', function() newMenuScript(false), 120, 25));
 		sc.add(new PsychUIButton(255, 170, 'Refrescar', refreshScripts, 85, 25));
 
-		sc.add(new FlxText(15, 215, 330,
-			'Solo se editan aquí el menú principal y sus scripts.\n\n'
-			+ 'Para crear estados propios, crea manualmente:\n'
-			+ 'scripts/states/Nombre.lua o Nombre.hx\n'
-			+ 'scripts/substates/Nombre.lua o Nombre.hx\n\n'
-			+ 'Ábrelos con las acciones state/substate o desde un script usando switchState(\'Nombre\') / openSubState(\'Nombre\').\n\n'
-			+ 'TitleState también puede ser personalizado. Al salir con Exit mod, el título y el menú originales se mantienen hasta cambiar de mod o tocar el aviso para volver al menú del mod.'));
+		sc.add(new FlxText(15, 215, 0, 'State / substate propio (nombre sin espacios):'));
+		stateNameInput = new PsychUIInputText(15, 233, 320, 'MiMenu', 8);
+		sc.add(stateNameInput);
+		sc.add(new PsychUIButton(15, 265, 'State Lua', function() newState('states', true), 100, 25));
+		sc.add(new PsychUIButton(125, 265, 'State HScript', function() newState('states', false), 110, 25));
+		sc.add(new PsychUIButton(15, 295, 'Substate Lua', function() newState('substates', true), 100, 25));
+		sc.add(new PsychUIButton(125, 295, 'Substate HScript', function() newState('substates', false), 150, 25));
+
+		sc.add(new FlxText(15, 335, 330,
+			'Los states y substates se abren con una acción "state"/"substate" del menú o con switchState(\'Nombre\') / openSubState(\'Nombre\') desde cualquier script.\n'
+			+ 'Si el state se llama TitleState, MainMenuState, StoryMenuState, FreeplayState, CreditsState, OptionsState o ModsMenuState, REEMPLAZA al original.\n'
+			+ 'Hooks: onCreate, onCreatePost, onUpdate, onUpdatePost, onBack, onDestroy.\n'
+			+ 'Devuelve Function_Stop en onAccept (menú principal) para cancelar la acción.'));
 	}
 
 	// =================================================================== datos
@@ -450,6 +458,13 @@ class MainMenuEditorState extends MusicBeatState
 	{
 		var path:String = MainMenuData.createScriptTemplate(lua);
 		setStatus(path != null ? 'Plantilla creada: $path' : 'No se pudo crear (ya existe o no hay mod seleccionado).');
+		refreshScripts();
+	}
+
+	function newState(kind:String, lua:Bool)
+	{
+		var path:String = MainMenuData.createStateTemplate(kind, stateNameInput.text, lua);
+		setStatus(path != null ? 'Plantilla creada: $path' : 'No se pudo crear (nombre vacío, ya existe o no hay mod seleccionado).');
 		refreshScripts();
 	}
 
