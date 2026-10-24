@@ -1,4 +1,3 @@
-
 package backend.ui;
 
 import flixel.FlxObject;
@@ -634,8 +633,22 @@ class PsychUIInputText extends FlxSpriteGroup
 
 		var textField = textObj.textField;
 
-		// Protect OpenFL from invalid selection positions.
-		textField.setSelection(caretIndex, caretIndex);
+		// Proteger a OpenFL de posiciones de selección inválidas o negativas.
+		var selStart:Int = selectIndex != -1 ? Std.int(Math.min(caretIndex, selectIndex)) : caretIndex;
+		var selEnd:Int = selectIndex != -1 ? Std.int(Math.max(caretIndex, selectIndex)) : caretIndex;
+		
+		selStart = Std.int(Math.max(0, Math.min(selStart, textLength)));
+		selEnd = Std.int(Math.max(0, Math.min(selEnd, textLength)));
+
+		try
+		{
+			textField.setSelection(selStart, selEnd);
+		}
+		catch (e:Dynamic)
+		{
+			textField.setSelection(caretIndex, caretIndex);
+		}
+
 		_caretTime = 0;
 
 		if (caret != null && caret.exists)
