@@ -1,5 +1,6 @@
 package states.editors;
 
+import backend.FreeplaySongs;
 import backend.MainMenuData;
 import backend.ui.PsychUIBox;
 import backend.ui.PsychUIButton;
@@ -15,7 +16,7 @@ import haxe.Json;
  *
  *  - Main:     lista de items, vista previa del layout completo (arrastra con el mouse/dedo para fijar x/y).
  *  - Options:  entradas de data/options_menu.json
- *  - FreePlay: canciones de data/freeplay_menu.json
+ *  - FreePlay: ajustes de data/freeplay_menu.json; las canciones se detectan solas de las weeks (lista solo de lectura)
  *  - Credits:  entradas de data/credits_menu.json
  *  - Scripts:  crea plantillas Lua / HScript en mods/<mod>/scripts/<menu>/
  *
@@ -41,13 +42,7 @@ class MainMenuEditorState extends MusicBeatState
 			['label', 'Texto de la opción:', 's'],
 			['args', 'Args (clase, URL o función de script):', 's']
 		],
-		[
-			['name', 'Canción (carpeta de data/):', 's'],
-			['icon', 'Icono de salud:', 's'],
-			['color', 'Color de fondo (#RRGGBB):', 's'],
-			['difficulties', 'Dificultades (easy,normal,hard):', 's'],
-			['mod', 'Mod de la canción (opcional):', 's']
-		],
+		[], // FreePlay: las canciones se detectan solas (solo lectura)
 		[
 			['name', 'Nombre:', 's'],
 			['desc', 'Descripción:', 's'],
@@ -69,6 +64,7 @@ class MainMenuEditorState extends MusicBeatState
 	var custom:Map<String, Dynamic> = new Map();
 	var touched:Map<String, Bool> = new Map();
 	var customMenu:Bool = false;
+	var detected:Array<Dynamic> = [];
 
 	var loading:Bool = false;
 	var dirty:Bool = false;
@@ -106,6 +102,9 @@ class MainMenuEditorState extends MusicBeatState
 	var customMenuBox:PsychUICheckBox;
 	var enabledBox:PsychUICheckBox;
 	var bgInput:PsychUIInputText;
+	var includeBox:PsychUICheckBox;
+	var uiBox:PsychUICheckBox;
+	var excludeInput:PsychUIInputText;
 	var mainOnlyWidgets:Array<FlxSprite> = [];
 	var otherOnlyWidgets:Array<FlxSprite> = [];
 	var freeplayOnlyWidgets:Array<FlxSprite> = [];
@@ -153,6 +152,20 @@ class MainMenuEditorState extends MusicBeatState
 		super.create();
 	}
 
+	function refreshDetected()
+	{
+		var d:Dynamic = custom.get('freeplay');
+		try
+		{
+			detected = cast FreeplaySongs.load(Reflect.field(d, 'includeOtherMods') == true, Std.string(Reflect.field(d, 'exclude')));
+		}
+		catch (e:Dynamic)
+		{
+			detected = [];
+			trace('No se pudieron detectar las canciones: $e');
+		}
+	}
+
 	function loadAll()
 	{
 		MainMenuData.forceOriginal = false; // el editor siempre edita el menú del mod
@@ -163,6 +176,7 @@ class MainMenuEditorState extends MusicBeatState
 			touched.set(k, false);
 		}
 		customMenu = MainMenuData.hasCustomMenu();
+		refreshDetected();
 	}
 
 	// =================================================================== UI
@@ -310,7 +324,39 @@ class MainMenuEditorState extends MusicBeatState
 			menu.add(o);
 			otherOnlyWidgets.push(o);
 		}
-		var fpWs:Array<FlxSprite> = [bgLabel, bgInput];
+		includeBox = new PsychUICheckBox(15, 150, 'Incluir canciones de fuera del mod', 320);
+		includeBox.onClick = function() {
+			if (loading || mode != 2) return;
+			pushUndo();
+			Reflect.setField(custom.get('freeplay'), 'includeOtherMods', includeBox.checked);
+			touched.set('freeplay', true);
+			markDirty();
+			refreshDetected();
+			refreshAll();
+		};
+		uiBox = new PsychUICheckBox(15, 180, 'Interfaz por defecto (si no, la hace tu script)', 330);
+		uiBox.onClick = function() {
+			if (loading || mode != 2) return;
+			pushUndo();
+			Reflect.setField(custom.get('freeplay'), 'defaultUI', uiBox.checked);
+			touched.set('freeplay', true);
+			markDirty();
+		};
+		var excludeLabel:FlxText = new FlxText(15, 215, 0, 'Ocultar canciones (separadas por coma):');
+		excludeInput = new PsychUIInputText(15, 233, 320, '', 8);
+		excludeInput.onChange = function(old:String, cur:String) {
+			if (loading || mode != 2) return;
+			pushUndoDebounced();
+			Reflect.setField(custom.get('freeplay'), 'exclude', cur);
+			touched.set('freeplay', true);
+			markDirty();
+		};
+		var refreshBtn:PsychUIButton = new PsychUIButton(15, 275, 'Actualizar lista de canciones', function() {
+			refreshDetected();
+			refreshAll();
+			setStatus('Canciones detectadas: ' + detected.length);
+		}, 220, 25);
+		var fpWs:Array<FlxSprite> = [bgLabel, bgInput, includeBox, uiBox, excludeLabel, excludeInput, refreshBtn];
 		for (o in fpWs)
 		{
 			menu.add(o);
@@ -342,6 +388,7 @@ class MainMenuEditorState extends MusicBeatState
 			if (mainData.right != null) a.push(mainData.right);
 			return a;
 		}
+		if (mode == 2) return detected;
 		var kind:String = KINDS[mode];
 		return Reflect.field(custom.get(kind), MainMenuData.listKeyOf(kind));
 	}
@@ -370,6 +417,7 @@ class MainMenuEditorState extends MusicBeatState
 	function listArray():Array<Dynamic>
 	{
 		if (mode == 0) return cast mainData.items;
+		if (mode == 2) return [];
 		var kind:String = KINDS[mode];
 		return Reflect.field(custom.get(kind), MainMenuData.listKeyOf(kind));
 	}
@@ -385,8 +433,16 @@ class MainMenuEditorState extends MusicBeatState
 		}
 	}
 
+	function freeplayLocked():Bool
+	{
+		if (mode != 2) return false;
+		setStatus('FreePlay no tiene lista manual: las canciones salen de las weeks. Usa el checkbox de la pestaña Menu para incluir otros mods.');
+		return true;
+	}
+
 	function addEntry()
 	{
+		if (freeplayLocked()) return;
 		pushUndo();
 		var list:Array<Dynamic> = listArray();
 		list.push(newEntry());
@@ -397,6 +453,7 @@ class MainMenuEditorState extends MusicBeatState
 
 	function duplicateCurrent()
 	{
+		if (freeplayLocked()) return;
 		if (cur() == null || slotKind(sel()) != 'C') return;
 		pushUndo();
 		var list:Array<Dynamic> = listArray();
@@ -409,6 +466,7 @@ class MainMenuEditorState extends MusicBeatState
 
 	function removeCurrent()
 	{
+		if (freeplayLocked()) return;
 		if (cur() == null) return;
 		var k:String = slotKind(sel());
 
@@ -432,6 +490,7 @@ class MainMenuEditorState extends MusicBeatState
 
 	function move(dir:Int)
 	{
+		if (mode == 2) return;
 		if (slotKind(sel()) != 'C') return;
 		var list:Array<Dynamic> = listArray();
 		var to:Int = sel() + dir;
@@ -540,6 +599,7 @@ class MainMenuEditorState extends MusicBeatState
 		customMenu = d.customMenu;
 		customMenuBox.checked = customMenu;
 		for (k in ['options', 'freeplay', 'credits']) touched.set(k, true);
+		refreshDetected();
 		clampSel();
 		markDirty();
 		refreshAll();
@@ -625,6 +685,7 @@ class MainMenuEditorState extends MusicBeatState
 	{
 		if (m == mode) return;
 		mode = m;
+		if (mode == 2) refreshDetected();
 		clampSel();
 		refreshAll();
 	}
@@ -645,7 +706,7 @@ class MainMenuEditorState extends MusicBeatState
 				var prefix:String = switch (slotKind(i)) { case 'L': 'LEFT  '; case 'R': 'RIGHT '; default: '${i + 1}. '; }
 				'$prefix${e.id}  [${e.action}]';
 			case 1: '${i + 1}. ${e.label}  [${e.action}]';
-			case 2: '${i + 1}. ${e.name}';
+			case 2: '${i + 1}. ${e.name}  [' + (e.folder == '' ? 'base' : e.folder) + ']';
 			default: (e.header == true ? '# ' : '${i + 1}. ') + e.name;
 		}
 	}
@@ -709,7 +770,7 @@ class MainMenuEditorState extends MusicBeatState
 		for (o in freeplayOnlyWidgets) o.visible = (mode == 2);
 		spacingInput.active = startYInput.active = (mode == 0);
 		enabledBox.active = (mode != 0);
-		bgInput.active = (mode == 2);
+		bgInput.active = excludeInput.active = includeBox.active = uiBox.active = (mode == 2);
 
 		spacingInput.text = Std.string(mainData.spacing);
 		startYInput.text = Std.string(mainData.startY);
@@ -721,6 +782,10 @@ class MainMenuEditorState extends MusicBeatState
 			{
 				var bgv:Dynamic = Reflect.field(d, 'bg');
 				bgInput.text = bgv == null ? '' : Std.string(bgv);
+				includeBox.checked = Reflect.field(d, 'includeOtherMods') == true;
+				uiBox.checked = Reflect.field(d, 'defaultUI') != false;
+				var ex:Dynamic = Reflect.field(d, 'exclude');
+				excludeInput.text = ex == null ? '' : Std.string(ex);
 			}
 		}
 		loading = false;
@@ -825,7 +890,8 @@ class MainMenuEditorState extends MusicBeatState
 		var h:Float = FlxG.height * P;
 
 		var color:FlxColor = 0xFF353535;
-		if (c != null && mode >= 2) color = MainMenuData.parseColor(c.color, 0xFF353535);
+		if (c != null && mode == 2) color = cast(c.color, Int);
+		else if (c != null && mode == 3) color = MainMenuData.parseColor(c.color, 0xFF353535);
 		var tint:FlxSprite = new FlxSprite(FRAME_X, FRAME_Y).makeGraphic(Std.int(w), Std.int(h), color);
 		tint.alpha = 0.55;
 		prevGroup.add(tint);
@@ -853,7 +919,7 @@ class MainMenuEditorState extends MusicBeatState
 			dt.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, CENTER);
 			prevGroup.add(dt);
 		}
-		if (mode == 2 && c != null)
+		if (mode == 2 && c != null && c.difficulties != null)
 		{
 			var dd:FlxText = new FlxText(FRAME_X, FRAME_Y + 6, w - 10, '< ' + Std.string(c.difficulties).toUpperCase() + ' >', 18);
 			dd.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.WHITE, RIGHT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
