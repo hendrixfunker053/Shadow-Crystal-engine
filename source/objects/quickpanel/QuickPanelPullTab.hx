@@ -1,10 +1,9 @@
-
 package objects.quickpanel;
 
 import backend.Paths;
 import flixel.FlxSprite;
 import flixel.group.FlxSpriteGroup;
-import flxanimate._PsychFlxAnimate.FlxAnimate;
+import flxanimate.FlxAnimate; // solo para el respaldo con atlas de Animate
 import objects.quickpanel.QuickPanelGroup;
 
 /**
@@ -17,67 +16,70 @@ class QuickPanelPullTab extends FlxSpriteGroup
 	public static final TAB_WIDTH:Float = 170;
 	public static final TAB_HEIGHT:Float = 250;
 
+	// Si la pestaña sale descentrada respecto al hitbox, ajusta estos dos valores.
 	static final ATLAS_OFFSET_X:Float = 0;
 	static final ATLAS_OFFSET_Y:Float = 0;
 
-	var atlas:FlxAnimate = null;
+	var atlas:FlxAnimate = null; // solo si no hay versión Sparrow (XML)
+	var sprite:FlxSprite = null; // atlas Sparrow aplanado (quick-panel/tab_square.xml)
 	var fallback:FlxSprite = null;
 	var curAnim:String = '';
+
+	static final ANIMS:Array<Array<Dynamic>> = [
+		['idleLeft', 24, true], ['idleRight', 24, true], ['held', 30, true],
+		['release', 30, false], ['pressRight', 24, false], ['pressLeft', 24, false]
+	];
 
 	public function new(x:Float, y:Float, keyboard:Bool = false)
 	{
 		super(x, y);
 
+		var sparrow:String = 'quick-panel/' + (keyboard ? 'tab_square_keyboard' : 'tab_square');
+
 		try
 		{
-			atlas = new FlxAnimate(ATLAS_OFFSET_X, ATLAS_OFFSET_Y);
-
-			Paths.loadAnimateAtlas(
-				atlas,
-				'quick-panel/' + (keyboard ? 'tabSquareKeyboard' : 'tabSquare')
-			);
-
-			atlas.anim.addByFrameLabel('idleLeft', 'idleLeft', 24, true);
-			atlas.anim.addByFrameLabel('idleRight', 'idleRight', 24, true);
-			atlas.anim.addByFrameLabel('held', 'held', 30, true);
-			atlas.anim.addByFrameLabel('release', 'release', 30, false);
-			atlas.anim.addByFrameLabel('pressRight', 'pressRight', 24, false);
-			atlas.anim.addByFrameLabel('pressLeft', 'pressLeft', 24, false);
-
-			atlas.antialiasing = true;
-			add(atlas);
+			if (Paths.fileExists('images/$sparrow.xml', TEXT))
+			{
+				// Versión plana en XML Sparrow: no depende de flxanimate
+				sprite = new FlxSprite(ATLAS_OFFSET_X, ATLAS_OFFSET_Y);
+				sprite.frames = Paths.getSparrowAtlas(sparrow);
+				for (a in ANIMS)
+					sprite.animation.addByPrefix(a[0], a[0], a[1], a[2]);
+				sprite.antialiasing = true;
+				add(sprite);
+			}
+			else
+			{
+				atlas = new FlxAnimate(ATLAS_OFFSET_X, ATLAS_OFFSET_Y);
+				Paths.loadAnimateAtlas(atlas, 'quick-panel/' + (keyboard ? 'tabSquareKeyboard' : 'tabSquare'));
+				for (a in ANIMS)
+					atlas.anim.addByFrameLabel(a[0], a[0], a[1], a[2]);
+				atlas.antialiasing = true;
+				add(atlas);
+			}
 		}
 		catch (e:Dynamic)
 		{
 			trace('QuickPanel: no se pudo cargar el atlas de la pestaña: $e');
-
 			atlas = null;
-
-			fallback = new FlxSprite(0, 0).makeGraphic(
-				Std.int(TAB_WIDTH),
-				Std.int(TAB_HEIGHT),
-				0xFF1A1A1A
-			);
-
+			sprite = null;
+			fallback = new FlxSprite(0, 0).makeGraphic(Std.int(TAB_WIDTH), Std.int(TAB_HEIGHT), 0xFF1A1A1A);
 			add(fallback);
 		}
 	}
 
 	public function setFlip(value:Bool):Void
 	{
-		if (atlas != null)
-			atlas.flipX = value;
-
-		if (fallback != null)
-			fallback.flipX = value;
+		if (atlas != null) atlas.flipX = value;
+		if (sprite != null) sprite.flipX = value;
+		if (fallback != null) fallback.flipX = value;
 	}
 
 	public function playAnimation(name:String):Void
 	{
 		curAnim = name;
-
-		if (atlas != null)
-			atlas.anim.play(name, true);
+		if (atlas != null) atlas.anim.play(name, true);
+		if (sprite != null) sprite.animation.play(name, true);
 	}
 
 	public function press(state:PanelState):Void
@@ -86,10 +88,8 @@ class QuickPanelPullTab extends FlxSpriteGroup
 		{
 			case CLOSED:
 				playAnimation('pressLeft');
-
 			case OPEN:
 				playAnimation('pressRight');
-
 			default:
 		}
 	}
@@ -105,7 +105,6 @@ class QuickPanelPullTab extends FlxSpriteGroup
 		{
 			case OPEN:
 				playAnimation('release');
-
 			default:
 				playAnimation('idleLeft');
 		}
@@ -117,10 +116,8 @@ class QuickPanelPullTab extends FlxSpriteGroup
 		{
 			case CLOSED:
 				playAnimation('idleLeft');
-
 			case OPENING:
 				playAnimation('held');
-
 			case OPEN:
 				playAnimation('idleRight');
 		}
@@ -130,8 +127,8 @@ class QuickPanelPullTab extends FlxSpriteGroup
 	{
 		super.update(elapsed);
 
-		// Al terminar 'release', pasamos a idleRight.
-		if (atlas != null && curAnim == 'release' && atlas.anim.finished)
+		// Al terminar 'release' pasamos a idleRight
+		if (curAnim == 'release' && ((atlas != null && atlas.anim.finished) || (sprite != null && sprite.animation.finished)))
 			playIdle(OPEN);
 	}
 }

@@ -136,13 +136,15 @@ class QuickPanelGroup extends FlxSpriteGroup
 		var list:Array<QuickPanelButtonData> = [];
 
 		list.push({
-			text: 'Title',
+			text: 'Exit mod',
 			callback: function()
 			{
-				MusicBeatState.switchState(new TitleState());
+				// Menú principal original: sin items del mod, sin panel, sin scripts ni menús custom
+				backend.MainMenuData.forceOriginal = true;
+				MusicBeatState.switchState(new states.MainMenuState());
 			},
 			icon: 'back',
-			description: "Return to the title screen.",
+			description: "Leave this mod's main menu and go to the original one.",
 			disabled: false
 		});
 
