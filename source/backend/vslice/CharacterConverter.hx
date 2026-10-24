@@ -1,0 +1,66 @@
+package backend.vslice;
+
+import haxe.Json;
+import backend.vslice.VSliceMods.g;
+
+/**
+ * Convierte `data/characters/<id>.json` (V-Slice) al CharacterFile de Psych.
+ *
+ * Notas:
+ *  - `singTime` (V-Slice) se divide entre 1.1 porque Psych usa `stepCrochet * 0.0011`.
+ *  - V-Slice no define color de barra de vida; se usa gris. Se puede sobrescribir luego.
+ *  - Los offsets de animación se copian tal cual (misma convención en ambos motores).
+ */
+class CharacterConverter
+{
+	static final RENDER_TYPES:Array<String> = ['sparrow', 'multisparrow', 'packer', 'animateatlas'];
+
+	public static function convert(jsonStr:String):Dynamic
+	{
+		var c:Dynamic = Json.parse(jsonStr);
+
+		var renderType:String = g(c, 'renderType', 'sparrow');
+		if (!RENDER_TYPES.contains(renderType))
+			trace('[VSlice] renderType "$renderType" no soportado, se intentará como sparrow.');
+
+		var images:Array<String> = [];
+		var mainAsset:String = g(c, 'assetPath', '');
+		if (mainAsset != '') images.push(mainAsset);
+
+		var anims:Array<Dynamic> = [];
+		var rawAnims:Array<Dynamic> = g(c, 'animations', []);
+		for (a in rawAnims)
+		{
+			var ap:String = g(a, 'assetPath', '');
+			if (ap != '' && !images.contains(ap)) images.push(ap);
+
+			anims.push({
+				anim: g(a, 'name', 'idle'),
+				name: g(a, 'prefix', ''),
+				fps: g(a, 'frameRate', 24),
+				loop: g(a, 'looped', false),
+				indices: g(a, 'frameIndices', []),
+				offsets: g(a, 'offsets', [0, 0])
+			});
+		}
+
+		var hi:Dynamic = g(c, 'healthIcon', null);
+		var icon:String = (hi != null) ? g(hi, 'id', 'face') : 'face';
+
+		var singTime:Float = g(c, 'singTime', 8);
+
+		return {
+			animations: anims,
+			image: images.join(','),
+			scale: g(c, 'scale', 1),
+			sing_duration: Math.round(singTime / 1.1 * 10) / 10,
+			healthicon: icon,
+			position: g(c, 'offsets', [0, 0]),
+			camera_position: g(c, 'cameraOffsets', [0, 0]),
+			flip_x: g(c, 'flipX', false),
+			no_antialiasing: g(c, 'isPixel', false),
+			healthbar_colors: [161, 161, 161],
+			vocals_file: ''
+		};
+	}
+}
