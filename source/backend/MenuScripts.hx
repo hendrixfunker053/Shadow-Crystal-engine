@@ -78,6 +78,18 @@ class MenuScripts
 		getItems = function() return [];
 		selectItem = function(i:Int) {};
 		getSelected = function() return 0;
+	}
+
+	/** Funciones extra que el menú ofrece a los scripts (nombre -> función). Registrar ANTES de load(). */
+	public var extras:Map<String, Dynamic> = new Map();
+
+	/** Hace accesible un objeto del menú desde los scripts por su tag (setProperty('tag.x', ...)). */
+	public function registerObject(tag:String, obj:FlxObject):Void
+		objects.set(tag, obj);
+
+	/** Carga los .lua / .hx. Se llama una vez que el menú dejó listos getItems/extras. */
+	public function load():Void
+	{
 		if (!MainMenuData.forceOriginal) loadAll();
 	}
 
@@ -115,6 +127,7 @@ class MenuScripts
 				Function_Stop: FUNCTION_STOP,
 				Function_Continue: FUNCTION_CONTINUE
 			};
+			for (k => f in extras) Reflect.setField(vars, k, f);
 			// parent = null y file = ruta: HScript lee el archivo y lo ejecuta (parentInstance = FlxG.state)
 			var hs:HScript = new HScript(null, path, vars);
 			hscripts.push(hs);
@@ -286,6 +299,9 @@ class MenuScripts
 		cb(l, 'getMouseX', function() return FlxG.mouse.screenX);
 		cb(l, 'getMouseY', function() return FlxG.mouse.screenY);
 		cb(l, 'mouseClicked', function() return FlxG.mouse.justPressed);
+
+		// --- funciones propias de cada menú (FreePlay: getSongName, startSelectedSong...)
+		for (k => f in extras) cb(l, k, f);
 	}
 	#end
 

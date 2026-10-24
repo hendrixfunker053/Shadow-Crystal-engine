@@ -185,7 +185,7 @@ class MainMenuData
 		return 'data/${kind}_menu.json';
 
 	public static function listKeyOf(kind:String):String
-		return kind == 'freeplay' ? 'songs' : 'entries';
+		return kind == 'freeplay' ? null : 'entries'; // FreePlay no tiene lista: las canciones se detectan solas
 
 	public static function defaultCustom(kind:String):Dynamic
 	{
@@ -207,8 +207,10 @@ class MainMenuData
 			case 'freeplay':
 				{
 					enabled: false,
-					bg: '',
-					songs: [{name: 'Tutorial', icon: 'gf', color: '#FF9AD1', difficulties: 'normal', mod: ''}]
+					includeOtherMods: false, // true = también canciones de otros mods y del juego base
+					defaultUI: true, // false = el diseño lo hace tu script (scripts/freeplay/)
+					exclude: '', // canciones a ocultar, separadas por coma
+					bg: ''
 				};
 			default:
 				{
@@ -235,9 +237,16 @@ class MainMenuData
 			catch (e)
 				trace('${customFileName(kind)} inválido: $e');
 		}
-		if (data == null || !Std.isOfType(Reflect.field(data, listKeyOf(kind)), Array))
+		var listKey:String = listKeyOf(kind);
+		if (data == null || (listKey != null && !Std.isOfType(Reflect.field(data, listKey), Array)))
 			data = defaultCustom(kind);
 		if (Reflect.field(data, 'enabled') == null) Reflect.setField(data, 'enabled', false);
+		if (kind == 'freeplay')
+		{
+			if (Reflect.field(data, 'includeOtherMods') == null) Reflect.setField(data, 'includeOtherMods', false);
+			if (Reflect.field(data, 'defaultUI') == null) Reflect.setField(data, 'defaultUI', true);
+			if (Reflect.field(data, 'exclude') == null) Reflect.setField(data, 'exclude', '');
+		}
 		return data;
 	}
 
@@ -263,6 +272,7 @@ class MainMenuData
 		try
 		{
 			var d:Dynamic = Json.parse(raw);
+			if (kind == 'freeplay') return isTrue(Reflect.field(d, 'enabled'));
 			var list:Array<Dynamic> = Reflect.field(d, listKeyOf(kind));
 			return isTrue(Reflect.field(d, 'enabled')) && list != null && list.length > 0;
 		}
@@ -343,6 +353,7 @@ class MainMenuData
 			case 'credits': 'onSelect(index, name) / onAccept(index, name, url) / onBack()';
 			default: 'onSelect(column, index) / onAccept(action, id, index) / onMenuAction(name, id) / onBack()';
 		};
+		var api:String = (kind == 'freeplay') ? '%% API FreePlay: getSongCount, getSongName(i), getSongIcon(i), getSongColor(i), getSongFolder(i), getSongDifficulties(i), getDifficultyName, changeDifficulty(n), setSelectedItem(i), startSelectedSong.\n%% Con defaultUI=false en freeplay_menu.json tu script dibuja todo (objeto bg disponible).\n' : '';
 		var accept:String = switch (kind)
 		{
 			case 'options': 'index, action, args';
@@ -354,7 +365,7 @@ class MainMenuData
 		if (lua)
 			return '-- Script de $kind (Lua). Hooks: onCreate / onCreatePost / onUpdate(elapsed) / onUpdatePost(elapsed) / $hooks
 -- Devuelve Function_Stop en onAccept para cancelar la accion por defecto.
--- Funciones: makeLuaText, addLuaText, makeLuaSprite, makeAnimatedLuaSprite, addAnimationByPrefix, playAnim, addLuaSprite,
+${api.split('%%').join('--')}-- Funciones: makeLuaText, addLuaText, makeLuaSprite, makeAnimatedLuaSprite, addAnimationByPrefix, playAnim, addLuaSprite,
 -- removeLuaSprite, setProperty, getProperty, setTextString, doTweenX/Y/Alpha/Angle, runTimer, playSound, playMusic,
 -- switchState, openUrl, keyJustPressed, getItemCount, getSelectedItem, setSelectedItem, debugPrint
 
@@ -369,7 +380,7 @@ end
 ';
 		return '// Script de $kind (HScript). Hooks: onCreate / onCreatePost / onUpdate(elapsed) / onUpdatePost(elapsed) / $hooks
 // Devuelve Function_Stop en onAccept para cancelar la accion por defecto.
-// Variables: game (el state), getItems(), selectItem(i), switchState(nombre), openUrl(url), debugPrint(txt)
+${api.split('%%').join('//')}// Variables: game (el state), getItems(), selectItem(i), switchState(nombre), openUrl(url), debugPrint(txt)
 
 function onCreatePost()
 {
