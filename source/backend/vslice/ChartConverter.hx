@@ -106,7 +106,7 @@ class ChartConverter
 
 			var row:Array<Dynamic> = [n.t, psychData, g(n, 'l', 0)];
 			var kind:Dynamic = g(n, 'k', null);
-			if (kind != null && kind != '') row.push(kind);
+			if (kind != null && kind != '' && kind != 'normal') row.push(kind);
 			sec.sectionNotes.push(row);
 		}
 
@@ -138,8 +138,12 @@ class ChartConverter
 		var speeds:Dynamic = g(chart, 'scrollSpeed', {});
 		var speed:Float = g(speeds, difficulty, g(speeds, 'default', 1.0));
 
+		// Psych busca el audio con formatToSongPath(song); si no coincide con el id, usamos el id.
+		var songName:String = g(meta, 'songName', songId);
+		if (Paths.formatToSongPath(songName) != songId) songName = songId;
+
 		return {
-			song: g(meta, 'songName', songId),
+			song: songName,
 			vsliceId: songId,
 			notes: sections,
 			events: events,
@@ -150,7 +154,7 @@ class ChartConverter
 			player1: player,
 			player2: opponent,
 			gfVersion: g(chars, 'girlfriend', 'gf'),
-			stage: g(play, 'stage', 'mainStage'),
+			stage: mapStage(g(play, 'stage', 'mainStage')),
 			format: 'psych_v1',
 			// Extras para las siguientes fases (audio por personaje, estilo de notas, etc.)
 			vsliceInst: g(chars, 'instrumental', ''),
@@ -160,6 +164,21 @@ class ChartConverter
 			},
 			vsliceNoteStyle: g(play, 'noteStyle', 'funkin')
 		};
+	}
+
+	/** Psych y V-Slice nombran distinto algunos stages base. Los de mods pasan igual. */
+	static function mapStage(stage:String):String
+	{
+		return switch (stage)
+		{
+			case 'mainStage': 'stage';
+			case 'spookyMansion': 'spooky';
+			case 'phillyTrain': 'philly';
+			case 'limoRide': 'limo';
+			case 'mallXmas': 'mall';
+			case 'tankmanBattlefield': 'tank';
+			default: stage;
+		}
 	}
 
 	static function sectionAt(starts:Array<Float>, time:Float):Int

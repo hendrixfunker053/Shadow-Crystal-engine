@@ -131,7 +131,7 @@ class VSliceMods
 		#if MODS_ALLOWED
 		var path:Null<String> = findFile('data/characters/$id.json');
 		if (path == null) return null;
-		return CharacterConverter.convert(File.getContent(path));
+		return CharacterConverter.convert(File.getContent(path), id);
 		#else
 		return null;
 		#end

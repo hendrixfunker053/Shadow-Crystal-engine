@@ -15,7 +15,7 @@ class CharacterConverter
 {
 	static final RENDER_TYPES:Array<String> = ['sparrow', 'multisparrow', 'packer', 'animateatlas'];
 
-	public static function convert(jsonStr:String):Dynamic
+	public static function convert(jsonStr:String, ?id:String):Dynamic
 	{
 		var c:Dynamic = Json.parse(jsonStr);
 
@@ -37,7 +37,7 @@ class CharacterConverter
 			anims.push({
 				anim: g(a, 'name', 'idle'),
 				name: g(a, 'prefix', ''),
-				fps: g(a, 'frameRate', 24),
+				fps: Std.int(g(a, 'frameRate', 24)),
 				loop: g(a, 'looped', false),
 				indices: g(a, 'frameIndices', []),
 				offsets: g(a, 'offsets', [0, 0])
@@ -60,7 +60,9 @@ class CharacterConverter
 			flip_x: g(c, 'flipX', false),
 			no_antialiasing: g(c, 'isPixel', false),
 			healthbar_colors: [161, 161, 161],
-			vocals_file: ''
+			// V-Slice nombra las voces `Voices-<idPersonaje>.ogg`; Psych las busca con este nombre.
+			// Si no existe el archivo, PlayState cae a `Voices.ogg`.
+			vocals_file: (id != null) ? id : ''
 		};
 	}
 }
