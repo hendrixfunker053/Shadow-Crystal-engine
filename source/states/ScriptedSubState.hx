@@ -33,6 +33,7 @@ class ScriptedSubState extends MusicBeatSubstate
 		scripts = new MenuScripts(this, 'substates', scriptName);
 		scripts.registerObject('bg', bg);
 		scripts.extras.set('closeState', function() close());
+		scripts.extras.set('closeSubState', function() close());
 		FreeplaySongs.registerExtras(scripts.extras);
 		scripts.load();
 

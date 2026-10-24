@@ -107,10 +107,19 @@ class TitleState extends MusicBeatState
 			FlxTransitionableState.skipNextTransOut = true;
 			MusicBeatState.switchState(new FlashingState());
 		}
-		else if (MainMenuData.overridden('TitleState'))
-			MusicBeatState.switchState(new ScriptedState('TitleState')); // Title propio: scripts/states/TitleState.(lua|hx)
 		else
-			startIntro();
+		{
+			// Asegura el mod actual antes de buscar scripts/states/TitleState (si no, el Title custom no se encuentra)
+			#if MODS_ALLOWED
+			Mods.pushGlobalMods();
+			#end
+			Mods.loadTopMod();
+
+			if (MainMenuData.overridden('TitleState')) // false tras "Exit mod" -> Title original
+				MusicBeatState.switchState(new ScriptedState('TitleState')); // Title propio: scripts/states/TitleState.(lua|hx)
+			else
+				startIntro();
+		}
 		#end
 	}
 

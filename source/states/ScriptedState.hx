@@ -46,6 +46,7 @@ class ScriptedState extends MusicBeatState
 		scripts = new MenuScripts(this, 'states', scriptName);
 		scripts.registerObject('bg', bg);
 		scripts.extras.set('closeState', function() goBack());
+		scripts.extras.set('closeSubState', function() closeSubState());
 		FreeplaySongs.registerExtras(scripts.extras);
 		scripts.load();
 

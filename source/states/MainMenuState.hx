@@ -35,7 +35,6 @@ class MainMenuState extends MusicBeatState
 
 	// Scripts Lua / HScript de mods/<mod>/scripts/mainmenu/
 	public var scripts:MenuScripts = null;
-	var returnText:FlxText = null;
 
 	// Menú cargado desde data/mainmenu.json (o el de por defecto)
 	var menuData:MainMenuFile;
@@ -179,15 +178,6 @@ class MainMenuState extends MusicBeatState
 			FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		add(shadowVer);
 
-		// Tras "Exit mod": aviso para volver al menú del mod (se mantiene aunque pases por el Title)
-		if (MainMenuData.forceOriginal)
-		{
-			returnText = new FlxText(0, 8, FlxG.width, 'Menú original (Exit mod). Toca aquí para volver al menú del mod.', 18);
-			returnText.scrollFactor.set();
-			returnText.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.YELLOW, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
-			add(returnText);
-		}
-
 		changeItem();
 
 		#if ACHIEVEMENTS_ALLOWED
@@ -270,22 +260,6 @@ class MainMenuState extends MusicBeatState
 	{
 		// Mientras el panel rápido está abierto (o arrastrándose) el menú de debajo no responde
 		scripts.call('onUpdate', [elapsed]);
-
-		if (returnText != null && !selectedSomethin)
-		{
-			#if mobile
-			var hit:Bool = mobile.TouchInput.justTapped() && mobile.TouchInput.tappedOn(returnText);
-			if (hit) mobile.TouchInput.consumeTap();
-			#else
-			var hit:Bool = FlxG.mouse.justPressed && FlxG.mouse.overlaps(returnText);
-			#end
-			if (hit)
-			{
-				MainMenuData.forceOriginal = false;
-				MusicBeatState.switchState(new MainMenuState());
-				return;
-			}
-		}
 
 		var panelBusy:Bool = quickPanel != null && quickPanel.isBusy();
 		if (quickPanel != null)
