@@ -56,28 +56,12 @@ class MainMenuData
 		return Mods.currentModDirectory == null ? '' : Mods.currentModDirectory;
 
 	static function get_forceOriginal():Bool
-	{
-		// No perder Exit mod si el motor limpia temporalmente currentModDirectory al volver al Title.
-		// Solo cancelar la salida cuando el usuario realmente cambia a otro mod.
-		if (_forceOriginal && _exitedMod.length > 0)
-		{
-			var current:String = currentModName();
-			if (current.length > 0 && current != _exitedMod)
-			{
-				_forceOriginal = false;
-				_exitedMod = '';
-			}
-		}
-		return _forceOriginal;
-	}
+		return _forceOriginal && (_exitedMod == '' || currentModName() == '' || _exitedMod == currentModName());
 
 	static function set_forceOriginal(v:Bool):Bool
 	{
 		_forceOriginal = v;
-		if (v)
-			_exitedMod = currentModName();
-		else
-			_exitedMod = '';
+		_exitedMod = currentModName();
 		return v;
 	}
 

@@ -1,5 +1,6 @@
 package backend;
 
+import flixel.FlxBasic;
 import flixel.FlxG;
 import flixel.FlxObject;
 import flixel.FlxSprite;
@@ -130,8 +131,19 @@ class MenuScripts
 				openUrl: function(url:String) CoolUtil.browserLoad(url),
 				debugPrint: function(text:Dynamic) trace('[$kind] ' + Std.string(text)),
 				Function_Stop: FUNCTION_STOP,
-				Function_Continue: FUNCTION_CONTINUE
+				Function_Continue: FUNCTION_CONTINUE,
+				add: function(o:FlxBasic) return owner.add(o),
+				insert: function(i:Int, o:FlxBasic) return owner.insert(i, o),
+				remove: function(o:FlxBasic) return owner.remove(o, true),
+				controls: Controls.instance,
+				exitMod: exitModNow,
+				getModName: modName,
+				setBPM: setBpmValue,
+				controlPressed: controlDown,
+				makeGraphic: makeGraphicObj
 			};
+			// objetos registrados por el state (bg, ...) como variables del script
+			for (k => o in objects) Reflect.setField(vars, k, o);
 			for (k => f in extras) Reflect.setField(vars, k, f);
 			// parent = null y file = ruta: HScript lee el archivo y lo ejecuta (parentInstance = FlxG.state)
 			var hs:HScript = new HScript(null, path, vars);
@@ -306,6 +318,13 @@ class MenuScripts
 		cb(l, 'getMouseY', function() return FlxG.mouse.screenY);
 		cb(l, 'mouseClicked', function() return FlxG.mouse.justPressed);
 
+		// --- mod / state / input comunes
+		cb(l, 'exitMod', function() exitModNow());
+		cb(l, 'getModName', function() return modName());
+		cb(l, 'setBPM', function(bpm:Float) setBpmValue(bpm));
+		cb(l, 'controlPressed', function(name:String) return controlDown(name));
+		cb(l, 'makeGraphic', function(tag:String, width:Int, height:Int, color:String = '#FFFFFF') { makeGraphicObj(tag, width, height, color); });
+
 		// --- funciones propias de cada menú (FreePlay: getSongName, startSelectedSong...)
 		for (k => f in extras) cb(l, k, f);
 	}
@@ -452,10 +471,39 @@ class MenuScripts
 		}));
 	}
 
+	// ------------------------------------------------------------------ funciones comunes (Lua y HScript)
+
+	/** Exit mod: menú original, sin scripts ni panel, hasta cambiar de mod / abrir Mods / tocar el aviso amarillo. */
+	function exitModNow():Void
+	{
+		MainMenuData.forceOriginal = true;
+		MusicBeatState.switchState(new states.MainMenuState());
+	}
+
+	function modName():String
+		return Mods.currentModDirectory == null ? '' : Mods.currentModDirectory;
+
+	function setBpmValue(bpm:Float):Void
+		Conductor.bpm = bpm;
+
+	/** controlPressed('ACCEPT'), 'BACK', 'UI_UP_P', 'UI_DOWN_P'... (propiedades de Controls). */
+	function controlDown(name:String):Bool
+		return Reflect.getProperty(Controls.instance, name.toUpperCase()) == true;
+
+	/** Rectángulo de color sólido. Lo registra con `tag`; en Lua hay que añadirlo con addLuaSprite(tag). En HScript devuelve el sprite. */
+	function makeGraphicObj(tag:String, width:Int, height:Int, color:String = '#FFFFFF'):FlxSprite
+	{
+		removeObj(tag, true);
+		var s:FlxSprite = new FlxSprite().makeGraphic(width, height, MainMenuData.parseColor(color));
+		s.scrollFactor.set();
+		objects.set(tag, s);
+		return s;
+	}
+
 	/** Abre un substate propio (scripts/substates/<name>) o una clase FlxSubState por nombre. */
 	function openSubStateByName(name:String):Bool
 	{
-		if (MainMenuData.stateScriptExists('substates', name))
+		if (!MainMenuData.forceOriginal && MainMenuData.stateScriptExists('substates', name))
 		{
 			owner.openSubState(new states.ScriptedSubState(name));
 			return true;
@@ -474,7 +522,7 @@ class MenuScripts
 	/** Cambia a un state propio (scripts/states/<name>) o a una clase por nombre. */
 	function switchStateByName(name:String):Bool
 	{
-		if (MainMenuData.stateScriptExists('states', name))
+		if (MainMenuData.overridden(name)) // respeta "Exit mod" (forceOriginal)
 		{
 			MusicBeatState.switchState(new states.ScriptedState(name));
 			return true;
