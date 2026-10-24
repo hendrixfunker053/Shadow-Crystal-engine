@@ -1,25 +1,37 @@
 package states;
 
 import backend.Difficulty;
+import backend.FreeplaySongs;
 import backend.Highscore;
 import backend.MainMenuData;
 import backend.Song;
-import objects.Alphabet;
 import flixel.text.FlxText;
+import objects.Alphabet;
 import objects.HealthIcon;
 
 /**
- * FreePlay custom: data/freeplay_menu.json (se edita en Main Menu Editor > FreePlay).
- * Cada canción: name (carpeta de data/<name>/), icon, color (#RRGGBB), difficulties ("easy,normal,hard") y mod (opcional).
- * IZQ/DER cambia la dificultad, ACEPTAR inicia la canción.
+ * FreePlay custom. Las canciones NO se escriben a mano: se detectan de las weeks (igual que el FreePlay original).
+ * data/freeplay_menu.json:
+ *   enabled          usar este FreePlay en lugar del original
+ *   includeOtherMods false = solo canciones del mod actual; true = también otros mods y el juego base
+ *   defaultUI        true = lista con iconos y dificultad; false = tu script (scripts/freeplay/) dibuja todo
+ *   exclude          canciones a ocultar, separadas por coma
+ *   bg               imagen de fondo opcional (images/<bg>.png)
+ *
+ * Con defaultUI=false los scripts usan: getSongCount, getSongName(i), getSongIcon(i), getSongColor(i),
+ * getSongFolder(i), getSongDifficulties(i), getDifficultyName, changeDifficulty(n), setSelectedItem(i), startSelectedSong.
+ * IZQ/DER cambia la dificultad y ACEPTAR inicia la canción en ambos modos.
  *
  * Si tu fork cambió Song / Highscore / Difficulty / LoadingState, ajusta startSong().
  */
 class CustomFreeplayState extends CustomMenuBase
 {
-	var songs:Array<Dynamic> = [];
+	var songs:Array<FreeplaySong> = [];
+	var settings:Dynamic;
+	var defaultUI:Bool = true;
 	var icons:Array<HealthIcon> = [];
 	var diffText:FlxText;
+	var emptyText:FlxText;
 	var curDiff:Int = 0;
 	var colorTween:FlxTween;
 
@@ -29,38 +41,59 @@ class CustomFreeplayState extends CustomMenuBase
 	}
 
 	override function entryCount():Int return songs.length;
-	override function entryName(i:Int):String return songs[i] != null ? songs[i].name : '';
+	override function entryName(i:Int):String return (i >= 0 && i < songs.length) ? songs[i].name : '';
 
 	function diffsOf(i:Int):Array<String>
+		return FreeplaySongs.diffList((i >= 0 && i < songs.length) ? songs[i].difficulties : '');
+
+	override function prepare()
 	{
-		var e:Dynamic = songs[i];
-		var raw:String = (e == null || e.difficulties == null) ? '' : Std.string(e.difficulties);
-		var out:Array<String> = [];
-		for (d in raw.split(','))
-		{
-			var t:String = d.trim();
-			if (t.length > 0) out.push(t.charAt(0).toUpperCase() + t.substr(1)); // Difficulty usa "Normal", "Hard"...
-		}
-		if (out.length < 1) out.push('Normal');
-		return out;
+		settings = MainMenuData.loadCustom('freeplay');
+		defaultUI = Reflect.field(settings, 'defaultUI') != false;
+		songs = FreeplaySongs.load(Reflect.field(settings, 'includeOtherMods') == true, Std.string(Reflect.field(settings, 'exclude')));
+	}
+
+	function inRange(i:Int):Bool return i >= 0 && i < songs.length;
+
+	override function registerScriptFunctions()
+	{
+		var x:Map<String, Dynamic> = scripts.extras;
+		x.set('getSongCount', function() return songs.length);
+		x.set('getSongName', function(i:Int) return inRange(i) ? songs[i].name : '');
+		x.set('getSongIcon', function(i:Int) return inRange(i) ? songs[i].icon : '');
+		x.set('getSongColor', function(i:Int) return inRange(i) ? FreeplaySongs.hex(songs[i].color) : '#FFFFFF');
+		x.set('getSongFolder', function(i:Int) return inRange(i) ? songs[i].folder : '');
+		x.set('getSongDifficulties', function(i:Int) return inRange(i) ? diffsOf(i).join(',') : '');
+		x.set('getDifficultyName', function() return inRange(curSelected) ? diffsOf(curSelected)[curDiff] : '');
+		x.set('changeDifficulty', function(n:Int) changeDiff(n));
+		x.set('startSelectedSong', function() startSelected());
 	}
 
 	override function buildEntries()
 	{
-		var data:Dynamic = MainMenuData.loadCustom('freeplay');
-		songs = Reflect.field(data, 'songs').copy();
-
-		var bgImage:String = Reflect.field(data, 'bg');
+		var bgImage:String = Reflect.field(settings, 'bg');
 		if (bgImage != null && bgImage.length > 0 && Paths.fileExists('images/$bgImage.png', IMAGE))
 		{
 			bg.loadGraphic(Paths.image(bgImage));
 			bg.screenCenter();
 		}
 
+		if (songs.length < 1)
+		{
+			emptyText = new FlxText(0, FlxG.height / 2 - 40, FlxG.width, 'No hay canciones para mostrar.\nRevisa las weeks del mod o activa "includeOtherMods".', 28);
+			emptyText.setFormat(Paths.font('vcr.ttf'), 28, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+			emptyText.scrollFactor.set();
+			add(emptyText);
+			return;
+		}
+
+		curDiff = FreeplaySongs.defaultDiff(diffsOf(0));
+		if (!defaultUI) return; // el script se encarga del diseño
+
 		for (i => s in songs)
 		{
-			var text:Alphabet = addAlphabet(Std.string(s.name), true, i, FlxG.width * 0.4);
-			var icon:HealthIcon = new HealthIcon(s.icon == null || s.icon == '' ? 'face' : Std.string(s.icon));
+			var text:Alphabet = addAlphabet(s.name, true, i, FlxG.width * 0.4);
+			var icon:HealthIcon = new HealthIcon(s.icon == null || s.icon == '' ? 'face' : s.icon);
 			icon.sprTracker = text;
 			icon.scrollFactor.set();
 			icons.push(icon);
@@ -75,27 +108,30 @@ class CustomFreeplayState extends CustomMenuBase
 
 	override function onSelectionChanged()
 	{
-		var e:Dynamic = songs[curSelected];
-		if (e == null) return;
+		if (!inRange(curSelected)) return;
 
-		curDiff = Std.int(Math.min(curDiff, diffsOf(curSelected).length - 1));
+		var diffs:Array<String> = diffsOf(curSelected);
+		if (curDiff >= diffs.length) curDiff = FreeplaySongs.defaultDiff(diffs);
+
+		if (!defaultUI) return;
+
 		refreshDiff();
-
 		for (i => icon in icons) icon.alpha = (i == curSelected) ? 1 : 0.6;
 
-		var target:FlxColor = MainMenuData.parseColor(e.color, 0xFF353535);
 		if (colorTween != null) colorTween.cancel();
-		colorTween = FlxTween.color(bg, 0.8, bg.color, target, {onComplete: function(_) colorTween = null});
+		colorTween = FlxTween.color(bg, 0.8, bg.color, songs[curSelected].color, {onComplete: function(_) colorTween = null});
 	}
 
 	function refreshDiff()
 	{
+		if (diffText == null || !inRange(curSelected)) return;
 		var diffs:Array<String> = diffsOf(curSelected);
 		diffText.text = diffs.length > 1 ? '< ${diffs[curDiff].toUpperCase()} >' : diffs[curDiff].toUpperCase();
 	}
 
 	function changeDiff(change:Int)
 	{
+		if (!inRange(curSelected)) return;
 		var diffs:Array<String> = diffsOf(curSelected);
 		if (diffs.length < 2) return;
 		curDiff = FlxMath.wrap(curDiff + change, 0, diffs.length - 1);
@@ -116,26 +152,32 @@ class CustomFreeplayState extends CustomMenuBase
 
 	override function acceptEntry(i:Int)
 	{
-		var e:Dynamic = songs[i];
-		if (e == null || leaving) return;
+		if (!inRange(i) || leaving) return;
 
 		var diffs:Array<String> = diffsOf(i);
-		if (scripts.call('onAccept', [i, e.name, diffs[curDiff]])) return;
+		if (scripts.call('onAccept', [i, songs[i].name, diffs[curDiff]])) return;
 
-		startSong(e, diffs);
+		startSong(songs[i], diffs);
 	}
 
-	function startSong(e:Dynamic, diffs:Array<String>)
+	/** Inicia la canción seleccionada (para scripts con diseño propio). */
+	function startSelected()
+	{
+		if (!inRange(curSelected) || leaving) return;
+		startSong(songs[curSelected], diffsOf(curSelected));
+	}
+
+	function startSong(s:FreeplaySong, diffs:Array<String>)
 	{
 		persistentUpdate = false;
 
 		#if MODS_ALLOWED
-		var mod:String = e.mod == null ? '' : Std.string(e.mod);
-		if (mod.length > 0) Mods.currentModDirectory = mod;
+		Mods.currentModDirectory = s.folder; // '' para el juego base
 		#end
 
-		var songLowercase:String = Paths.formatToSongPath(Std.string(e.name));
+		var songLowercase:String = Paths.formatToSongPath(s.name);
 		Difficulty.list = diffs;
+		PlayState.storyWeek = s.week;
 		var poop:String = Highscore.formatSong(songLowercase, curDiff);
 
 		try

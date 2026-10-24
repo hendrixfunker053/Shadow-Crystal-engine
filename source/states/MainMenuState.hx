@@ -127,6 +127,7 @@ class MainMenuState extends MusicBeatState
 			curSelected = FlxMath.wrap(i, 0, optionShit.length - 1);
 			changeItem();
 		};
+		scripts.load();
 		scripts.call('onCreate');
 
 		menuItems = new FlxTypedGroup<FlxSprite>();

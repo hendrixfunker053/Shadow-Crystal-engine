@@ -28,6 +28,8 @@ class CustomMenuBase extends MusicBeatState
 	}
 
 	// ---- a sobrescribir ----
+	function prepare():Void {} // antes de cargar los scripts (carga de datos)
+	function registerScriptFunctions():Void {} // scripts.extras
 	function entryCount():Int return 0;
 	function entryName(i:Int):String return '';
 	function isSelectable(i:Int):Bool return true;
@@ -56,10 +58,15 @@ class CustomMenuBase extends MusicBeatState
 		grp = new FlxTypedGroup<Alphabet>();
 		add(grp);
 
+		prepare();
+
 		scripts = new MenuScripts(this, kind);
 		scripts.getItems = function() return cast grp.members.copy();
 		scripts.getSelected = function() return curSelected;
 		scripts.selectItem = function(i:Int) changeSelection(i - curSelected, false);
+		scripts.registerObject('bg', bg);
+		registerScriptFunctions();
+		scripts.load();
 		scripts.call('onCreate');
 
 		buildEntries();
