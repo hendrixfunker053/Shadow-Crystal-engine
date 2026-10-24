@@ -64,6 +64,14 @@ class MenuScripts
 	public var selectItem:Int->Void;
 	public var getSelected:Void->Int;
 
+	/** El state lo rellena: mientras devuelva true (panel rápido abierto) las funciones de input de los scripts devuelven false. */
+	public var inputBlocked:Void->Bool = null;
+	/** El state lo rellena: se llama justo antes de que un script cambie de state (para bloquear el panel rápido). */
+	public var onLeave:Void->Void = null;
+
+	inline function blocked():Bool
+		return inputBlocked != null && inputBlocked();
+
 	var objects:Map<String, FlxObject> = new Map();
 	var tweens:Map<String, FlxTween> = new Map();
 	var timers:Map<String, FlxTimer> = new Map();
@@ -322,11 +330,11 @@ class MenuScripts
 		cb(l, 'switchState', function(name:String) return switchStateByName(name));
 		cb(l, 'openSubState', function(name:String) return openSubStateByName(name));
 		cb(l, 'openUrl', function(url:String) CoolUtil.browserLoad(url));
-		cb(l, 'keyJustPressed', function(name:String) return Reflect.getProperty(FlxG.keys.justPressed, name.toUpperCase()) == true);
-		cb(l, 'keyPressed', function(name:String) return Reflect.getProperty(FlxG.keys.pressed, name.toUpperCase()) == true);
+		cb(l, 'keyJustPressed', function(name:String) return !blocked() && Reflect.getProperty(FlxG.keys.justPressed, name.toUpperCase()) == true);
+		cb(l, 'keyPressed', function(name:String) return !blocked() && Reflect.getProperty(FlxG.keys.pressed, name.toUpperCase()) == true);
 		cb(l, 'getMouseX', function() return FlxG.mouse.screenX);
 		cb(l, 'getMouseY', function() return FlxG.mouse.screenY);
-		cb(l, 'mouseClicked', function() return FlxG.mouse.justPressed);
+		cb(l, 'mouseClicked', function() return !blocked() && FlxG.mouse.justPressed);
 
 		// --- mod / state / input comunes
 		cb(l, 'exitMod', function() exitModNow());
@@ -496,6 +504,7 @@ class MenuScripts
 	/** Exit mod: menú original, sin scripts ni panel, hasta cambiar de mod / abrir Mods / tocar el aviso amarillo. */
 	function exitModNow():Void
 	{
+		if (onLeave != null) onLeave();
 		MainMenuData.forceOriginal = true;
 		MusicBeatState.switchState(new states.MainMenuState());
 	}
@@ -508,7 +517,7 @@ class MenuScripts
 
 	/** controlPressed('ACCEPT'), 'BACK', 'UI_UP_P', 'UI_DOWN_P'... (propiedades de Controls). */
 	function controlDown(name:String):Bool
-		return Reflect.getProperty(Controls.instance, name.toUpperCase()) == true;
+		return !blocked() && Reflect.getProperty(Controls.instance, name.toUpperCase()) == true;
 
 	/** Rectángulo de color sólido. Lo registra con `tag`; en Lua hay que añadirlo con addLuaSprite(tag). En HScript devuelve el sprite. */
 	function makeGraphicObj(tag:String, width:Int, height:Int, color:String = '#FFFFFF'):FlxSprite
@@ -546,6 +555,7 @@ class MenuScripts
 	/** Toque (Android, TouchInput de tu fork) o clic (PC). */
 	function tapJustPressed():Bool
 	{
+		if (blocked()) return false;
 		#if mobile
 		return mobile.TouchInput.justTapped();
 		#else
@@ -555,6 +565,7 @@ class MenuScripts
 
 	function tapOverlaps(o:FlxSprite):Bool
 	{
+		if (blocked()) return false;
 		#if mobile
 		return mobile.TouchInput.justTapped() && mobile.TouchInput.tappedOn(o);
 		#else
@@ -564,6 +575,7 @@ class MenuScripts
 
 	function tapConsume():Void
 	{
+		if (blocked()) return;
 		#if mobile
 		mobile.TouchInput.consumeTap();
 		#end
@@ -599,6 +611,7 @@ class MenuScripts
 	/** Cambia a un state propio (scripts/states/<name>) o a una clase por nombre. */
 	function switchStateByName(name:String):Bool
 	{
+		if (onLeave != null) onLeave();
 		if (MainMenuData.overridden(name)) // respeta "Exit mod" (forceOriginal)
 		{
 			MusicBeatState.switchState(new states.ScriptedState(name));
@@ -611,6 +624,8 @@ class MenuScripts
 			trace('Clase no encontrada: $name');
 			return false;
 		}
+		// Options abierto desde un menú: que ATRÁS vuelva al menú (si antes se abrió desde la pausa quedaba en true y cargaba PlayState)
+		if (name == 'OptionsState') options.OptionsState.onPlayState = false;
 		MusicBeatState.switchState(cast Type.createInstance(cls, []));
 		return true;
 	}

@@ -73,6 +73,20 @@ class MainMenuData
 	public static function overridden(name:String):Bool
 		return !forceOriginal && stateScriptExists('states', name);
 
+	/**
+	 * true si el menú principal actual es "custom": el mod trae scripts/states/MainMenuState, o data/mainmenu.json,
+	 * o scripts/mainmenu/*, o su pack.json tiene "Custom menu": true. Siempre false tras "Exit mod".
+	 * Con esto se decide si se dibuja el panel rápido (en MainMenuState Y en ScriptedState('MainMenuState')).
+	 */
+	public static function isCustomMainMenu():Bool
+	{
+		if (forceOriginal) return false;
+		if (stateScriptExists('states', 'MainMenuState')) return true;
+		if (scriptFiles('mainmenu').length > 0) return true;
+		if (Paths.getTextFromFile('data/mainmenu.json') != null) return true;
+		return hasCustomMenu();
+	}
+
 	/** Cambia al state `name` si el mod lo reemplaza con un script; si no, al que devuelva `fallback`. */
 	public static function goState(name:String, fallback:Void->MusicBeatState):Void
 	{
