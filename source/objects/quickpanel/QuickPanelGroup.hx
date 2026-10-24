@@ -153,7 +153,7 @@ class QuickPanelGroup extends FlxSpriteGroup
 			text: 'Mods',
 			callback: function()
 			{
-				MusicBeatState.switchState(new ModsMenuState());
+				backend.MainMenuData.goState('ModsMenuState', function() return new ModsMenuState());
 			},
 			icon: 'mods',
 			description: "Add, remove or install custom content for the game.",
@@ -165,7 +165,7 @@ class QuickPanelGroup extends FlxSpriteGroup
 			text: 'Freeplay',
 			callback: function()
 			{
-				MusicBeatState.switchState(new FreeplayState());
+				backend.MainMenuData.goState('FreeplayState', function() return new FreeplayState());
 			},
 			icon: 'freeplay',
 			description: "Choose and play any song you've previously unlocked.",
@@ -184,7 +184,7 @@ class QuickPanelGroup extends FlxSpriteGroup
 			text: 'Options',
 			callback: function()
 			{
-				MusicBeatState.switchState(new OptionsState());
+				backend.MainMenuData.goState('OptionsState', function() return new OptionsState());
 				OptionsState.onPlayState = false;
 
 				if (PlayState.SONG != null)
