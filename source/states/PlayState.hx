@@ -2375,6 +2375,9 @@ class PlayState extends MusicBeatState
 				FlxG.sound.play(Paths.sound(value1), flValue2);
 		}
 
+		if(eventName.startsWith('vslice:')) //Eventos convertidos desde charts V-Slice
+			backend.vslice.VSliceEvents.handle(this, eventName.substr(7), value1);
+
 		stagesFunc(function(stage:BaseStage) stage.eventCalled(eventName, value1, value2, flValue1, flValue2, strumTime));
 		callOnScripts('onEvent', [eventName, value1, value2, strumTime]);
 	}
