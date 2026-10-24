@@ -152,6 +152,15 @@ class Song
 		#end
 			rawData = Assets.getText(_lastPath);
 
+		#if MODS_ALLOWED
+		// No hay chart de Psych: intenta con un chart V-Slice (data/songs/<id>/<id>-chart.json)
+		if(rawData == null && formattedSong != 'events')
+		{
+			var vsChart:Dynamic = backend.vslice.VSliceMods.loadSong(formattedFolder, backend.vslice.VSliceMods.difficultyFromInput(formattedSong, formattedFolder));
+			if(vsChart != null) rawData = Json.stringify(vsChart);
+		}
+		#end
+
 		return rawData != null ? parseJSON(rawData, jsonInput) : null;
 	}
 
