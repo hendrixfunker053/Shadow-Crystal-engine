@@ -110,25 +110,37 @@ class Character extends FlxSprite
 		var characterPath:String = 'characters/$character.json';
 
 		var path:String = Paths.getPath(characterPath, TEXT);
+		var vsliceJson:Dynamic = null;
 		#if MODS_ALLOWED
 		if (!FileSystem.exists(path))
 		#else
 		if (!Assets.exists(path))
 		#end
 		{
-			path = Paths.getSharedPath('characters/' + DEFAULT_CHARACTER + '.json'); //If a character couldn't be found, change him to BF just to prevent a crash
-			missingCharacter = true;
-			missingText = new FlxText(0, 0, 300, 'ERROR:\n$character.json', 16);
-			missingText.alignment = CENTER;
+			#if MODS_ALLOWED
+			vsliceJson = backend.vslice.VSliceMods.loadCharacter(character); //V-Slice: data/characters/<id>.json
+			#end
+			if (vsliceJson == null)
+			{
+				path = Paths.getSharedPath('characters/' + DEFAULT_CHARACTER + '.json'); //If a character couldn't be found, change him to BF just to prevent a crash
+				missingCharacter = true;
+				missingText = new FlxText(0, 0, 300, 'ERROR:\n$character.json', 16);
+				missingText.alignment = CENTER;
+			}
 		}
 
 		try
 		{
-			#if MODS_ALLOWED
-			loadCharacterFile(Json.parse(File.getContent(path)));
-			#else
-			loadCharacterFile(Json.parse(Assets.getText(path)));
-			#end
+			if (vsliceJson != null)
+				loadCharacterFile(vsliceJson);
+			else
+			{
+				#if MODS_ALLOWED
+				loadCharacterFile(Json.parse(File.getContent(path)));
+				#else
+				loadCharacterFile(Json.parse(Assets.getText(path)));
+				#end
+			}
 		}
 		catch(e:Dynamic)
 		{
