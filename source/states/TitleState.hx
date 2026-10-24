@@ -16,6 +16,7 @@ import openfl.display.BitmapData;
 import shaders.ColorSwap;
 
 import states.StoryMenuState;
+import backend.MainMenuData;
 import states.MainMenuState;
 
 typedef TitleData =
@@ -106,6 +107,8 @@ class TitleState extends MusicBeatState
 			FlxTransitionableState.skipNextTransOut = true;
 			MusicBeatState.switchState(new FlashingState());
 		}
+		else if (MainMenuData.overridden('TitleState'))
+			MusicBeatState.switchState(new ScriptedState('TitleState')); // Title propio: scripts/states/TitleState.(lua|hx)
 		else
 			startIntro();
 		#end

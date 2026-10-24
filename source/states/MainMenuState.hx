@@ -35,6 +35,7 @@ class MainMenuState extends MusicBeatState
 
 	// Scripts Lua / HScript de mods/<mod>/scripts/mainmenu/
 	public var scripts:MenuScripts = null;
+	var returnText:FlxText = null;
 
 	// Menú cargado desde data/mainmenu.json (o el de por defecto)
 	var menuData:MainMenuFile;
@@ -56,6 +57,13 @@ class MainMenuState extends MusicBeatState
 	override function create()
 	{
 		super.create();
+
+		// El mod reemplaza todo el menú principal con scripts/states/MainMenuState.(lua|hx)
+		if (MainMenuData.overridden('MainMenuState'))
+		{
+			MusicBeatState.switchState(new ScriptedState('MainMenuState'));
+			return;
+		}
 
 		#if MODS_ALLOWED
 		Mods.pushGlobalMods();
@@ -171,6 +179,15 @@ class MainMenuState extends MusicBeatState
 			FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		add(shadowVer);
 
+		// Tras "Exit mod": aviso para volver al menú del mod (se mantiene aunque pases por el Title)
+		if (MainMenuData.forceOriginal)
+		{
+			returnText = new FlxText(0, 8, FlxG.width, 'Menú original (Exit mod). Toca aquí para volver al menú del mod.', 18);
+			returnText.scrollFactor.set();
+			returnText.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.YELLOW, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+			add(returnText);
+		}
+
 		changeItem();
 
 		#if ACHIEVEMENTS_ALLOWED
@@ -253,6 +270,22 @@ class MainMenuState extends MusicBeatState
 	{
 		// Mientras el panel rápido está abierto (o arrastrándose) el menú de debajo no responde
 		scripts.call('onUpdate', [elapsed]);
+
+		if (returnText != null && !selectedSomethin)
+		{
+			#if mobile
+			var hit:Bool = mobile.TouchInput.justTapped() && mobile.TouchInput.tappedOn(returnText);
+			if (hit) mobile.TouchInput.consumeTap();
+			#else
+			var hit:Bool = FlxG.mouse.justPressed && FlxG.mouse.overlaps(returnText);
+			#end
+			if (hit)
+			{
+				MainMenuData.forceOriginal = false;
+				MusicBeatState.switchState(new MainMenuState());
+				return;
+			}
+		}
 
 		var panelBusy:Bool = quickPanel != null && quickPanel.isBusy();
 		if (quickPanel != null)
@@ -451,7 +484,6 @@ class MainMenuState extends MusicBeatState
 			if (controls.BACK)
 			{
 				scripts.call('onBack');
-				MainMenuData.forceOriginal = false; // al volver al Title se restaura el menú del mod
 				selectedSomethin = true;
 				FlxG.mouse.visible = false;
 
@@ -539,21 +571,41 @@ class MainMenuState extends MusicBeatState
 
 		switch (option.action)
 		{
+			case 'substate':
+				// args = nombre de un substate propio (scripts/substates/<args>) o una clase FlxSubState
+				cancelAction(item);
+				if (MainMenuData.stateScriptExists('substates', option.args))
+				{
+					persistentUpdate = false;
+					openSubState(new ScriptedSubState(option.args));
+				}
+				else
+				{
+					var subCls:Class<Dynamic> = MainMenuData.resolveClassAny([option.args]);
+					if (subCls != null)
+					{
+						persistentUpdate = false;
+						openSubState(cast Type.createInstance(subCls, []));
+					}
+					else
+						trace('SubState no encontrado: ${option.args}');
+				}
+
 			case 'script':
 				// onMenuAction(nombre, id): el nombre es el campo "args" del item
 				scripts.call('onMenuAction', [option.args, option.id]);
 				cancelAction(item);
 
 			case 'story_mode':
-				MusicBeatState.switchState(new StoryMenuState());
+				MainMenuData.goState('StoryMenuState', function() return new StoryMenuState());
 
 			case 'freeplay':
-				if (MainMenuData.customEnabled('freeplay')) MusicBeatState.switchState(new CustomFreeplayState());
-				else MusicBeatState.switchState(new FreeplayState());
+				MainMenuData.goState('FreeplayState', function() return new FreeplayState());
 
 			#if MODS_ALLOWED
 			case 'mods':
-				MusicBeatState.switchState(new ModsMenuState());
+				MainMenuData.forceOriginal = false; // si vas a cambiar de mod, vuelves al menú del mod elegido
+				MainMenuData.goState('ModsMenuState', function() return new ModsMenuState());
 			#end
 
 			#if ACHIEVEMENTS_ALLOWED
@@ -562,12 +614,10 @@ class MainMenuState extends MusicBeatState
 			#end
 
 			case 'credits':
-				if (MainMenuData.customEnabled('credits')) MusicBeatState.switchState(new CustomCreditsState());
-				else MusicBeatState.switchState(new CreditsState());
+				MainMenuData.goState('CreditsState', function() return new CreditsState());
 
 			case 'options':
-				if (MainMenuData.customEnabled('options')) MusicBeatState.switchState(new CustomOptionsState());
-				else MusicBeatState.switchState(new OptionsState());
+				MainMenuData.goState('OptionsState', function() return new OptionsState());
 				OptionsState.onPlayState = false;
 
 				if (PlayState.SONG != null)
@@ -583,10 +633,13 @@ class MainMenuState extends MusicBeatState
 				item.visible = true;
 
 			case 'state':
+				// args = nombre de un state propio (scripts/states/<args>) o una clase (states.X)
 				var cls:Class<Dynamic> = Type.resolveClass(option.args);
 				if (cls == null) cls = Type.resolveClass('states.' + option.args);
 
-				if (cls != null)
+				if (MainMenuData.stateScriptExists('states', option.args))
+					MusicBeatState.switchState(new ScriptedState(option.args));
+				else if (cls != null)
 					MusicBeatState.switchState(cast Type.createInstance(cls, []));
 				else
 				{
@@ -635,6 +688,12 @@ class MainMenuState extends MusicBeatState
 
 		if (scripts != null)
 			scripts.call('onSelect', [Std.string(curColumn), curSelected]);
+	}
+
+	override function closeSubState()
+	{
+		super.closeSubState();
+		persistentUpdate = true;
 	}
 
 	override function destroy()
