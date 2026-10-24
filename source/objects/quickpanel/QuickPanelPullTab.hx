@@ -3,7 +3,6 @@ package objects.quickpanel;
 import backend.Paths;
 import flixel.FlxSprite;
 import flixel.group.FlxSpriteGroup;
-import flxanimate.FlxAnimate; // solo para el respaldo con atlas de Animate
 import objects.quickpanel.QuickPanelGroup;
 
 /**
@@ -20,7 +19,6 @@ class QuickPanelPullTab extends FlxSpriteGroup
 	static final ATLAS_OFFSET_X:Float = 0;
 	static final ATLAS_OFFSET_Y:Float = 0;
 
-	var atlas:FlxAnimate = null; // solo si no hay versión Sparrow (XML)
 	var sprite:FlxSprite = null; // atlas Sparrow aplanado (quick-panel/tab_square.xml)
 	var fallback:FlxSprite = null;
 	var curAnim:String = '';
@@ -50,18 +48,14 @@ class QuickPanelPullTab extends FlxSpriteGroup
 			}
 			else
 			{
-				atlas = new FlxAnimate(ATLAS_OFFSET_X, ATLAS_OFFSET_Y);
-				Paths.loadAnimateAtlas(atlas, 'quick-panel/' + (keyboard ? 'tabSquareKeyboard' : 'tabSquare'));
-				for (a in ANIMS)
-					atlas.anim.addByFrameLabel(a[0], a[0], a[1], a[2]);
-				atlas.antialiasing = true;
-				add(atlas);
+				trace('QuickPanel: falta images/$sparrow.xml');
+				fallback = new FlxSprite(0, 0).makeGraphic(Std.int(TAB_WIDTH), Std.int(TAB_HEIGHT), 0xFF1A1A1A);
+				add(fallback);
 			}
 		}
 		catch (e:Dynamic)
 		{
 			trace('QuickPanel: no se pudo cargar el atlas de la pestaña: $e');
-			atlas = null;
 			sprite = null;
 			fallback = new FlxSprite(0, 0).makeGraphic(Std.int(TAB_WIDTH), Std.int(TAB_HEIGHT), 0xFF1A1A1A);
 			add(fallback);
@@ -70,7 +64,6 @@ class QuickPanelPullTab extends FlxSpriteGroup
 
 	public function setFlip(value:Bool):Void
 	{
-		if (atlas != null) atlas.flipX = value;
 		if (sprite != null) sprite.flipX = value;
 		if (fallback != null) fallback.flipX = value;
 	}
@@ -78,7 +71,6 @@ class QuickPanelPullTab extends FlxSpriteGroup
 	public function playAnimation(name:String):Void
 	{
 		curAnim = name;
-		if (atlas != null) atlas.anim.play(name, true);
 		if (sprite != null) sprite.animation.play(name, true);
 	}
 
@@ -128,7 +120,7 @@ class QuickPanelPullTab extends FlxSpriteGroup
 		super.update(elapsed);
 
 		// Al terminar 'release' pasamos a idleRight
-		if (curAnim == 'release' && ((atlas != null && atlas.anim.finished) || (sprite != null && sprite.animation.finished)))
+		if (curAnim == 'release' && (sprite != null && sprite.animation.finished))
 			playIdle(OPEN);
 	}
 }
