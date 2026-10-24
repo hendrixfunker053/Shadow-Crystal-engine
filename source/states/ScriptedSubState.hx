@@ -3,6 +3,7 @@ package states;
 import backend.FreeplaySongs;
 import backend.MainMenuData;
 import backend.MenuScripts;
+import backend.StoryWeeks;
 
 /**
  * SubState propio hecho 100% con scripts: scripts/substates/<nombre>.lua | .hx (y scripts/substates/<nombre>/*).
@@ -35,6 +36,7 @@ class ScriptedSubState extends MusicBeatSubstate
 		scripts.extras.set('closeState', function() close());
 		scripts.extras.set('closeSubState', function() close());
 		FreeplaySongs.registerExtras(scripts.extras);
+		StoryWeeks.registerExtras(scripts.extras);
 		scripts.load();
 
 		if (MainMenuData.stateScriptFiles('substates', scriptName).length < 1)
@@ -47,6 +49,7 @@ class ScriptedSubState extends MusicBeatSubstate
 
 	override function update(elapsed:Float)
 	{
+		scripts.tick(elapsed);
 		scripts.call('onUpdate', [elapsed]);
 
 		if (controls.BACK && !scripts.call('onBack'))

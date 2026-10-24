@@ -3,6 +3,7 @@ package states;
 import backend.FreeplaySongs;
 import backend.MainMenuData;
 import backend.MenuScripts;
+import backend.StoryWeeks;
 import objects.quickpanel.QuickPanelState;
 
 /**
@@ -23,10 +24,18 @@ class ScriptedState extends MusicBeatState
 
 	/** Panel rápido: solo en el menú principal custom (ScriptedState('MainMenuState')). Se dibuja encima de todo. */
 	var quickPanel:QuickPanelState = null;
-	var panelLocked:Bool = false;
+	var panelLocked:Bool = false; // true = el state se está yendo (o el script pidió panelBlock)
+
+	/** Cooldown de entrada: durante la transición de entrada los botones no responden. lockInput(seg) lo alarga. */
+	static final ENTER_LOCK:Float = 0.6;
+	var lockTimer:Float = ENTER_LOCK;
 
 	inline function panelBusy():Bool
 		return quickPanel != null && quickPanel.isBusy();
+
+	/** true mientras el input de los scripts deba ignorarse: panel abierto, saliendo, o en cooldown. */
+	inline function inputLocked():Bool
+		return panelBusy() || panelLocked || lockTimer > 0;
 
 	public function new(name:String)
 	{
@@ -57,9 +66,12 @@ class ScriptedState extends MusicBeatState
 		scripts.extras.set('closeSubState', function() closeSubState());
 		scripts.extras.set('panelBusy', function() return panelBusy());
 		scripts.extras.set('panelBlock', function(b:Bool) panelLocked = b);
-		scripts.inputBlocked = function() return panelBusy();
+		scripts.extras.set('lockInput', function(seconds:Float) lockTimer = Math.max(lockTimer, seconds));
+		scripts.extras.set('inputLocked', function() return inputLocked());
+		scripts.inputBlocked = function() return inputLocked();
 		scripts.onLeave = function() panelLocked = true;
 		FreeplaySongs.registerExtras(scripts.extras);
+		StoryWeeks.registerExtras(scripts.extras);
 		scripts.load();
 
 		if (MainMenuData.stateScriptFiles('states', scriptName).length < 1)
@@ -98,12 +110,15 @@ class ScriptedState extends MusicBeatState
 
 	override function update(elapsed:Float)
 	{
+		if (lockTimer > 0) lockTimer -= elapsed;
+		scripts.tick(elapsed);
+
 		if (quickPanel != null)
-			quickPanel.panel.blocked = panelLocked;
+			quickPanel.panel.blocked = panelLocked || lockTimer > 0;
 
 		scripts.call('onUpdate', [elapsed]);
 
-		if (scriptName != 'TitleState' && !panelBusy() && controls.BACK && !scripts.call('onBack'))
+		if (scriptName != 'TitleState' && !inputLocked() && controls.BACK && !scripts.call('onBack'))
 		{
 			FlxG.sound.play(Paths.sound('cancelMenu'));
 			goBack();
