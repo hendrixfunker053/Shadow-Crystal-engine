@@ -1,6 +1,7 @@
 package states;
 
 import backend.MainMenuData;
+import backend.StageData;
 import options.OptionsState;
 
 /**

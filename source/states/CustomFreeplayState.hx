@@ -1,6 +1,9 @@
 package states;
 
+import backend.Difficulty;
+import backend.Highscore;
 import backend.MainMenuData;
+import backend.Song;
 import objects.Alphabet;
 import flixel.text.FlxText;
 import objects.HealthIcon;
