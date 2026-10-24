@@ -29,38 +29,72 @@ typedef MainMenuFile =
 }
 
 /**
- * Menús custom (Options / FreePlay / Credits). Se manejan como Dynamic porque el editor
- * los edita por nombre de campo. Estructura de cada archivo:
- *   options_menu.json  { enabled, entries:[{label, action, args}] }
- *   freeplay_menu.json { enabled, bg, songs:[{name, icon, color, difficulties, mod}] }
- *   credits_menu.json  { enabled, entries:[{name, desc, icon, color, url, header}] }
+ * Datos del menú principal (data/mainmenu.json), descubrimiento de scripts y plantillas.
+ * Los demás menús (Options, FreePlay, Credits...) se hacen con scripts en scripts/states/ y scripts/substates/.
  */
 class MainMenuData
 {
 	/** Claves aceptadas en pack.json para activar el menú custom (y con él, el panel rápido). */
 	static final CUSTOM_MENU_KEYS:Array<String> = ['Custom menu', 'custom menu', 'Custom Menu', 'customMenu', 'custom_menu'];
 
-	/** Acciones válidas por menú (el editor las muestra en el dropdown). */
+	/** Acciones válidas del menú principal (el editor las muestra en el dropdown). */
 	public static final MAIN_ACTIONS:Array<String> = [
-		'story_mode', 'freeplay', 'mods', 'achievements', 'credits', 'options', 'url', 'state', 'script', 'none'
-	];
-	public static final OPTION_ACTIONS:Array<String> = [
-		'notes', 'controls', 'adjust_delay', 'graphics', 'visuals', 'gameplay', 'mobile', 'state', 'substate', 'url', 'script'
+		'story_mode', 'freeplay', 'mods', 'achievements', 'credits', 'options', 'url', 'state', 'substate', 'script', 'none'
 	];
 
-	/** Clases candidatas para cada acción de Options (se usa la primera que exista en tu build). */
-	public static final OPTION_CLASSES:Map<String, Array<String>> = [
-		'notes' => ['options.NotesSubState'],
-		'controls' => ['options.ControlsSubState'],
-		'graphics' => ['options.GraphicsSettingsSubState'],
-		'visuals' => ['options.VisualsSettingsSubState', 'options.VisualsUISubState'],
-		'gameplay' => ['options.GameplaySettingsSubState'],
-		'mobile' => ['options.MobileOptionsSubState', 'mobile.options.MobileOptionsSubState'],
-		'adjust_delay' => ['options.NoteOffsetState']
-	];
+	/**
+	 * true tras pulsar "Exit mod" en el panel rápido: menú original, sin panel ni scripts.
+	 * Se mantiene al volver al Title y entrar otra vez (toda la sesión), y se apaga si cambias de mod
+	 * o con el aviso "Volver al menú del mod" que sale en el menú original.
+	 */
+	public static var forceOriginal(get, set):Bool;
 
-	/** true tras pulsar "Exit mod" en el panel rápido: menú original, sin panel, sin scripts ni menús custom. Se apaga al volver al Title. */
-	public static var forceOriginal:Bool = false;
+	static var _forceOriginal:Bool = false;
+	static var _exitedMod:String = '';
+
+	static function currentModName():String
+		return Mods.currentModDirectory == null ? '' : Mods.currentModDirectory;
+
+	static function get_forceOriginal():Bool
+	{
+		// No perder Exit mod si el motor limpia temporalmente currentModDirectory al volver al Title.
+		// Solo cancelar la salida cuando el usuario realmente cambia a otro mod.
+		if (_forceOriginal && _exitedMod.length > 0)
+		{
+			var current:String = currentModName();
+			if (current.length > 0 && current != _exitedMod)
+			{
+				_forceOriginal = false;
+				_exitedMod = '';
+			}
+		}
+		return _forceOriginal;
+	}
+
+	static function set_forceOriginal(v:Bool):Bool
+	{
+		_forceOriginal = v;
+		if (v)
+			_exitedMod = currentModName();
+		else
+			_exitedMod = '';
+		return v;
+	}
+
+	/**
+	 * true si el mod trae scripts/states/<name>.lua|.hx para REEMPLAZAR un state original
+	 * (TitleState, MainMenuState, StoryMenuState, FreeplayState, CreditsState, OptionsState, ModsMenuState).
+	 * Siempre false tras "Exit mod".
+	 */
+	public static function overridden(name:String):Bool
+		return !forceOriginal && stateScriptExists('states', name);
+
+	/** Cambia al state `name` si el mod lo reemplaza con un script; si no, al que devuelva `fallback`. */
+	public static function goState(name:String, fallback:Void->MusicBeatState):Void
+	{
+		if (overridden(name)) MusicBeatState.switchState(new states.ScriptedState(name));
+		else MusicBeatState.switchState(fallback());
+	}
 
 	public static function newItem(id:String, action:String):MenuItemData
 		return {id: id, image: 'mainmenu/menu_$id', action: action, args: ''};
@@ -179,107 +213,6 @@ class MainMenuData
 		#end
 	}
 
-	// ------------------------------------------------------------------ Options / FreePlay / Credits custom
-
-	public static function customFileName(kind:String):String
-		return 'data/${kind}_menu.json';
-
-	public static function listKeyOf(kind:String):String
-		return kind == 'freeplay' ? null : 'entries'; // FreePlay no tiene lista: las canciones se detectan solas
-
-	public static function defaultCustom(kind:String):Dynamic
-	{
-		return switch (kind)
-		{
-			case 'options':
-				{
-					enabled: false,
-					entries: [
-						{label: 'Notes', action: 'notes', args: ''},
-						{label: 'Controls', action: 'controls', args: ''},
-						{label: 'Adjust Delay and Combo', action: 'adjust_delay', args: ''},
-						{label: 'Graphics', action: 'graphics', args: ''},
-						{label: 'Visuals', action: 'visuals', args: ''},
-						{label: 'Gameplay', action: 'gameplay', args: ''},
-						{label: 'Mobile Options', action: 'mobile', args: ''}
-					]
-				};
-			case 'freeplay':
-				{
-					enabled: false,
-					includeOtherMods: false, // true = también canciones de otros mods y del juego base
-					defaultUI: true, // false = el diseño lo hace tu script (scripts/freeplay/)
-					exclude: '', // canciones a ocultar, separadas por coma
-					bg: ''
-				};
-			default:
-				{
-					enabled: false,
-					entries: [
-						{name: 'Equipo del mod', header: true, desc: '', icon: '', color: '#FFFFFF', url: ''},
-						{name: 'Tu nombre', header: false, desc: 'Creador del mod', icon: '', color: '#FF9AD1', url: ''}
-					]
-				};
-		}
-	}
-
-	/** Lee data/<kind>_menu.json del mod; si no existe o está roto devuelve el de por defecto (enabled:false). */
-	public static function loadCustom(kind:String):Dynamic
-	{
-		var data:Dynamic = null;
-		var raw:String = Paths.getTextFromFile(customFileName(kind));
-		if (raw != null)
-		{
-			try
-			{
-				data = Json.parse(raw);
-			}
-			catch (e)
-				trace('${customFileName(kind)} inválido: $e');
-		}
-		var listKey:String = listKeyOf(kind);
-		if (data == null || (listKey != null && !Std.isOfType(Reflect.field(data, listKey), Array)))
-			data = defaultCustom(kind);
-		if (Reflect.field(data, 'enabled') == null) Reflect.setField(data, 'enabled', false);
-		if (kind == 'freeplay')
-		{
-			if (Reflect.field(data, 'includeOtherMods') == null) Reflect.setField(data, 'includeOtherMods', false);
-			if (Reflect.field(data, 'defaultUI') == null) Reflect.setField(data, 'defaultUI', true);
-			if (Reflect.field(data, 'exclude') == null) Reflect.setField(data, 'exclude', '');
-		}
-		return data;
-	}
-
-	public static function saveCustom(kind:String, data:Dynamic):String
-	{
-		#if sys
-		var dir:String = modDataDir();
-		if (!FileSystem.exists(dir)) FileSystem.createDirectory(dir);
-		var path:String = dir + '/${kind}_menu.json';
-		File.saveContent(path, Json.stringify(data, null, '\t'));
-		return path;
-		#else
-		return null;
-		#end
-	}
-
-	/** true si el mod tiene data/<kind>_menu.json con "enabled": true y al menos una entrada. */
-	public static function customEnabled(kind:String):Bool
-	{
-		if (forceOriginal) return false;
-		var raw:String = Paths.getTextFromFile(customFileName(kind));
-		if (raw == null) return false;
-		try
-		{
-			var d:Dynamic = Json.parse(raw);
-			if (kind == 'freeplay') return isTrue(Reflect.field(d, 'enabled'));
-			var list:Array<Dynamic> = Reflect.field(d, listKeyOf(kind));
-			return isTrue(Reflect.field(d, 'enabled')) && list != null && list.length > 0;
-		}
-		catch (e)
-			return false;
-	}
-
 	public static function parseColor(s:String, def:FlxColor = FlxColor.WHITE):FlxColor
 	{
 		if (s == null || s.length < 1) return def;
@@ -329,71 +262,210 @@ class MainMenuData
 		return found;
 	}
 
-	/** Crea una plantilla de script en el mod actual. Devuelve la ruta (o null si ya existía / no se pudo). */
-	public static function createScriptTemplate(kind:String, lua:Bool):String
+	/** Scripts de un state/substate propio: scripts/<kind>/<name>.lua|.hx y todo lo que haya en scripts/<kind>/<name>/. kind: states | substates. */
+	public static function stateScriptFiles(kind:String, name:String):Array<String>
+	{
+		var found:Array<String> = [];
+		#if (sys && MODS_ALLOWED)
+		if (name == null || name.length < 1) return found;
+
+		var dirs:Array<String> = [Paths.mods('scripts/$kind')];
+		if (Mods.currentModDirectory != null && Mods.currentModDirectory.length > 0)
+			dirs.insert(0, Paths.mods(Mods.currentModDirectory + '/scripts/$kind'));
+		for (g in Mods.getGlobalMods())
+			dirs.push(Paths.mods(g + '/scripts/$kind'));
+
+		for (d in dirs)
+		{
+			for (ext in ['.lua', '.hx'])
+				if (FileSystem.exists(d + '/' + name + ext) && !found.contains(d + '/' + name + ext))
+					found.push(d + '/' + name + ext);
+
+			var sub:String = d + '/' + name;
+			if (FileSystem.exists(sub) && FileSystem.isDirectory(sub))
+			{
+				var files:Array<String> = FileSystem.readDirectory(sub);
+				files.sort(function(a, b) return a < b ? -1 : 1);
+				for (f in files)
+				{
+					var low:String = f.toLowerCase();
+					if ((low.endsWith('.lua') || low.endsWith('.hx')) && !found.contains(sub + '/' + f))
+						found.push(sub + '/' + f);
+				}
+			}
+		}
+		#end
+		return found;
+	}
+
+	public static function stateScriptExists(kind:String, name:String):Bool
+		return stateScriptFiles(kind, name).length > 0;
+
+	static function cleanName(name:String):String
+	{
+		var out:String = '';
+		for (i in 0...name.length)
+		{
+			var c:String = name.charAt(i);
+			if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_') out += c;
+		}
+		return out;
+	}
+
+	/** Crea scripts/mainmenu/mainmenu_ejemplo.lua|.hx en el mod actual. Devuelve la ruta (o null si ya existía). */
+	public static function createScriptTemplate(lua:Bool):String
 	{
 		#if (sys && MODS_ALLOWED)
-		var dir:String = modRootDir() + '/scripts/$kind';
+		var dir:String = modRootDir() + '/scripts/mainmenu';
 		if (!FileSystem.exists(dir)) FileSystem.createDirectory(dir);
-		var path:String = dir + '/${kind}_ejemplo.' + (lua ? 'lua' : 'hx');
+		var path:String = dir + '/mainmenu_ejemplo.' + (lua ? 'lua' : 'hx');
 		if (FileSystem.exists(path)) return null;
-		File.saveContent(path, scriptTemplate(kind, lua));
+		File.saveContent(path, mainMenuTemplate(lua));
 		return path;
 		#else
 		return null;
 		#end
 	}
 
-	public static function scriptTemplate(kind:String, lua:Bool):String
+	/** Crea scripts/<kind>/<name>.lua|.hx (kind: states | substates). Devuelve la ruta (o null si ya existía / nombre vacío). */
+	public static function createStateTemplate(kind:String, name:String, lua:Bool):String
 	{
-		var hooks:String = switch (kind)
-		{
-			case 'options': 'onSelect(index, label) / onAccept(index, action, args) / onBack()';
-			case 'freeplay': 'onSelect(index, song) / onDifficultyChange(diff) / onAccept(index, song, diff) / onBack()';
-			case 'credits': 'onSelect(index, name) / onAccept(index, name, url) / onBack()';
-			default: 'onSelect(column, index) / onAccept(action, id, index) / onMenuAction(name, id) / onBack()';
-		};
-		var api:String = (kind == 'freeplay') ? '%% API FreePlay: getSongCount, getSongName(i), getSongIcon(i), getSongColor(i), getSongFolder(i), getSongDifficulties(i), getDifficultyName, changeDifficulty(n), setSelectedItem(i), startSelectedSong.\n%% Con defaultUI=false en freeplay_menu.json tu script dibuja todo (objeto bg disponible).\n' : '';
-		var accept:String = switch (kind)
-		{
-			case 'options': 'index, action, args';
-			case 'freeplay': 'index, song, diff';
-			case 'credits': 'index, name, url';
-			default: 'action, id, index';
-		};
+		#if (sys && MODS_ALLOWED)
+		name = cleanName(name == null ? '' : name);
+		if (name.length < 1) return null;
 
+		var dir:String = modRootDir() + '/scripts/$kind';
+		if (!FileSystem.exists(dir)) FileSystem.createDirectory(dir);
+		var path:String = dir + '/' + name + (lua ? '.lua' : '.hx');
+		if (FileSystem.exists(path)) return null;
+		File.saveContent(path, stateTemplate(kind, name, lua));
+		return path;
+		#else
+		return null;
+		#end
+	}
+
+	static function mainMenuTemplate(lua:Bool):String
+	{
 		if (lua)
-			return '-- Script de $kind (Lua). Hooks: onCreate / onCreatePost / onUpdate(elapsed) / onUpdatePost(elapsed) / $hooks
--- Devuelve Function_Stop en onAccept para cancelar la accion por defecto.
-${api.split('%%').join('--')}-- Funciones: makeLuaText, addLuaText, makeLuaSprite, makeAnimatedLuaSprite, addAnimationByPrefix, playAnim, addLuaSprite,
--- removeLuaSprite, setProperty, getProperty, setTextString, doTweenX/Y/Alpha/Angle, runTimer, playSound, playMusic,
--- switchState, openUrl, keyJustPressed, getItemCount, getSelectedItem, setSelectedItem, debugPrint
+			return "-- Script del menu principal (Lua). Hooks: onCreate / onCreatePost / onUpdate(elapsed) / onUpdatePost(elapsed)
+-- onSelect(columna, index) / onAccept(action, id, index) / onMenuAction(nombre, id) / onBack()
+-- onAccept puede devolver Function_Stop para cancelar la accion por defecto.
+-- Un item con accion 'script' llama a onMenuAction(args, id). Con accion 'state' / 'substate' y args = nombre
+-- abre scripts/states/<nombre> o scripts/substates/<nombre>.
 
 function onCreatePost()
-	makeLuaText(\'saludo\', \'Hola desde Lua\', 600, 20, 20)
-	addLuaText(\'saludo\')
+	makeLuaText('saludo', 'Hola desde Lua', 600, 20, 20)
+	addLuaText('saludo')
 end
 
-function onAccept($accept)
+function onAccept(action, id, index)
 	return Function_Continue
 end
-';
-		return '// Script de $kind (HScript). Hooks: onCreate / onCreatePost / onUpdate(elapsed) / onUpdatePost(elapsed) / $hooks
-// Devuelve Function_Stop en onAccept para cancelar la accion por defecto.
-${api.split('%%').join('//')}// Variables: game (el state), getItems(), selectItem(i), switchState(nombre), openUrl(url), debugPrint(txt)
+";
+		return "// Script del menu principal (HScript). Hooks: onCreate / onCreatePost / onUpdate(elapsed) / onUpdatePost(elapsed)
+// onSelect(columna, index) / onAccept(action, id, index) / onMenuAction(nombre, id) / onBack()
+// onAccept puede devolver Function_Stop para cancelar la accion por defecto.
+// Variables: game, getItems(), selectItem(i), switchState(nombre), openSubState(nombre), openUrl(url), debugPrint(txt)
 
 function onCreatePost()
 {
-	var t = new FlxText(20, 20, 600, \'Hola desde HScript\', 32);
+	var t = new FlxText(20, 20, 600, 'Hola desde HScript', 32);
 	t.scrollFactor.set();
 	add(t);
 }
 
-function onAccept($accept)
+function onAccept(action, id, index)
 {
 	return Function_Continue;
 }
-';
+";
+	}
+
+	static function stateTemplate(kind:String, name:String, lua:Bool):String
+	{
+		var isSub:Bool = kind == 'substates';
+		var what:String = isSub ? 'SubState' : 'State';
+		var open:String = isSub ? "openSubState('" + name + "')" : "switchState('" + name + "')";
+		var closeNote:String = isSub ? 'closeState() cierra el substate.' : 'closeState() vuelve al menu principal.';
+
+		if (lua)
+			return "-- " + what + " propio '" + name + "' (Lua). Abrelo desde un item del menu principal: accion '" + (isSub ? 'substate' : 'state') + "', args '" + name + "'.
+-- Tambien desde cualquier script con " + open + ".
+-- Hooks: onCreate / onCreatePost / onUpdate(elapsed) / onUpdatePost(elapsed) / onBack() / onDestroy()
+-- onBack puede devolver Function_Stop para no usar la salida por defecto. " + closeNote + "
+-- Objetos disponibles: bg (fondo). Funciones: makeLuaText, addLuaText, makeLuaSprite, makeAnimatedLuaSprite, addAnimationByPrefix,
+-- playAnim, addLuaSprite, removeLuaSprite, setProperty, getProperty, setTextString, doTweenX/Y/Alpha/Angle, runTimer, playSound,
+-- playMusic, switchState, openSubState, openUrl, keyJustPressed, closeState, debugPrint.
+-- Canciones (FreePlay propio): loadFreeplaySongs(incluirOtrosMods, ocultar), getSongCount, getSongName(i), getSongIcon(i),
+-- getSongColor(i), getSongFolder(i), getSongDifficulties(i), startSong(i, dificultad).
+
+local options = {'Opcion 1', 'Opcion 2', 'Volver'}
+local cur = 0
+
+function refresh()
+	for i = 0, #options - 1 do
+		setProperty('opt' .. i .. '.alpha', i == cur and 1 or 0.5)
+	end
+end
+
+function onCreatePost()
+	for i = 0, #options - 1 do
+		makeLuaText('opt' .. i, options[i + 1], 600, 100, 150 + i * 60)
+		addLuaText('opt' .. i)
+	end
+	refresh()
+end
+
+function onUpdate(elapsed)
+	if keyJustPressed('UP') then cur = (cur - 1) % #options; refresh() end
+	if keyJustPressed('DOWN') then cur = (cur + 1) % #options; refresh() end
+	if keyJustPressed('ENTER') then
+		if cur == #options - 1 then closeState() else debugPrint(options[cur + 1]) end
+	end
+end
+";
+		return "// " + what + " propio '" + name + "' (HScript). Abrelo desde un item del menu principal: accion '" + (isSub ? 'substate' : 'state') + "', args '" + name + "'.
+// Tambien desde cualquier script con " + open + ".
+// Hooks: onCreate / onCreatePost / onUpdate(elapsed) / onUpdatePost(elapsed) / onBack() / onDestroy()
+// onBack puede devolver Function_Stop para no usar la salida por defecto. " + closeNote + "
+// Variables: game, bg (fondo), closeState(), switchState(nombre), openSubState(nombre), openUrl(url), debugPrint(txt)
+// Canciones (FreePlay propio): loadFreeplaySongs(incluirOtrosMods, ocultar), getSongCount(), getSongName(i), getSongIcon(i),
+// getSongColor(i), getSongFolder(i), getSongDifficulties(i), startSong(i, dificultad).
+
+var options = ['Opcion 1', 'Opcion 2', 'Volver'];
+var cur = 0;
+var texts = [];
+
+function refresh()
+{
+	for (i in 0...texts.length)
+		texts[i].alpha = (i == cur) ? 1 : 0.5;
+}
+
+function onCreatePost()
+{
+	for (i in 0...options.length)
+	{
+		var t = new FlxText(100, 150 + i * 60, 600, options[i], 32);
+		t.scrollFactor.set();
+		add(t);
+		texts.push(t);
+	}
+	refresh();
+}
+
+function onUpdate(elapsed)
+{
+	if (FlxG.keys.justPressed.UP) { cur = (cur + options.length - 1) % options.length; refresh(); }
+	if (FlxG.keys.justPressed.DOWN) { cur = (cur + 1) % options.length; refresh(); }
+	if (FlxG.keys.justPressed.ENTER)
+	{
+		if (cur == options.length - 1) closeState();
+		else debugPrint(options[cur]);
+	}
+}
+";
 	}
 
 	// ------------------------------------------------------------------ pack.json

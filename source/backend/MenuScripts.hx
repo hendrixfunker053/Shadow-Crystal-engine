@@ -53,6 +53,8 @@ class MenuScripts
 
 	public var owner:FlxState;
 	public var kind:String;
+	/** Para states/substates propios: nombre del script (scripts/<kind>/<only>.lua|.hx). */
+	public var only:String;
 
 	/** El menú que lo usa rellena estos tres para que los scripts puedan leer/mover la selección. */
 	public var getItems:Void->Array<FlxObject>;
@@ -71,10 +73,11 @@ class MenuScripts
 	var hscripts:Array<HScript> = [];
 	#end
 
-	public function new(owner:FlxState, kind:String)
+	public function new(owner:FlxState, kind:String, ?only:String)
 	{
 		this.owner = owner;
 		this.kind = kind;
+		this.only = only;
 		getItems = function() return [];
 		selectItem = function(i:Int) {};
 		getSelected = function() return 0;
@@ -97,7 +100,8 @@ class MenuScripts
 
 	function loadAll():Void
 	{
-		for (path in MainMenuData.scriptFiles(kind))
+		var files:Array<String> = (only == null) ? MainMenuData.scriptFiles(kind) : MainMenuData.stateScriptFiles(kind, only);
+		for (path in files)
 		{
 			var low:String = path.toLowerCase();
 			#if LUA_ALLOWED
@@ -122,6 +126,7 @@ class MenuScripts
 				selectItem: function(i:Int) selectItem(i),
 				getSelected: function() return getSelected(),
 				switchState: switchStateByName,
+				openSubState: openSubStateByName,
 				openUrl: function(url:String) CoolUtil.browserLoad(url),
 				debugPrint: function(text:Dynamic) trace('[$kind] ' + Std.string(text)),
 				Function_Stop: FUNCTION_STOP,
@@ -293,6 +298,7 @@ class MenuScripts
 		cb(l, 'playSound', function(name:String, volume:Float = 1) FlxG.sound.play(Paths.sound(name), volume));
 		cb(l, 'playMusic', function(name:String, volume:Float = 1, loop:Bool = true) FlxG.sound.playMusic(Paths.music(name), volume, loop));
 		cb(l, 'switchState', function(name:String) return switchStateByName(name));
+		cb(l, 'openSubState', function(name:String) return openSubStateByName(name));
 		cb(l, 'openUrl', function(url:String) CoolUtil.browserLoad(url));
 		cb(l, 'keyJustPressed', function(name:String) return Reflect.getProperty(FlxG.keys.justPressed, name.toUpperCase()) == true);
 		cb(l, 'keyPressed', function(name:String) return Reflect.getProperty(FlxG.keys.pressed, name.toUpperCase()) == true);
@@ -446,8 +452,34 @@ class MenuScripts
 		}));
 	}
 
+	/** Abre un substate propio (scripts/substates/<name>) o una clase FlxSubState por nombre. */
+	function openSubStateByName(name:String):Bool
+	{
+		if (MainMenuData.stateScriptExists('substates', name))
+		{
+			owner.openSubState(new states.ScriptedSubState(name));
+			return true;
+		}
+
+		var cls:Class<Dynamic> = MainMenuData.resolveClassAny([name]);
+		if (cls == null)
+		{
+			trace('SubState no encontrado: $name');
+			return false;
+		}
+		owner.openSubState(cast Type.createInstance(cls, []));
+		return true;
+	}
+
+	/** Cambia a un state propio (scripts/states/<name>) o a una clase por nombre. */
 	function switchStateByName(name:String):Bool
 	{
+		if (MainMenuData.stateScriptExists('states', name))
+		{
+			MusicBeatState.switchState(new states.ScriptedState(name));
+			return true;
+		}
+
 		var cls:Class<Dynamic> = MainMenuData.resolveClassAny([name]);
 		if (cls == null)
 		{

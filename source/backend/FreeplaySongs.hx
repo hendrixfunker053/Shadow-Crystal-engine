@@ -1,6 +1,8 @@
 package backend;
 
 import flixel.util.FlxColor;
+import states.LoadingState;
+import states.PlayState;
 import states.StoryMenuState;
 
 typedef FreeplaySong =
@@ -96,5 +98,68 @@ class FreeplaySongs
 	{
 		var i:Int = list.indexOf('Normal');
 		return i >= 0 ? i : 0;
+	}
+
+	/**
+	 * Inicia una canción (flujo del FreeplayState de Psych 1.0.x). Devuelve false si no se pudo cargar.
+	 * Si tu fork cambió Song / Highscore / Difficulty / LoadingState, ajusta aquí.
+	 */
+	public static function start(s:FreeplaySong, diffIndex:Int):Bool
+	{
+		var diffs:Array<String> = diffList(s.difficulties);
+		if (diffIndex < 0 || diffIndex >= diffs.length) diffIndex = defaultDiff(diffs);
+
+		#if MODS_ALLOWED
+		Mods.currentModDirectory = s.folder; // '' para el juego base
+		#end
+
+		var songLowercase:String = Paths.formatToSongPath(s.name);
+		Difficulty.list = diffs;
+		PlayState.storyWeek = s.week;
+		var poop:String = Highscore.formatSong(songLowercase, diffIndex);
+
+		try
+		{
+			Song.loadFromJson(poop, songLowercase);
+			PlayState.isStoryMode = false;
+			PlayState.storyDifficulty = diffIndex;
+		}
+		catch (err:Dynamic)
+		{
+			trace('No se pudo cargar la canción "$songLowercase" ($poop): $err');
+			return false;
+		}
+
+		@:privateAccess
+		if (PlayState._lastLoadedModDirectory != Mods.currentModDirectory)
+			Paths.freeGraphicsFromMemory();
+
+		LoadingState.prepareToSong();
+		LoadingState.loadAndSwitchState(new PlayState());
+		if (FlxG.sound.music != null) FlxG.sound.music.volume = 0;
+		return true;
+	}
+
+	/**
+	 * Funciones de FreePlay para los scripts de states propios (Lua y HScript):
+	 * loadFreeplaySongs(incluirOtrosMods, ocultar) -> cantidad, getSongCount, getSongName(i), getSongIcon(i),
+	 * getSongColor(i) ("#RRGGBB"), getSongFolder(i), getSongDifficulties(i) ("Easy,Normal,Hard"), startSong(i, dificultad).
+	 */
+	public static function registerExtras(x:Map<String, Dynamic>):Void
+	{
+		var songs:Array<FreeplaySong> = [];
+		var ok = function(i:Int) return i >= 0 && i < songs.length;
+
+		x.set('loadFreeplaySongs', function(includeOtherMods:Bool = false, exclude:String = '') {
+			songs = load(includeOtherMods, exclude);
+			return songs.length;
+		});
+		x.set('getSongCount', function() return songs.length);
+		x.set('getSongName', function(i:Int) return ok(i) ? songs[i].name : '');
+		x.set('getSongIcon', function(i:Int) return ok(i) ? songs[i].icon : '');
+		x.set('getSongColor', function(i:Int) return ok(i) ? hex(songs[i].color) : '#FFFFFF');
+		x.set('getSongFolder', function(i:Int) return ok(i) ? songs[i].folder : '');
+		x.set('getSongDifficulties', function(i:Int) return ok(i) ? diffList(songs[i].difficulties).join(',') : '');
+		x.set('startSong', function(i:Int, diff:Int = -1) return ok(i) ? start(songs[i], diff) : false);
 	}
 }
