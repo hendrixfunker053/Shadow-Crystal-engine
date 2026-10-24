@@ -145,12 +145,10 @@ class PsychUIInputText extends FlxSpriteGroup
 			switch (flxKey)
 			{
 				case A:
-					// Select all text.
 					selectIndex = 0;
 					caretIndex = text == null ? 0 : text.length;
 
 				case X, C:
-					// Cut/copy selected text.
 					if (caretIndex >= 0 && selectIndex >= 0 && caretIndex != selectIndex)
 					{
 						var start:Int = Std.int(Math.min(caretIndex, selectIndex));
@@ -163,7 +161,6 @@ class PsychUIInputText extends FlxSpriteGroup
 					}
 
 				case V:
-					// Paste from clipboard.
 					if (Clipboard.text == null)
 						return;
 
@@ -175,7 +172,6 @@ class PsychUIInputText extends FlxSpriteGroup
 					var lastText:String = text;
 					var pasteText:String = filter(Clipboard.text);
 
-					// Remove selected text before pasting.
 					if (selectIndex >= 0 && selectIndex != caretIndex)
 					{
 						var start:Int = Std.int(Math.min(selectIndex, caretIndex));
@@ -186,7 +182,6 @@ class PsychUIInputText extends FlxSpriteGroup
 						selectIndex = -1;
 					}
 
-					// Respect the maximum text length.
 					if (maxLength > 0)
 					{
 						var available:Int = maxLength - text.length;
@@ -254,10 +249,8 @@ class PsychUIInputText extends FlxSpriteGroup
 						do
 						{
 							caretIndex--;
-
 							var a:String = text.substr(caretIndex - 1, 1);
 							var b:String = text.substr(caretIndex, 1);
-
 							if (a == ' ' && b != ' ')
 								break;
 						}
@@ -270,10 +263,8 @@ class PsychUIInputText extends FlxSpriteGroup
 						do
 						{
 							caretIndex++;
-
 							var a:String = text.substr(caretIndex - 1, 1);
 							var b:String = text.substr(caretIndex, 1);
-
 							if (a != ' ' && b == ' ')
 								break;
 						}
@@ -303,13 +294,11 @@ class PsychUIInputText extends FlxSpriteGroup
 		{
 			case KEY_TILDE:
 				_nextAccent = !e.shiftKey ? TILDE : CIRCUMFLEX;
-
 				if (lastAccent == NONE)
 					return;
 
 			case KEY_ACUTE:
 				_nextAccent = !e.shiftKey ? ACUTE : GRAVE;
-
 				if (lastAccent == NONE)
 					return;
 
@@ -419,11 +408,9 @@ class PsychUIInputText extends FlxSpriteGroup
 					case A:
 						grave = 0xC0;
 						capital = 0x41;
-
 					case O:
 						grave = 0xD2;
 						capital = 0x4F;
-
 					default:
 				}
 
@@ -442,15 +429,12 @@ class PsychUIInputText extends FlxSpriteGroup
 					case E:
 						grave = 0xC8;
 						capital = 0x45;
-
 					case I:
 						grave = 0xCC;
 						capital = 0x49;
-
 					case U:
 						grave = 0xD9;
 						capital = 0x55;
-
 					default:
 				}
 
@@ -481,7 +465,6 @@ class PsychUIInputText extends FlxSpriteGroup
 				if (charCode < 1)
 				{
 					charCode = getAccentCharCode(_nextAccent);
-
 					if (charCode < 1)
 						return;
 				}
@@ -632,15 +615,16 @@ class PsychUIInputText extends FlxSpriteGroup
 
 		var textField = textObj.textField;
 
+		// En móviles se omite completamente setSelection para prevenir desbordamientos internos de OpenFL
 		#if !mobile
-		var selStart:Int = selectIndex != -1 ? Std.int(Math.min(caretIndex, selectIndex)) : caretIndex;
-		var selEnd:Int = selectIndex != -1 ? Std.int(Math.max(caretIndex, selectIndex)) : caretIndex;
-		
-		selStart = Std.int(Math.max(0, Math.min(selStart, textLength)));
-		selEnd = Std.int(Math.max(0, Math.min(selEnd, textLength)));
-
 		try
 		{
+			var selStart:Int = selectIndex != -1 ? Std.int(Math.min(caretIndex, selectIndex)) : caretIndex;
+			var selEnd:Int = selectIndex != -1 ? Std.int(Math.max(caretIndex, selectIndex)) : caretIndex;
+			
+			selStart = Std.int(Math.max(0, Math.min(selStart, textLength)));
+			selEnd = Std.int(Math.max(0, Math.min(selEnd, textLength)));
+
 			textField.setSelection(selStart, selEnd);
 		}
 		catch (e:Dynamic) {}
@@ -702,20 +686,30 @@ class PsychUIInputText extends FlxSpriteGroup
 
 			if (text.length > 0)
 			{
-				textObj.removeFormat(selectedFormat);
-
-				if (selectIndex != -1 && selectIndex != caretIndex)
+				try
 				{
-					textObj.addFormat(
-						selectedFormat,
-						caretIndex < selectIndex ? caretIndex : selectIndex,
-						caretIndex < selectIndex ? selectIndex : caretIndex
-					);
+					textObj.removeFormat(selectedFormat);
+
+					if (selectIndex != -1 && selectIndex != caretIndex)
+					{
+						textObj.addFormat(
+							selectedFormat,
+							caretIndex < selectIndex ? caretIndex : selectIndex,
+							caretIndex < selectIndex ? selectIndex : caretIndex
+						);
+					}
 				}
+				catch (e:Dynamic) {}
 			}
 		}
 		else if (text.length > 0)
-			textObj.removeFormat(selectedFormat);
+		{
+			try
+			{
+				textObj.removeFormat(selectedFormat);
+			}
+			catch (e:Dynamic) {}
+		}
 	}
 
 	function deleteSelection()
@@ -881,7 +875,6 @@ class PsychUIInputText extends FlxSpriteGroup
 
 		text = v;
 
-		// Keep existing cursor positions valid after text changes.
 		var textLength:Int = v.length;
 
 		if (caretIndex > textLength)
