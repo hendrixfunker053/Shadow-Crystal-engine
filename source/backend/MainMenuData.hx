@@ -410,19 +410,31 @@ function onAccept($accept)
 	public static function hasCustomMenu():Bool
 	{
 		if (forceOriginal) return false;
-		#if (MODS_ALLOWED && sys)
-		var path:String = packPath();
-		if (path == null || !FileSystem.exists(path)) return false;
 
-		try
+		#if (MODS_ALLOWED && sys)
+		// Mod actual y mods globales (si no hay mod seleccionado, un script/menú global también activa el panel)
+		var folders:Array<String> = [];
+		if (Mods.currentModDirectory != null && Mods.currentModDirectory.length > 0) folders.push(Mods.currentModDirectory);
+		for (g in Mods.getGlobalMods()) if (!folders.contains(g)) folders.push(g);
+
+		for (f in folders)
 		{
-			var pack:Dynamic = Json.parse(File.getContent(path));
-			for (key in CUSTOM_MENU_KEYS)
-				if (Reflect.hasField(pack, key))
-					return isTrue(Reflect.field(pack, key));
+			var path:String = Paths.mods(f + '/pack.json');
+			if (!FileSystem.exists(path)) continue;
+			try
+			{
+				var pack:Dynamic = Json.parse(File.getContent(path));
+				for (key in CUSTOM_MENU_KEYS)
+					if (Reflect.hasField(pack, key) && isTrue(Reflect.field(pack, key)))
+					{
+						trace('Quick panel activado por $path');
+						return true;
+					}
+			}
+			catch (e)
+				trace('pack.json inválido ($path): $e');
 		}
-		catch (e)
-			trace('pack.json inválido: $e');
+		trace('Quick panel desactivado: ninguno de [' + folders.join(', ') + '] tiene "Custom menu": true en pack.json');
 		#end
 		return false;
 	}
