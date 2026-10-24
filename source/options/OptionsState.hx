@@ -13,8 +13,12 @@ class OptionsState extends MusicBeatState
 		#end
 		'Graphics',
 		'Visuals',
-		'Gameplay'
-		#if mobile , 'Mobile Options' #end
+		'Gameplay',
+		#if desktop
+		'Extra Settings'
+		#else
+		'Mobile Options'
+		#end
 		#if TRANSLATIONS_ALLOWED , 'Language' #end
 		#if mobile , 'Open Data Folder' #end
 	];
@@ -41,9 +45,9 @@ class OptionsState extends MusicBeatState
 				MusicBeatState.switchState(new options.NoteOffsetState());
 			case 'Language':
 				openSubState(new options.LanguageSubState());
-			#if mobile
-			case 'Mobile Options':
+			case 'Extra Settings', 'Mobile Options':
 				openSubState(new options.MobileSettingsSubState());
+			#if mobile
 			case 'Open Data Folder':
 				mobile.DataFolder.open();
 			#end
@@ -97,16 +101,15 @@ class OptionsState extends MusicBeatState
 
 		super.create();
 
-		#if mobile
 		if (reopenMobileOptions)
 		{
 			reopenMobileOptions = false;
-			curSelected = options.indexOf('Mobile Options');
+			var targetOpt:String = #if desktop 'Extra Settings' #else 'Mobile Options' #end;
+			curSelected = options.indexOf(targetOpt);
 			if (curSelected < 0) curSelected = 0;
 			changeSelection();
-			openSelectedSubstate('Mobile Options');
+			openSelectedSubstate(targetOpt);
 		}
-		#end
 	}
 
 	#if android
