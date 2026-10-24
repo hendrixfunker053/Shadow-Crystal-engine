@@ -2,17 +2,20 @@ package options;
 
 class MobileSettingsSubState extends BaseOptionsMenu
 {
-	#if android
+	#if !desktop
 	var initialStorage:String;
-	#end
 	var initialScreenStyle:String;
+	#end
 
 	public function new()
 	{
+		#if !desktop
 		initialScreenStyle = ClientPrefs.data.screenStyle;
+		#end
 		title = Language.getPhrase('mobile_menu', 'Mobile Options');
 		rpcTitle = 'Mobile Options Menu';
 
+		#if !desktop
 		var option:Option = new Option('Mobile Controls',
 			'Preview and customize the hitbox: style, colors and opacity.',
 			null,
@@ -30,13 +33,16 @@ class MobileSettingsSubState extends BaseOptionsMenu
 			STRING,
 			['Four Lanes', 'Arrows']);
 		addOption(option);
+		#end
 
+		// El cursor táctil se queda activo (incluso si alguien usa pantalla táctil en PC o en móviles/iOS)
 		var option:Option = new Option('Touch Cursor',
 			'If checked, a circle shows where your fingers are touching the screen.',
 			'touchCursor',
 			BOOL);
 		addOption(option);
 
+		#if !desktop
 		var option:Option = new Option('Invisible Hitbox',
 			'If checked, the hitbox lanes are hidden during gameplay.\nThey still work while hidden.',
 			'hitboxInvisible',
@@ -59,6 +65,7 @@ class MobileSettingsSubState extends BaseOptionsMenu
 			'pauseButtonInvisible',
 			BOOL);
 		addOption(option);
+		#end
 
 		var option:Option = new Option('Chart Editor in Pause',
 			'If checked, the pause menu shows a "Chart Editor" option\nright after "Restart Song".',
@@ -66,6 +73,7 @@ class MobileSettingsSubState extends BaseOptionsMenu
 			BOOL);
 		addOption(option);
 
+		#if !desktop
 		var option:Option = new Option('Screen Style:',
 			'Original: the classic 16:9 screen with black bars on wide phones.\nFull: fills the whole screen without stretching, showing more of the game on the sides.',
 			'screenStyle',
@@ -73,6 +81,7 @@ class MobileSettingsSubState extends BaseOptionsMenu
 			['Original', 'Full']);
 		addOption(option);
 		option.onChange = mobile.ScreenStyle.apply;
+		#end
 
 		#if android
 		ClientPrefs.data.storageType = mobile.StorageUtil.getStorageType();
@@ -130,6 +139,7 @@ class MobileSettingsSubState extends BaseOptionsMenu
 		#if android
 		if (closeStorage()) return;
 		#end
+		#if !desktop
 		if (ClientPrefs.data.screenStyle != initialScreenStyle)
 		{
 			ClientPrefs.saveSettings();
@@ -137,5 +147,6 @@ class MobileSettingsSubState extends BaseOptionsMenu
 			FlxTransitionableState.skipNextTransOut = true;
 			FlxG.resetState();
 		}
+		#end
 	}
 }
