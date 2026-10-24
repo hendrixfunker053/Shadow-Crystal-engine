@@ -931,7 +931,7 @@ class PsychUIInputText extends FlxSpriteGroup
 			if (!inInsertMode)
 				text = text.substring(0, caretIndex) + letter + text.substring(caretIndex);
 			else
-				text = text.substring(0, caretIndex) + letter + text.substring(Math.min(text.length, caretIndex + 1));
+				text = text.substring(0, caretIndex) + letter + text.substring(Std.int(Math.min(text.length, caretIndex + 1)));
 
 			caretIndex += letter.length;
 
