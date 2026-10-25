@@ -211,24 +211,24 @@ class Paths
 	inline static public function music(key:String, ?modsAllowed:Bool = true):Sound
 		return returnSound('music/$key', modsAllowed);
 
-	inline static public function inst(song:String, ?modsAllowed:Bool = true, ?variation:String = null):Sound
+	static public function inst(song:String, ?modsAllowed:Bool = true, ?variation:String = null):Sound
 	{
 		var baseKey:String = '${formatToSongPath(song)}/Inst';
 		if (variation != null && variation.length > 0 && variation != 'default')
 		{
-			var variantSound = returnSound('$baseKey-$variation', 'songs', modsAllowed, false);
+			var variantSound:Sound = returnSound('$baseKey-$variation', 'songs', modsAllowed, false);
 			if (variantSound != null) return variantSound;
 		}
 		return returnSound(baseKey, 'songs', modsAllowed);
 	}
 
-	inline static public function voices(song:String, postfix:String = null, ?modsAllowed:Bool = true, ?variation:String = null):Sound
+	static public function voices(song:String, postfix:String = null, ?modsAllowed:Bool = true, ?variation:String = null):Sound
 	{
 		var songKey:String = '${formatToSongPath(song)}/Voices';
 		if(postfix != null && postfix.length > 0) songKey += '-' + postfix;
 		if(variation != null && variation.length > 0 && variation != 'default')
 		{
-			var variantSound = returnSound('$songKey-$variation', 'songs', modsAllowed, false);
+			var variantSound:Sound = returnSound('$songKey-$variation', 'songs', modsAllowed, false);
 			if (variantSound != null) return variantSound;
 		}
 		return returnSound(songKey, 'songs', modsAllowed, false);

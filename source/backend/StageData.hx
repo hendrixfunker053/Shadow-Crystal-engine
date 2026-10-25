@@ -88,7 +88,6 @@ class StageData {
 			#end
 		}
 		#if MODS_ALLOWED
-		// Fallback: cargar el stage V-Slice personalizado si no existe un stages/<id>.json de Psych.
 		var vsliceStage:StageFile = backend.vslice.StageConverter.load(stage);
 		if (vsliceStage != null) return vsliceStage;
 		#end
