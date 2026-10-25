@@ -1329,14 +1329,37 @@ class PlayState extends MusicBeatState
 		{
 			if (songData.needsVoices)
 			{
-				var playerVocals = Paths.voices(songData.song, (boyfriend.vocalsFile == null || boyfriend.vocalsFile.length < 1) ? 'Player' : boyfriend.vocalsFile);
-				vocals.loadEmbedded(playerVocals != null ? playerVocals : Paths.voices(songData.song));
-				
-				var oppVocals = Paths.voices(songData.song, (dad.vocalsFile == null || dad.vocalsFile.length < 1) ? 'Opponent' : dad.vocalsFile);
+				// V-Slice guarda los IDs de las voces en metadata.playData.characters
+			// como playerVocals/opponentVocals. ChartConverter los conserva en
+			// SONG.vsliceVocals; probarlos antes del fallback de Psych.
+				var vsVocals:Dynamic = Reflect.field(songData, 'vsliceVocals');
+				var playerIds:Array<Dynamic> = vsVocals != null ? cast Reflect.field(vsVocals, 'player') : null;
+				var opponentIds:Array<Dynamic> = vsVocals != null ? cast Reflect.field(vsVocals, 'opponent') : null;
+				var vsVariation:String = Reflect.field(songData, 'vsliceVariation');
+				if (vsVariation == null) vsVariation = '';
+
+				var playerSuffix:String = (playerIds != null && playerIds.length > 0)
+					? Std.string(playerIds[0])
+					: ((boyfriend.vocalsFile == null || boyfriend.vocalsFile.length < 1) ? 'Player' : boyfriend.vocalsFile);
+				var playerVocals = Paths.voices(songData.song, playerSuffix, true, vsVariation);
+				if (playerVocals == null && boyfriend.vocalsFile != null && boyfriend.vocalsFile.length > 0)
+					playerVocals = Paths.voices(songData.song, boyfriend.vocalsFile, true, vsVariation);
+				if (playerVocals == null) playerVocals = Paths.voices(songData.song, null, true, vsVariation);
+				if (playerVocals != null) vocals.loadEmbedded(playerVocals);
+
+				var opponentSuffix:String = (opponentIds != null && opponentIds.length > 0)
+					? Std.string(opponentIds[0])
+					: ((dad.vocalsFile == null || dad.vocalsFile.length < 1) ? 'Opponent' : dad.vocalsFile);
+				var oppVocals = Paths.voices(songData.song, opponentSuffix, true, vsVariation);
+				if (oppVocals == null && dad.vocalsFile != null && dad.vocalsFile.length > 0)
+					oppVocals = Paths.voices(songData.song, dad.vocalsFile, true, vsVariation);
 				if(oppVocals != null && oppVocals.length > 0) opponentVocals.loadEmbedded(oppVocals);
 			}
 		}
-		catch (e:Dynamic) {}
+		catch (e:Dynamic)
+		{
+			trace('[VSlice] Error cargando voces: $e');
+		}
 
 		#if FLX_PITCH
 		vocals.pitch = playbackRate;
@@ -1348,7 +1371,8 @@ class PlayState extends MusicBeatState
 		inst = new FlxSound();
 		try
 		{
-			inst.loadEmbedded(Paths.inst(songData.song));
+			var vsVariation:String = Reflect.field(songData, 'vsliceVariation');
+			inst.loadEmbedded(Paths.inst(songData.song, true, vsVariation));
 		}
 		catch (e:Dynamic) {}
 		FlxG.sound.list.add(inst);
