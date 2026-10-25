@@ -326,6 +326,11 @@ class Paths
 
 			if (resolveModPath(mods(Mods.currentModDirectory + '/' + modKey)) != null || resolveModPath(mods(modKey)) != null)
 				return true;
+
+			if(isVSliceDir(Mods.currentModDirectory))
+				for(lib in VSLICE_LIBS)
+					if (resolveModPath(mods(Mods.currentModDirectory + '/' + lib + '/' + modKey)) != null)
+						return true;
 		}
 		#end
 		return (OpenFlAssets.exists(getPath(key, type, parentFolder, false)));
@@ -512,7 +517,34 @@ class Paths
 		}
 
 		var rootFile:String = resolveModPath(mods(key));
-		return rootFile != null ? rootFile : mods(key);
+		if(rootFile != null) return rootFile;
+
+		// Mods V-Slice/Polymod: los assets de gameplay (personajes, stages) viven en `shared/images/...`
+		// (y a veces `preload/...`) dentro del mod, no en `images/...`.
+		if(isVSliceDir(Mods.currentModDirectory))
+			for(lib in VSLICE_LIBS)
+			{
+				var libFile:String = resolveModPath(mods(Mods.currentModDirectory + '/' + lib + '/' + key));
+				if(libFile != null) return libFile;
+			}
+
+		return mods(key);
+	}
+
+	static final VSLICE_LIBS:Array<String> = ['shared', 'preload'];
+	static var _vsliceDirCache:Map<String, Bool> = new Map();
+
+	/** ¿Esta carpeta de mods es un mod V-Slice (tiene _polymod_meta.json)? Con caché para no tocar el disco en cada búsqueda. */
+	public static function isVSliceDir(dir:String):Bool
+	{
+		if(dir == null || dir.length == 0) return false;
+		var cached:Null<Bool> = _vsliceDirCache.get(dir);
+		if(cached == null)
+		{
+			cached = resolveModPath(mods(dir + '/_polymod_meta.json')) != null;
+			_vsliceDirCache.set(dir, cached);
+		}
+		return cached;
 	}
 
 	#if mobile

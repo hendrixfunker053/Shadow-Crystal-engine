@@ -87,6 +87,8 @@ class StageData {
 				return cast tjson.TJSON.parse(Assets.getText(path));
 			#end
 		}
+		catch(e:Dynamic) {}
+
 		#if MODS_ALLOWED
 		var vsliceStage:StageFile = backend.vslice.StageConverter.load(stage);
 		if (vsliceStage != null) return vsliceStage;
