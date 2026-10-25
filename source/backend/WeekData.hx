@@ -134,6 +134,9 @@ class WeekData {
 				}
 			}
 		}
+
+		// Canciones de mods V-Slice (como semanas solo para Freeplay)
+		backend.vslice.VSliceMods.addWeeks(isStoryMode);
 		#end
 	}
 
