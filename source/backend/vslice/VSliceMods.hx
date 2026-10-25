@@ -1,8 +1,6 @@
 package backend.vslice;
 
 import haxe.Json;
-import backend.Paths;
-import backend.Mods;
 import backend.WeekData;
 #if MODS_ALLOWED
 import sys.FileSystem;
@@ -104,9 +102,6 @@ class VSliceMods
 		var requestedVariation:String = 'default';
 		var baseId:String = songId;
 		var defMeta:Null<String> = findFile('data/songs/$baseId/$baseId-metadata.json');
-
-		// Freeplay representa las variantes como entradas separadas (dani-pico).
-		// Si no existe una canción con ese ID, comprueba si es una variante de otra.
 		if (defMeta == null)
 		{
 			var cut:Int = songId.lastIndexOf('-');
@@ -119,16 +114,11 @@ class VSliceMods
 				{
 					var declared:Array<String> = g(g(readJson(candidateMeta), 'playData', {}), 'songVariations', []);
 					if (declared.contains(candidateVar) && findFile('data/songs/$candidateBase/$candidateBase-metadata-$candidateVar.json') != null)
-					{
-						baseId = candidateBase;
-						requestedVariation = candidateVar;
-						defMeta = candidateMeta;
-					}
+					{ baseId = candidateBase; requestedVariation = candidateVar; defMeta = candidateMeta; }
 				}
 			}
 		}
 		if (defMeta == null) return null;
-
 		var variations:Array<String> = requestedVariation == 'default' ? ['default'] : [requestedVariation];
 		if (requestedVariation == 'default')
 		{
@@ -339,7 +329,6 @@ class VSliceMods
 					variations: vars
 				});
 
-				// Cada variante con metadata propia aparece como una entrada distinta.
 				for (v in vars)
 				{
 					var vMetaPath:String = '$root/$song/$song-metadata-$v.json';
@@ -348,15 +337,7 @@ class VSliceMods
 					if (vMeta == null) continue;
 					var vp:Dynamic = g(vMeta, 'playData', {});
 					var vd:Array<String> = [for (d in (g(vp, 'difficulties', []) : Array<String>)) d];
-					result.push({
-						id: '$song-$v',
-						name: g(vMeta, 'songName', '$song-$v'),
-						artist: g(vMeta, 'artist', ''),
-						mod: mod,
-						opponent: g(g(vp, 'characters', {}), 'opponent', 'dad'),
-						difficulties: vd,
-						variations: []
-					});
+					result.push({id: '$song-$v', name: g(vMeta, 'songName', '$song-$v'), artist: g(vMeta, 'artist', ''), mod: mod, opponent: g(g(vp, 'characters', {}), 'opponent', 'dad'), difficulties: vd, variations: []});
 				}
 			}
 		}

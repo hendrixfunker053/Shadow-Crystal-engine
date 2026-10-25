@@ -1,17 +1,14 @@
 package backend.vslice;
 
 import haxe.Json;
-#if MODS_ALLOWED
-import sys.io.File;
-#end
 import backend.StageData;
 import backend.StageData.StageFile;
 import backend.vslice.VSliceMods.g;
+#if MODS_ALLOWED
+import sys.io.File;
+#end
 
-/**
- * Convierte stages V-Slice sencillos a StageFile de Psych.
- * Soporta props estáticos, props Sparrow animados y posiciones/zIndex de personajes.
- */
+/** Convierte props de data/stages/<id>.json V-Slice a objetos de Psych. */
 class StageConverter
 {
 	public static function load(stageId:String):Null<StageFile>
@@ -46,8 +43,6 @@ class StageConverter
 			var p:Dynamic = props[i];
 			ordered.push({z: g(p, 'zIndex', i), order: i, kind: 'prop', value: p});
 		}
-		// Psych's object list controls actual draw order, so insert character groups
-		// into that same list using V-Slice zIndex.
 		ordered.push({z: g(dad, 'zIndex', 8), order: 10000, kind: 'dad', value: dad});
 		ordered.push({z: g(gf, 'zIndex', 7), order: 10001, kind: 'gf', value: gf});
 		ordered.push({z: g(bf, 'zIndex', 8), order: 10002, kind: 'boyfriend', value: bf});
@@ -55,7 +50,7 @@ class StageConverter
 		{
 			if (a.z < b.z) return -1;
 			if (a.z > b.z) return 1;
-			return a.order - b.order;
+			return Std.int(a.order) - Std.int(b.order);
 		});
 
 		var objects:Array<Dynamic> = [];
@@ -88,8 +83,7 @@ class StageConverter
 					offsets: g(a, 'offsets', [0, 0])
 				});
 			}
-
-			var obj:Dynamic = {
+			objects.push({
 				type: anims.length > 0 ? 'animatedSprite' : 'sprite',
 				name: g(p, 'name', 'vsliceProp' + objects.length),
 				image: asset,
@@ -97,17 +91,10 @@ class StageConverter
 				y: pos.length > 1 ? pos[1] : 0,
 				scale: [scale, scale],
 				scroll: scroll,
-				color: 'FFFFFF',
-				alpha: 1,
-				angle: 0,
-				flipX: false,
-				flipY: false,
-				antialiasing: true,
-				filters: 3,
-				animations: anims,
+				color: 'FFFFFF', alpha: 1, angle: 0, flipX: false, flipY: false,
+				antialiasing: true, filters: 3, animations: anims,
 				firstAnimation: g(p, 'startingAnimation', '')
-			};
-			objects.push(obj);
+			});
 		}
 
 		var bfPos:Array<Float> = cast g(bf, 'position', [770, 100]);
@@ -116,20 +103,12 @@ class StageConverter
 		var bfCam:Array<Float> = cast g(bf, 'cameraOffsets', [0, 0]);
 		var dadCam:Array<Float> = cast g(dad, 'cameraOffsets', [0, 0]);
 		var gfCam:Array<Float> = cast g(gf, 'cameraOffsets', [0, 0]);
-
 		return {
-			directory: '',
-			defaultZoom: g(data, 'cameraZoom', 0.9),
-			stageUI: 'normal',
-			boyfriend: bfPos,
-			girlfriend: gfPos,
-			opponent: dadPos,
-			hide_girlfriend: false,
-			camera_boyfriend: bfCam,
-			camera_opponent: dadCam,
-			camera_girlfriend: gfCam,
-			camera_speed: 1,
-			objects: objects
+			directory: g(data, 'directory', ''),
+			defaultZoom: g(data, 'cameraZoom', 0.9), stageUI: 'normal',
+			boyfriend: bfPos, girlfriend: gfPos, opponent: dadPos, hide_girlfriend: false,
+			camera_boyfriend: bfCam, camera_opponent: dadCam, camera_girlfriend: gfCam,
+			camera_speed: 1, objects: objects
 		};
 	}
 }

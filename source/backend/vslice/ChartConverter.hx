@@ -1,7 +1,6 @@
 package backend.vslice;
 
 import haxe.Json;
-import backend.Paths;
 import backend.vslice.VSliceMods.g;
 
 /**
@@ -63,9 +62,9 @@ class ChartConverter
 		while (t <= endMs);
 
 		// ---- Secciones neutrales ----
-		// V-Slice ya codifica el lado en d: 0-3 = oponente, 4-7 = jugador.
-		// Psych interpreta esos carriles con mustHitSection=false. La cámara
-		// nunca debe usarse para decidir quién recibe una nota.
+		// V-Slice ya codifica el lado en d: 0-3 = jugador, 4-7 = oponente.
+		// Psych se configuró para leer directamente esos índices; la cámara no
+		// debe decidir quién recibe una nota.
 		var sections:Array<Dynamic> = [];
 		for (i in 0...starts.length)
 		{
@@ -85,16 +84,10 @@ class ChartConverter
 		{
 			var sec:Dynamic = sections[sectionAt(starts, n.t)];
 			var d:Int = Std.int(n.d);
-			// En V-Slice, d ya identifica el lado y el carril:
-			// 0-3 = oponente, 4-7 = jugador. No se debe volver a
-			// reasignar usando mustHitSection, porque esa propiedad se usa
-			// para el foco/cámara y puede cambiar independientemente.
-			var psychData:Int = d;
-			if (psychData < 0 || psychData > 7)
-			{
-				trace('[VSlice] Carril fuera de rango ($psychData) en ${n.t} ms; se omite.');
-				continue;
-			}
+			var isPlayer:Bool = d < 4;
+			var lane:Int = ((d % 4) + 4) % 4;
+			var mustHit:Bool = sec.mustHitSection;
+			var psychData:Int = (isPlayer == mustHit) ? lane : lane + 4;
 
 			var row:Array<Dynamic> = [n.t, psychData, g(n, 'l', 0)];
 			var kind:Dynamic = g(n, 'k', null);
@@ -190,9 +183,8 @@ class ChartConverter
 		switch (name)
 		{
 			case 'FocusCamera':
-				// El foco de cámara es independiente del lado de las notas.
-				// Se conserva incluso si coincide con el inicio de una sección.
-				break;
+				// Al inicio de sección ya se aplicó en mustHitSection/gfSection.
+				if (Math.abs(e.t - starts[sectionAt(starts, e.t)]) <= 1) return null;
 
 			case 'PlayAnimation':
 				var target:String = Std.string(g(v, 'target', 'dad')).toLowerCase();
