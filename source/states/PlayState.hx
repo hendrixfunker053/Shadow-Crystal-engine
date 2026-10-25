@@ -1330,7 +1330,7 @@ class PlayState extends MusicBeatState
 			if (songData.needsVoices)
 			{
 				// V-Slice metadata carries explicit vocal IDs, which can differ from
-				the visible character IDs. Variation suffixes are appended by Paths.
+				// the visible character IDs. Variation suffixes are appended by Paths.
 				var vsVariation:String = Reflect.field(songData, 'vsliceVariation');
 				if (vsVariation == null) vsVariation = '';
 				var vsVocals:Dynamic = Reflect.field(songData, 'vsliceVocals');
