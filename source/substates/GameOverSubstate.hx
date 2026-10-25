@@ -3,6 +3,9 @@ package substates;
 import backend.WeekData;
 
 import objects.Character;
+import flixel.FlxG;
+import flixel.FlxSprite;
+import flixel.util.FlxColor;
 import flixel.FlxObject;
 import flixel.FlxSubState;
 import flixel.math.FlxPoint;
@@ -55,6 +58,24 @@ class GameOverSubstate extends MusicBeatSubstate
 
 	var overlay:FlxSprite;
 	var overlayConfirmOffsets:FlxPoint = FlxPoint.get();
+
+	// Shadow Crystal Engine: optional native custom Game Over effect.
+	var customGameOverEnabled:Bool = false;
+	var customGameOverDimmer:FlxSprite;
+	var customGameOverElapsed:Float = 0;
+	var customGameOverOriginalBf:Character;
+	var customGameOverOriginalBfVisible:Bool = true;
+	var customGameOverOriginalGroupVisible:Bool = true;
+	var customGameOverOriginalHudAlpha:Float = 1;
+	var customGameOverOriginalPersistentDraw:Bool = false;
+	var customGameOverSavedPersistentDraw:Bool = false;
+	var customGameOverHud:Dynamic;
+	var customGameOverSavedX:Float = 0;
+	var customGameOverSavedY:Float = 0;
+	var customGameOverSavedOffsetX:Float = 0;
+	var customGameOverSavedOffsetY:Float = 0;
+	var customGameOverSavedScaleX:Float = 1;
+	var customGameOverSavedScaleY:Float = 1;
 	override function create()
 	{
 		instance = this;
@@ -69,6 +90,10 @@ class GameOverSubstate extends MusicBeatSubstate
 		}
 		boyfriend.skipDance = true;
 		add(boyfriend);
+
+		customGameOverEnabled = ClientPrefs.data.customGameOver;
+		if (customGameOverEnabled)
+			setupCustomGameOver();
 
 		FlxG.sound.play(Paths.sound(deathSoundName));
 		FlxG.camera.scroll.set();
@@ -144,6 +169,9 @@ class GameOverSubstate extends MusicBeatSubstate
 		super.update(elapsed);
 
 		PlayState.instance.callOnScripts('onUpdate', [elapsed]);
+
+		if (customGameOverEnabled)
+			updateCustomGameOver(elapsed);
 
 		var justPlayedLoop:Bool = false;
 		if (!boyfriend.isAnimationNull() && boyfriend.getAnimationName() == 'firstDeath' && boyfriend.isAnimationFinished())
@@ -247,8 +275,102 @@ class GameOverSubstate extends MusicBeatSubstate
 		}
 	}
 
+	function setupCustomGameOver():Void
+	{
+		var ps = PlayState.instance;
+		if (ps == null || ps.boyfriend == null) return;
+
+		customGameOverOriginalBf = ps.boyfriend;
+		customGameOverSavedX = customGameOverOriginalBf.x;
+		customGameOverSavedY = customGameOverOriginalBf.y;
+		customGameOverSavedScaleX = customGameOverOriginalBf.scale.x;
+		customGameOverSavedScaleY = customGameOverOriginalBf.scale.y;
+		if (customGameOverOriginalBf.positionArray != null)
+		{
+			customGameOverSavedOffsetX = customGameOverOriginalBf.positionArray[0];
+			customGameOverSavedOffsetY = customGameOverOriginalBf.positionArray[1];
+		}
+		customGameOverOriginalBfVisible = customGameOverOriginalBf.visible;
+
+		if (ps.boyfriendGroup != null)
+			customGameOverOriginalGroupVisible = ps.boyfriendGroup.visible;
+
+		if (ps.camHUD != null)
+		{
+			customGameOverHud = ps.camHUD;
+			customGameOverOriginalHudAlpha = ps.camHUD.alpha;
+			ps.camHUD.alpha = 0;
+		}
+
+		customGameOverOriginalPersistentDraw = ps.persistentDraw;
+		customGameOverSavedPersistentDraw = true;
+		ps.persistentDraw = true;
+
+		if (boyfriend != customGameOverOriginalBf)
+		{
+			if (boyfriend.positionArray != null)
+			{
+				boyfriend.positionArray[0] = customGameOverSavedOffsetX;
+				boyfriend.positionArray[1] = customGameOverSavedOffsetY;
+			}
+			boyfriend.scale.set(customGameOverSavedScaleX, customGameOverSavedScaleY);
+			boyfriend.updateHitbox();
+			boyfriend.x = customGameOverSavedX;
+			boyfriend.y = customGameOverSavedY;
+			customGameOverOriginalBf.visible = false;
+		}
+
+		var width:Int = Std.int(Math.ceil(FlxG.width * 2));
+		var height:Int = Std.int(Math.ceil(FlxG.height * 2));
+		customGameOverDimmer = new FlxSprite();
+		customGameOverDimmer.makeGraphic(width, height, FlxColor.BLACK);
+		customGameOverDimmer.alpha = 0;
+		customGameOverDimmer.scrollFactor.set(0, 0);
+		customGameOverDimmer.cameras = [FlxG.camera];
+		customGameOverDimmer.setPosition((FlxG.width - width) * 0.5, (FlxG.height - height) * 0.5);
+		insert(0, customGameOverDimmer);
+	}
+
+	function updateCustomGameOver(elapsed:Float):Void
+	{
+		if (customGameOverDimmer == null) return;
+
+		customGameOverElapsed += elapsed;
+		var progress:Float = Math.min(customGameOverElapsed / 0.35, 1);
+		customGameOverDimmer.alpha = 0.45 * progress;
+		customGameOverDimmer.scrollFactor.set(0, 0);
+		customGameOverDimmer.cameras = [FlxG.camera];
+
+		if (customGameOverHud != null)
+			customGameOverHud.alpha = 0;
+	}
+
+	function cleanupCustomGameOver():Void
+	{
+		var ps = PlayState.instance;
+		if (customGameOverOriginalBf != null)
+			customGameOverOriginalBf.visible = customGameOverOriginalBfVisible;
+		if (ps != null && ps.boyfriendGroup != null)
+			ps.boyfriendGroup.visible = customGameOverOriginalGroupVisible;
+		if (customGameOverHud != null)
+			customGameOverHud.alpha = customGameOverOriginalHudAlpha;
+		if (ps != null && customGameOverSavedPersistentDraw)
+			ps.persistentDraw = customGameOverOriginalPersistentDraw;
+
+		if (customGameOverDimmer != null)
+		{
+			remove(customGameOverDimmer, false);
+			customGameOverDimmer.destroy();
+			customGameOverDimmer = null;
+		}
+		customGameOverOriginalBf = null;
+		customGameOverHud = null;
+		customGameOverSavedPersistentDraw = false;
+	}
+
 	override function destroy()
 	{
+		cleanupCustomGameOver();
 		instance = null;
 		super.destroy();
 	}
