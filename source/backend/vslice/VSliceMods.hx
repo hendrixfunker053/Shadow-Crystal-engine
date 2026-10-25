@@ -1,6 +1,7 @@
 package backend.vslice;
 
 import haxe.Json;
+import backend.WeekData;
 #if MODS_ALLOWED
 import sys.FileSystem;
 import sys.io.File;
@@ -134,6 +135,61 @@ class VSliceMods
 		return CharacterConverter.convert(File.getContent(path), id);
 		#else
 		return null;
+		#end
+	}
+
+	/** Icono de salud del oponente según su JSON V-Slice (`healthIcon.id`), o `face`. */
+	static function iconFor(characterId:String):String
+	{
+		var path:Null<String> = findFile('data/characters/$characterId.json');
+		if (path != null)
+		{
+			var id:Dynamic = g(g(readJson(path), 'healthIcon', null), 'id', null);
+			if (id != null) return id;
+		}
+		return 'face';
+	}
+
+	/**
+	 * Registra cada canción V-Slice como una "semana" de Psych (solo Freeplay) para que
+	 * FreeplayState, Difficulty y Highscore funcionen sin cambios.
+	 * Se llama al final de WeekData.reloadWeekFiles.
+	 */
+	public static function addWeeks(isStoryMode:Null<Bool>):Void
+	{
+		#if MODS_ALLOWED
+		if (isStoryMode == true) return;
+
+		for (e in listSongs())
+		{
+			var key:String = 'vslice-${e.mod}-${e.id}';
+			if (WeekData.weeksLoaded.exists(key)) continue;
+
+			// FreeplayState usa formatToSongPath(nombre) como id de la canción.
+			var displayName:String = (Paths.formatToSongPath(e.name) == e.id) ? e.name : e.id;
+
+			var diffs:Array<String> = [for (d in e.difficulties) d.charAt(0).toUpperCase() + d.substr(1)];
+			if (diffs.length == 0) diffs = ['Normal'];
+
+			var wf:WeekFile = {
+				songs: [[displayName, iconFor(e.opponent), [146, 113, 253]]],
+				weekCharacters: ['', 'bf', 'gf'],
+				weekBackground: 'stage',
+				weekBefore: '',
+				storyName: e.name,
+				weekName: e.name,
+				startUnlocked: true,
+				hiddenUntilUnlocked: false,
+				hideStoryMode: true,
+				hideFreeplay: false,
+				difficulties: diffs.join(', ')
+			};
+
+			var week:WeekData = new WeekData(wf, key);
+			week.folder = e.mod;
+			WeekData.weeksLoaded.set(key, week);
+			WeekData.weeksList.push(key);
+		}
 		#end
 	}
 
