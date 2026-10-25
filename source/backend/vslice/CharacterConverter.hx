@@ -15,6 +15,14 @@ class CharacterConverter
 {
 	static final RENDER_TYPES:Array<String> = ['sparrow', 'multisparrow', 'packer', 'animateatlas'];
 
+	/** Quita un prefijo de librería V-Slice ("shared:characters/x" -> "characters/x"). */
+	static function stripLib(p:String):String
+	{
+		if (p == null) return '';
+		var i:Int = p.indexOf(':');
+		return i >= 0 ? p.substr(i + 1) : p;
+	}
+
 	public static function convert(jsonStr:String, ?id:String):Dynamic
 	{
 		var c:Dynamic = Json.parse(jsonStr);
@@ -24,14 +32,14 @@ class CharacterConverter
 			trace('[VSlice] renderType "$renderType" no soportado, se intentará como sparrow.');
 
 		var images:Array<String> = [];
-		var mainAsset:String = g(c, 'assetPath', '');
+		var mainAsset:String = stripLib(g(c, 'assetPath', ''));
 		if (mainAsset != '') images.push(mainAsset);
 
 		var anims:Array<Dynamic> = [];
 		var rawAnims:Array<Dynamic> = g(c, 'animations', []);
 		for (a in rawAnims)
 		{
-			var ap:String = g(a, 'assetPath', '');
+			var ap:String = stripLib(g(a, 'assetPath', ''));
 			if (ap != '' && !images.contains(ap)) images.push(ap);
 
 			anims.push({

@@ -151,7 +151,17 @@ class VSliceMods
 		#if MODS_ALLOWED
 		var path:Null<String> = findFile('data/characters/$id.json');
 		if (path == null) return null;
-		return CharacterConverter.convert(File.getContent(path), id);
+		var out:Dynamic = CharacterConverter.convert(File.getContent(path), id);
+
+		// Aviso útil en el log si la imagen del personaje no se encuentra (si no, solo se ve el logo de HaxeFlixel).
+		for (part in (Std.string(out.image).split(',')))
+		{
+			var img:String = part.trim();
+			if (img.length == 0) continue;
+			if (!FileSystem.exists(Paths.modFolders('images/$img.png')) && !FileSystem.exists(Paths.modFolders('images/$img/Animation.json')))
+				trace('[VSlice] Personaje "$id": no se encontró images/$img.png (se busca en <mod>/images y <mod>/shared/images)');
+		}
+		return out;
 		#else
 		return null;
 		#end

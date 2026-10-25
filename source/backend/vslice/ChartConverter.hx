@@ -7,10 +7,11 @@ import backend.vslice.VSliceMods.g;
  * Convierte `<id>-metadata.json` + `<id>-chart.json` (V-Slice) al JSON de canción de Psych (`psych_v1`).
  *
  * Reglas de conversión:
- *  - V-Slice: `d` 0-3 = jugador, 4-7 = oponente (fijo). Psych depende de `mustHitSection`,
- *    así que cada nota se reasigna a la columna correcta según la sección.
- *  - `FocusCamera` al inicio de sección -> `mustHitSection` / `gfSection`.
- *    Si cae a mitad de sección se conserva como evento `vslice:FocusCamera`.
+ *  - V-Slice: `d` 0-3 = jugador, 4-7 = oponente. En `psych_v1` PlayState usa `data < 4` = jugador
+ *    SIEMPRE (sin importar mustHitSection), así que las notas se copian tal cual.
+ *  - `FocusCamera` al inicio de sección -> `mustHitSection` (solo cámara). `gfSection` NO se usa:
+ *    en Psych convertiría las notas del oponente en notas de GF. El foco en GF y los cambios a
+ *    mitad de sección pasan como evento `vslice:FocusCamera`.
  *  - Eventos sin equivalente directo pasan como `vslice:<Nombre>` con los datos en JSON
  *    en `value1`, para que un script/hook de PlayState los maneje.
  *  - Secciones de 4 beats. Si un cambio de BPM no cae al inicio de un compás, se aplica
@@ -61,17 +62,30 @@ class ChartConverter
 		}
 		while (t <= endMs);
 
-		// ---- Secciones neutrales ----
-		// V-Slice ya codifica el lado en d: 0-3 = jugador, 4-7 = oponente.
-		// Psych se configuró para leer directamente esos índices; la cámara no
-		// debe decidir quién recibe una nota.
+		// ---- Foco de cámara por sección (solo cámara; no decide quién toca las notas) ----
+		var focus:Array<{t:Float, who:Int}> = [];
+		for (e in rawEvents)
+		{
+			if (e.e != 'FocusCamera') continue;
+			focus.push({t: e.t, who: focusChar(e)});
+		}
+		focus.sort(function(a, b) return a.t < b.t ? -1 : (a.t > b.t ? 1 : 0));
+
 		var sections:Array<Dynamic> = [];
+		var fi:Int = 0;
+		var curWho:Int = 0;
 		for (i in 0...starts.length)
 		{
+			while (fi < focus.length && focus[fi].t <= starts[i] + 1)
+			{
+				curWho = focus[fi].who;
+				fi++;
+			}
+			var notesList:Array<Dynamic> = [];
 			sections.push({
-				sectionNotes: [],
+				sectionNotes: notesList,
 				sectionBeats: SECTION_BEATS,
-				mustHitSection: false,
+				mustHitSection: curWho == 0,
 				gfSection: false,
 				bpm: bpms[i],
 				changeBPM: i > 0 && bpms[i] != bpms[i - 1],
@@ -84,10 +98,9 @@ class ChartConverter
 		{
 			var sec:Dynamic = sections[sectionAt(starts, n.t)];
 			var d:Int = Std.int(n.d);
-			var isPlayer:Bool = d < 4;
 			var lane:Int = ((d % 4) + 4) % 4;
-			var mustHit:Bool = sec.mustHitSection;
-			var psychData:Int = (isPlayer == mustHit) ? lane : lane + 4;
+			// psych_v1: dato 0-3 = jugador, 4-7 = oponente (igual que V-Slice).
+			var psychData:Int = (d < 4) ? lane : lane + 4;
 
 			var row:Array<Dynamic> = [n.t, psychData, g(n, 'l', 0)];
 			var kind:Dynamic = g(n, 'k', null);
@@ -103,13 +116,16 @@ class ChartConverter
 			var mapped:Array<Dynamic> = mapEvent(e, starts);
 			if (mapped == null) continue;
 
-			var key:String = Std.string(e.t);
+			var evT:Float = e.t;
+			if (e.e == 'FocusCamera' && focusChar(e) == 2) evT += 50; // moveCameraSection corre al cambiar de sección
+
+			var key:String = Std.string(evT);
 			var bucket:Array<Dynamic> = byTime.get(key);
 			if (bucket == null)
 			{
 				bucket = [];
 				byTime.set(key, bucket);
-				events.push([e.t, bucket]);
+				events.push([evT, bucket]);
 			}
 			bucket.push(mapped);
 		}
@@ -166,6 +182,13 @@ class ChartConverter
 		}
 	}
 
+	/** Personaje enfocado por un evento FocusCamera: 0 = jugador, 1 = oponente, 2 = GF. */
+	static function focusChar(e:Dynamic):Int
+	{
+		var v:Dynamic = e.v;
+		return Std.isOfType(v, Int) ? v : Std.int(g(v, 'char', 0));
+	}
+
 	static function sectionAt(starts:Array<Float>, time:Float):Int
 	{
 		var i:Int = starts.length - 1;
@@ -183,8 +206,9 @@ class ChartConverter
 		switch (name)
 		{
 			case 'FocusCamera':
-				// Al inicio de sección ya se aplicó en mustHitSection/gfSection.
-				if (Math.abs(e.t - starts[sectionAt(starts, e.t)]) <= 1) return null;
+				// Al inicio de sección el jugador/oponente ya se aplicó en mustHitSection.
+				// El foco en GF (2) y los cambios a mitad de sección sí pasan como evento.
+				if (focusChar(e) != 2 && Math.abs(e.t - starts[sectionAt(starts, e.t)]) <= 1) return null;
 
 			case 'PlayAnimation':
 				var target:String = Std.string(g(v, 'target', 'dad')).toLowerCase();
