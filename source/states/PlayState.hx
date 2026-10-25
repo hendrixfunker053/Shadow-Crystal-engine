@@ -106,6 +106,7 @@ class PlayState extends MusicBeatState
 	public var DAD_Y:Float = 100;
 	public var GF_X:Float = 400;
 	public var GF_Y:Float = 130;
+	public var vsliceStage:Bool = false; //Stage V-Slice: las posiciones de personajes son los pies (centro-abajo)
 
 	public var songSpeedTween:FlxTween;
 	public var songSpeed(default, set):Float = 1;
@@ -363,6 +364,7 @@ class PlayState extends MusicBeatState
 
 		var stageData:StageFile = StageData.getStageFile(curStage);
 		defaultCamZoom = stageData.defaultZoom;
+		vsliceStage = (stageData._editorMeta != null && Reflect.field(stageData._editorMeta, 'vsliceAnchor') == true);
 
 		stageUI = "normal";
 		if (stageData.stageUI != null && stageData.stageUI.trim().length > 0)
@@ -855,6 +857,13 @@ class PlayState extends MusicBeatState
 		}
 		char.x += char.positionArray[0];
 		char.y += char.positionArray[1];
+
+		if (vsliceStage)
+		{
+			// V-Slice ubica al personaje por sus pies (centro-abajo); Psych por la esquina superior izquierda.
+			char.x -= char.width / 2;
+			char.y -= char.height;
+		}
 	}
 
 	public var videoCutscene:VideoSprite = null;
