@@ -150,6 +150,7 @@ class Song
 			rawData = File.getContent(_lastPath);
 		else
 		#end
+		if(Assets.exists(_lastPath)) // Assets.getText lanza excepcion si no existe; se comprueba antes
 			rawData = Assets.getText(_lastPath);
 
 		#if MODS_ALLOWED
@@ -160,6 +161,9 @@ class Song
 			if(vsChart != null) rawData = Json.stringify(vsChart);
 		}
 		#end
+
+		// Sin chart en ningun lado: mismo comportamiento de antes (lanza el error "no TEXT asset")
+		if(rawData == null) rawData = Assets.getText(_lastPath);
 
 		return rawData != null ? parseJSON(rawData, jsonInput) : null;
 	}
