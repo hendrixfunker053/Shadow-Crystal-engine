@@ -84,6 +84,12 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 			'hideHud',
 			BOOL);
 		addOption(option);
+
+		var option:Option = new Option('Custom Game Over',
+			'Keeps the song stage visible and darkens it during Game Over.',
+			'customGameOver',
+			BOOL);
+		addOption(option);
 		
 		var option:Option = new Option('Time Bar:',
 			"What should the Time Bar display?",
