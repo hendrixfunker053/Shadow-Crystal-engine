@@ -150,45 +150,122 @@ class VSliceMods
 		return 'face';
 	}
 
+	static function displayNameOf(e:VSliceSongEntry):String
+		// FreeplayState usa formatToSongPath(nombre) como id de la canción.
+		return (Paths.formatToSongPath(e.name) == e.id) ? e.name : e.id;
+
+	static function diffsOf(e:VSliceSongEntry):Array<String>
+	{
+		var diffs:Array<String> = [for (d in e.difficulties) d.charAt(0).toUpperCase() + d.substr(1)];
+		return diffs.length == 0 ? ['Normal'] : diffs;
+	}
+
+	static function makeWeek(key:String, mod:String, title:String, songs:Array<Dynamic>, diffs:Array<String>, story:Bool):Void
+	{
+		var wf:WeekFile = {
+			songs: songs,
+			weekCharacters: ['', 'bf', 'gf'],
+			weekBackground: 'stage',
+			weekBefore: '',
+			storyName: title,
+			weekName: title,
+			startUnlocked: true,
+			hiddenUntilUnlocked: false,
+			hideStoryMode: !story,
+			hideFreeplay: story,
+			difficulties: diffs.join(', ')
+		};
+
+		var week:WeekData = new WeekData(wf, key);
+		week.folder = mod;
+		WeekData.weeksLoaded.set(key, week);
+		WeekData.weeksList.push(key);
+	}
+
 	/**
-	 * Registra cada canción V-Slice como una "semana" de Psych (solo Freeplay) para que
-	 * FreeplayState, Difficulty y Highscore funcionen sin cambios.
+	 * Registra las canciones V-Slice como semanas de Psych para que FreeplayState, StoryMenuState,
+	 * Difficulty y Highscore funcionen sin cambios:
+	 *  - Freeplay: una semana por canción (`vslice-<mod>-<id>`), solo Freeplay.
+	 *  - Story:    una semana por nivel (`data/levels/<nivel>.json`), solo Story Mode.
 	 * Se llama al final de WeekData.reloadWeekFiles.
 	 */
 	public static function addWeeks(isStoryMode:Null<Bool>):Void
 	{
 		#if MODS_ALLOWED
-		if (isStoryMode == true) return;
+		var entries:Array<VSliceSongEntry> = listSongs();
 
-		for (e in listSongs())
+		if (isStoryMode != true)
 		{
-			var key:String = 'vslice-${e.mod}-${e.id}';
-			if (WeekData.weeksLoaded.exists(key)) continue;
+			for (e in entries)
+			{
+				var key:String = 'vslice-${e.mod}-${e.id}';
+				if (WeekData.weeksLoaded.exists(key)) continue;
+				makeWeek(key, e.mod, e.name, [[displayNameOf(e), iconFor(e.opponent), [146, 113, 253]]], diffsOf(e), false);
+			}
+		}
 
-			// FreeplayState usa formatToSongPath(nombre) como id de la canción.
-			var displayName:String = (Paths.formatToSongPath(e.name) == e.id) ? e.name : e.id;
+		if (isStoryMode != false)
+			addLevelWeeks(entries);
+		#end
+	}
 
-			var diffs:Array<String> = [for (d in e.difficulties) d.charAt(0).toUpperCase() + d.substr(1)];
-			if (diffs.length == 0) diffs = ['Normal'];
+	static function addLevelWeeks(entries:Array<VSliceSongEntry>):Void
+	{
+		#if MODS_ALLOWED
+		var mods:Array<String> = [];
+		for (e in entries)
+			if (!mods.contains(e.mod)) mods.push(e.mod);
 
-			var wf:WeekFile = {
-				songs: [[displayName, iconFor(e.opponent), [146, 113, 253]]],
-				weekCharacters: ['', 'bf', 'gf'],
-				weekBackground: 'stage',
-				weekBefore: '',
-				storyName: e.name,
-				weekName: e.name,
-				startUnlocked: true,
-				hiddenUntilUnlocked: false,
-				hideStoryMode: true,
-				hideFreeplay: false,
-				difficulties: diffs.join(', ')
-			};
+		for (mod in mods)
+		{
+			var dir:String = Paths.mods('$mod/data/levels');
+			if (!FileSystem.exists(dir) || !FileSystem.isDirectory(dir)) continue;
 
-			var week:WeekData = new WeekData(wf, key);
-			week.folder = e.mod;
-			WeekData.weeksLoaded.set(key, week);
-			WeekData.weeksList.push(key);
+			for (file in FileSystem.readDirectory(dir))
+			{
+				if (!file.endsWith('.json')) continue;
+
+				var level:Dynamic = readJson('$dir/$file');
+				if (level == null) continue;
+				var levelId:String = file.substr(0, file.length - 5);
+
+				var songsArr:Array<Dynamic> = [];
+				var diffs:Array<String> = null;
+				var ids:Array<String> = g(level, 'songs', []);
+				for (id in ids)
+				{
+					var found:VSliceSongEntry = null;
+					for (cand in entries)
+						if (cand.mod == mod && cand.id == id)
+						{
+							found = cand;
+							break;
+						}
+					if (found == null) continue;
+
+					songsArr.push([displayNameOf(found), iconFor(found.opponent), [146, 113, 253]]);
+
+					var d:Array<String> = diffsOf(found);
+					diffs = (diffs == null) ? d : [for (x in diffs) if (d.contains(x)) x]; // solo las comunes
+				}
+				if (songsArr.length == 0) continue;
+				if (diffs == null || diffs.length == 0) diffs = ['Normal'];
+
+				var title:String = g(level, 'name', g(level, 'title', levelId));
+
+				// StoryMenuState carga la imagen `storymenu/<clave de la semana>`; V-Slice la define en
+				// `titleAsset` ("storymenu/titles/week1"), así que se usa ese nombre como clave si está libre.
+				var key:String = 'vslice-$mod-$levelId';
+				var titleAsset:String = g(level, 'titleAsset', '');
+				if (titleAsset.startsWith('storymenu/'))
+				{
+					var k:String = titleAsset.substr('storymenu/'.length);
+					if (k.length > 0 && !WeekData.weeksLoaded.exists(k)) key = k;
+				}
+				if (WeekData.weeksLoaded.exists(key)) continue;
+
+				makeWeek(key, mod, title, songsArr, diffs, true);
+			}
 		}
 		#end
 	}
