@@ -1329,15 +1329,13 @@ class PlayState extends MusicBeatState
 		{
 			if (songData.needsVoices)
 			{
-				// V-Slice guarda los IDs de las voces en metadata.playData.characters
-			// como playerVocals/opponentVocals. ChartConverter los conserva en
-			// SONG.vsliceVocals; probarlos antes del fallback de Psych.
+				// V-Slice metadata carries explicit vocal IDs, which can differ from
+				the visible character IDs. Variation suffixes are appended by Paths.
+				var vsVariation:String = Reflect.field(songData, 'vsliceVariation');
+				if (vsVariation == null) vsVariation = '';
 				var vsVocals:Dynamic = Reflect.field(songData, 'vsliceVocals');
 				var playerIds:Array<Dynamic> = vsVocals != null ? cast Reflect.field(vsVocals, 'player') : null;
 				var opponentIds:Array<Dynamic> = vsVocals != null ? cast Reflect.field(vsVocals, 'opponent') : null;
-				var vsVariation:String = Reflect.field(songData, 'vsliceVariation');
-				if (vsVariation == null) vsVariation = '';
-
 				var playerSuffix:String = (playerIds != null && playerIds.length > 0)
 					? Std.string(playerIds[0])
 					: ((boyfriend.vocalsFile == null || boyfriend.vocalsFile.length < 1) ? 'Player' : boyfriend.vocalsFile);
