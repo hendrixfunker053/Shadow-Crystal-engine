@@ -2,6 +2,7 @@ package backend.vslice;
 
 import haxe.Json;
 import backend.Conductor;
+import states.PlayState;
 import backend.StageData;
 import flixel.FlxG;
 import flixel.tweens.FlxEase;

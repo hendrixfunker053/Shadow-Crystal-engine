@@ -1,6 +1,7 @@
 package backend.vslice;
 
 import haxe.Json;
+import backend.Paths;
 import backend.vslice.VSliceMods.g;
 
 /**
@@ -61,33 +62,18 @@ class ChartConverter
 		}
 		while (t <= endMs);
 
-		// ---- Foco de cámara por sección ----
-		var focus:Array<{t:Float, who:Int}> = [];
-		for (e in rawEvents)
-		{
-			if (e.e != 'FocusCamera') continue;
-			var v:Dynamic = e.v;
-			var who:Int = Std.isOfType(v, Int) ? v : Std.int(g(v, 'char', 0));
-			focus.push({t: e.t, who: who});
-		}
-		focus.sort(function(a, b) return a.t < b.t ? -1 : (a.t > b.t ? 1 : 0));
-
+		// ---- Secciones neutrales ----
+		// V-Slice ya codifica el lado en d: 0-3 = oponente, 4-7 = jugador.
+		// Psych interpreta esos carriles con mustHitSection=false. La cámara
+		// nunca debe usarse para decidir quién recibe una nota.
 		var sections:Array<Dynamic> = [];
-		var fi:Int = 0;
-		var curWho:Int = 0;
 		for (i in 0...starts.length)
 		{
-			while (fi < focus.length && focus[fi].t <= starts[i] + 1)
-			{
-				curWho = focus[fi].who;
-				fi++;
-			}
-			var notesList:Array<Dynamic> = [];
 			sections.push({
-				sectionNotes: notesList,
+				sectionNotes: [],
 				sectionBeats: SECTION_BEATS,
-				mustHitSection: curWho == 0,
-				gfSection: curWho == 2,
+				mustHitSection: false,
+				gfSection: false,
 				bpm: bpms[i],
 				changeBPM: i > 0 && bpms[i] != bpms[i - 1],
 				altAnim: false
@@ -99,10 +85,16 @@ class ChartConverter
 		{
 			var sec:Dynamic = sections[sectionAt(starts, n.t)];
 			var d:Int = Std.int(n.d);
-			var isPlayer:Bool = d < 4;
-			var lane:Int = ((d % 4) + 4) % 4;
-			var mustHit:Bool = sec.mustHitSection;
-			var psychData:Int = (isPlayer == mustHit) ? lane : lane + 4;
+			// En V-Slice, d ya identifica el lado y el carril:
+			// 0-3 = oponente, 4-7 = jugador. No se debe volver a
+			// reasignar usando mustHitSection, porque esa propiedad se usa
+			// para el foco/cámara y puede cambiar independientemente.
+			var psychData:Int = d;
+			if (psychData < 0 || psychData > 7)
+			{
+				trace('[VSlice] Carril fuera de rango ($psychData) en ${n.t} ms; se omite.');
+				continue;
+			}
 
 			var row:Array<Dynamic> = [n.t, psychData, g(n, 'l', 0)];
 			var kind:Dynamic = g(n, 'k', null);
@@ -198,8 +190,9 @@ class ChartConverter
 		switch (name)
 		{
 			case 'FocusCamera':
-				// Al inicio de sección ya se aplicó en mustHitSection/gfSection.
-				if (Math.abs(e.t - starts[sectionAt(starts, e.t)]) <= 1) return null;
+				// El foco de cámara es independiente del lado de las notas.
+				// Se conserva incluso si coincide con el inicio de una sección.
+				break;
 
 			case 'PlayAnimation':
 				var target:String = Std.string(g(v, 'target', 'dad')).toLowerCase();

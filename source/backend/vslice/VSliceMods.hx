@@ -1,6 +1,8 @@
 package backend.vslice;
 
 import haxe.Json;
+import backend.Paths;
+import backend.Mods;
 import backend.WeekData;
 #if MODS_ALLOWED
 import sys.FileSystem;
@@ -99,10 +101,36 @@ class VSliceMods
 	{
 		#if MODS_ALLOWED
 		songId = songId.toLowerCase();
-		var variations:Array<String> = ['default'];
+		var requestedVariation:String = 'default';
+		var baseId:String = songId;
+		var defMeta:Null<String> = findFile('data/songs/$baseId/$baseId-metadata.json');
 
-		var defMeta:Null<String> = findFile('data/songs/$songId/$songId-metadata.json');
-		if (defMeta != null)
+		// Freeplay representa las variantes como entradas separadas (dani-pico).
+		// Si no existe una canción con ese ID, comprueba si es una variante de otra.
+		if (defMeta == null)
+		{
+			var cut:Int = songId.lastIndexOf('-');
+			if (cut > 0)
+			{
+				var candidateBase:String = songId.substr(0, cut);
+				var candidateVar:String = songId.substr(cut + 1);
+				var candidateMeta:Null<String> = findFile('data/songs/$candidateBase/$candidateBase-metadata.json');
+				if (candidateMeta != null)
+				{
+					var declared:Array<String> = g(g(readJson(candidateMeta), 'playData', {}), 'songVariations', []);
+					if (declared.contains(candidateVar) && findFile('data/songs/$candidateBase/$candidateBase-metadata-$candidateVar.json') != null)
+					{
+						baseId = candidateBase;
+						requestedVariation = candidateVar;
+						defMeta = candidateMeta;
+					}
+				}
+			}
+		}
+		if (defMeta == null) return null;
+
+		var variations:Array<String> = requestedVariation == 'default' ? ['default'] : [requestedVariation];
+		if (requestedVariation == 'default')
 		{
 			var vars:Array<String> = g(g(readJson(defMeta), 'playData', {}), 'songVariations', []);
 			variations = variations.concat(vars);
@@ -111,14 +139,15 @@ class VSliceMods
 		for (v in variations)
 		{
 			var suffix:String = (v == 'default') ? '' : '-$v';
-			var metaPath:Null<String> = findFile('data/songs/$songId/$songId-metadata$suffix.json');
-			var chartPath:Null<String> = findFile('data/songs/$songId/$songId-chart$suffix.json');
+			var metaPath:Null<String> = findFile('data/songs/$baseId/$baseId-metadata$suffix.json');
+			var chartPath:Null<String> = findFile('data/songs/$baseId/$baseId-chart$suffix.json');
 			if (metaPath == null || chartPath == null) continue;
 
-			var out:Dynamic = ChartConverter.convert(songId, File.getContent(metaPath), File.getContent(chartPath), difficulty);
+			var out:Dynamic = ChartConverter.convert(baseId, File.getContent(metaPath), File.getContent(chartPath), difficulty);
 			if (out != null)
 			{
 				out.vsliceVariation = v;
+				out.vsliceId = baseId;
 				return out;
 			}
 		}
@@ -309,6 +338,26 @@ class VSliceMods
 					difficulties: diffs,
 					variations: vars
 				});
+
+				// Cada variante con metadata propia aparece como una entrada distinta.
+				for (v in vars)
+				{
+					var vMetaPath:String = '$root/$song/$song-metadata-$v.json';
+					if (!FileSystem.exists(vMetaPath)) continue;
+					var vMeta:Dynamic = readJson(vMetaPath);
+					if (vMeta == null) continue;
+					var vp:Dynamic = g(vMeta, 'playData', {});
+					var vd:Array<String> = [for (d in (g(vp, 'difficulties', []) : Array<String>)) d];
+					result.push({
+						id: '$song-$v',
+						name: g(vMeta, 'songName', '$song-$v'),
+						artist: g(vMeta, 'artist', ''),
+						mod: mod,
+						opponent: g(g(vp, 'characters', {}), 'opponent', 'dad'),
+						difficulties: vd,
+						variations: []
+					});
+				}
 			}
 		}
 		#end
