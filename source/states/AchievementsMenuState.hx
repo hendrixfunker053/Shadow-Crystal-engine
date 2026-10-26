@@ -29,6 +29,9 @@ class AchievementsMenuState extends MusicBeatState
 		DiscordClient.changePresence("Achievements Menu", null);
 		#end
 
+		// Asegura que el logro del easter egg esté en la lista (aparece bloqueado con su pista)
+		EggRoomState.registerAchievement();
+
 		// prepare achievement list
 		for (achievement => data in Achievements.achievements)
 		{

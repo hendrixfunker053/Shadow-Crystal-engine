@@ -54,6 +54,15 @@ class MainMenuState extends MusicBeatState
 
 	static var showOutdatedWarning:Bool = true;
 
+	// --- Easter egg: toca 17 veces "Shadow Crystal Engine" ---
+	static inline var EGG_TAPS_NEEDED:Int = 17;
+	static inline var EGG_TAP_TIMEOUT:Float = 3; // segundos sin tocar y el contador vuelve a 0
+
+	var shadowVer:FlxText;
+	var shadowHitbox:FlxSprite;
+	var eggTapCount:Int = 0;
+	var eggTapTimer:Float = 0;
+
 	/** true si este MainMenuState solo existe para saltar al menú custom del mod (ScriptedState). No debe ejecutar nada más. */
 	var redirected:Bool = false;
 
@@ -182,12 +191,20 @@ class MainMenuState extends MusicBeatState
 
 		// Shadow Crystal Engine
 		var shadowWidth:Float = FlxG.width - 12 #if mobile - 150 #end;
-		var shadowVer:FlxText = new FlxText(0, FlxG.height - 24, shadowWidth,
+		shadowVer = new FlxText(0, FlxG.height - 24, shadowWidth,
 			"Shadow Crystal Engine 1.0", 12);
 		shadowVer.scrollFactor.set();
 		shadowVer.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, RIGHT,
 			FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		add(shadowVer);
+
+		// Hitbox invisible justo sobre el texto (no sobre toda la fila) para el easter egg
+		var shadowTextW:Int = Std.int(shadowVer.textField.textWidth) + 16;
+		shadowHitbox = new FlxSprite(shadowVer.x + shadowVer.fieldWidth - shadowTextW, shadowVer.y - 8);
+		shadowHitbox.makeGraphic(shadowTextW, 36, FlxColor.WHITE);
+		shadowHitbox.alpha = 0;
+		shadowHitbox.scrollFactor.set();
+		add(shadowHitbox);
 
 		changeItem();
 
@@ -200,6 +217,8 @@ class MainMenuState extends MusicBeatState
 		#if MODS_ALLOWED
 		Achievements.reloadList();
 		#end
+
+		EggRoomState.registerAchievement();
 		#end
 
 		#if CHECK_FOR_UPDATES
@@ -287,6 +306,11 @@ class MainMenuState extends MusicBeatState
 		{
 			FlxG.sound.music.volume = Math.min(
 				FlxG.sound.music.volume + 0.5 * elapsed, 0.8);
+		}
+
+		if (!selectedSomethin && !panelBusy)
+		{
+			updateEggRoomSecret(elapsed);
 		}
 
 		if (!selectedSomethin && !panelBusy)
@@ -538,6 +562,65 @@ class MainMenuState extends MusicBeatState
 
 		super.update(elapsed);
 		scripts.call('onUpdatePost', [elapsed]);
+	}
+
+	/**
+	 * Easter egg: tocar/clicar EGG_TAPS_NEEDED veces el texto "Shadow Crystal Engine"
+	 * abre EggRoomState. Si pasas EGG_TAP_TIMEOUT segundos sin tocar, se reinicia la cuenta.
+	 */
+	function updateEggRoomSecret(elapsed:Float):Void
+	{
+		if (shadowHitbox == null)
+			return;
+
+		if (eggTapCount > 0)
+		{
+			eggTapTimer += elapsed;
+			if (eggTapTimer > EGG_TAP_TIMEOUT)
+				eggTapCount = 0;
+		}
+
+		var tapped:Bool = false;
+
+		#if mobile
+		if (mobile.TouchInput.justTapped() && mobile.TouchInput.tappedOn(shadowHitbox))
+		{
+			mobile.TouchInput.consumeTap();
+			tapped = true;
+		}
+		#else
+		if (FlxG.mouse.justPressed && FlxG.mouse.overlaps(shadowHitbox))
+			tapped = true;
+		#end
+
+		if (!tapped)
+			return;
+
+		eggTapCount++;
+		eggTapTimer = 0;
+
+		if (eggTapCount < EGG_TAPS_NEEDED)
+		{
+			// Pequeño temblor, apenas perceptible
+			FlxTween.cancelTweensOf(shadowVer);
+			shadowVer.x = -3;
+			FlxTween.tween(shadowVer, {x: 0}, 0.08, {ease: FlxEase.quadOut});
+			return;
+		}
+
+		// ¡17!
+		eggTapCount = 0;
+		selectedSomethin = true;
+		FlxG.mouse.visible = false;
+		FlxG.sound.play(Paths.sound('eggroom/select'));
+
+		FlxFlicker.flicker(shadowVer, 0.8, 0.06, true, true, function(flick:FlxFlicker)
+		{
+			MusicBeatState.switchState(new EggRoomState());
+		});
+
+		for (memb in menuItems)
+			FlxTween.tween(memb, {alpha: 0}, 0.4, {ease: FlxEase.quadOut});
 	}
 
 	function cancelAction(item:FlxSprite)
