@@ -449,9 +449,17 @@ class StoryMenuState extends MusicBeatState
 			var changeDiff = false;
 			var touchAccept:Bool = false;
 
+			// Like the old menu: a tap must not also count as ACCEPT (that started the week when pressing the arrows).
+			#if mobile
+			if (mobile.TouchInput.justTapped())
+				mobile.TouchInput.consumeTap();
+			#end
+
+			var tapUsed:Bool = false;
 			var tap:FlxPoint = getTapPoint();
 			if (tap != null)
 			{
+				tapUsed = true;
 				if (switchEnabled && overSwitch(tap.x, tap.y))
 					toggleSwitchChar();
 				else if (hitSprite(leftArrow, tap, 0))
@@ -464,7 +472,11 @@ class StoryMenuState extends MusicBeatState
 					{
 						if (item.visible && hitSprite(item, tap, 0))
 						{
-							if (num == curWeek) touchAccept = true;
+							if (num == curWeek)
+							{
+								touchAccept = true;
+								tapUsed = false; // tapping the selected week starts it
+							}
 							else
 							{
 								changeWeek(num - curWeek);
@@ -522,7 +534,7 @@ class StoryMenuState extends MusicBeatState
 				persistentUpdate = false;
 				openSubState(new ResetScoreSubState('', curDifficulty, '', curWeek));
 			}
-			else if (controls.ACCEPT || touchAccept)
+			else if ((controls.ACCEPT && !tapUsed) || touchAccept)
 				selectWeek();
 		}
 

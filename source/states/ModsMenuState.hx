@@ -94,6 +94,7 @@ class ModsMenuState extends MusicBeatState
 	var ox:Float = 0;
 	var modsList:ModsList = null;
 	var startMod:String = null;
+	var redirected:Bool = false; // true = this state only forwards to OldModsMenuState
 
 	// Decoración
 	var bg:FlxSprite;
@@ -157,6 +158,16 @@ class ModsMenuState extends MusicBeatState
 
 	override function create()
 	{
+		// Shadow Crystal Options: use the old Mods menu instead of this one
+		if(ClientPrefs.data.oldModsMenu)
+		{
+			FlxTransitionableState.skipNextTransIn = true;
+			FlxTransitionableState.skipNextTransOut = true;
+			redirected = true;
+			MusicBeatState.switchState(new OldModsMenuState(startMod));
+			return;
+		}
+
 		Paths.clearStoredMemory();
 		Paths.clearUnusedMemory();
 		persistentUpdate = false;
@@ -525,6 +536,13 @@ class ModsMenuState extends MusicBeatState
 
 	override function update(elapsed:Float)
 	{
+		// create() returned early: nothing was built, don't touch anything
+		if(redirected)
+		{
+			super.update(elapsed);
+			return;
+		}
+
 		#if mobile
 		mobile.TouchInput.blockGestures = true;
 		#end
