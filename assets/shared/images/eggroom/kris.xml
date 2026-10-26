@@ -1,0 +1,19 @@
+<?xml version='1.0' encoding='utf-8'?>
+<TextureAtlas imagePath="kris.png">
+<SubTexture name="kris down0004" x="0" y="0" width="19" height="37" frameX="0" frameY="0" frameWidth="19" frameHeight="38" />
+<SubTexture name="kris down0001" x="19" y="0" width="19" height="37" frameX="0" frameY="-1" frameWidth="19" frameHeight="38" />
+<SubTexture name="kris down0002" x="0" y="0" width="19" height="37" frameX="0" frameY="0" frameWidth="19" frameHeight="38" />
+<SubTexture name="kris down0003" x="38" y="0" width="19" height="37" frameX="0" frameY="-1" frameWidth="19" frameHeight="38" />
+<SubTexture name="kris left0004" x="57" y="0" width="19" height="37" frameX="0" frameY="0" frameWidth="19" frameHeight="38" />
+<SubTexture name="kris left0001" x="76" y="0" width="19" height="36" frameX="0" frameY="-1" frameWidth="19" frameHeight="38" />
+<SubTexture name="kris left0002" x="57" y="0" width="19" height="37" frameX="0" frameY="0" frameWidth="19" frameHeight="38" />
+<SubTexture name="kris left0003" x="76" y="36" width="19" height="36" frameX="0" frameY="-1" frameWidth="19" frameHeight="38" />
+<SubTexture name="kris right0004" x="0" y="37" width="19" height="37" frameX="0" frameY="0" frameWidth="19" frameHeight="38" />
+<SubTexture name="kris right0001" x="95" y="0" width="19" height="36" frameX="0" frameY="-1" frameWidth="19" frameHeight="38" />
+<SubTexture name="kris right0002" x="0" y="37" width="19" height="37" frameX="0" frameY="0" frameWidth="19" frameHeight="38" />
+<SubTexture name="kris right0003" x="95" y="36" width="19" height="36" frameX="0" frameY="-1" frameWidth="19" frameHeight="38" />
+<SubTexture name="kris up0004" x="19" y="37" width="19" height="37" frameX="0" frameY="0" frameWidth="19" frameHeight="38" />
+<SubTexture name="kris up0001" x="38" y="37" width="19" height="37" frameX="0" frameY="-1" frameWidth="19" frameHeight="38" />
+<SubTexture name="kris up0002" x="19" y="37" width="19" height="37" frameX="0" frameY="0" frameWidth="19" frameHeight="38" />
+<SubTexture name="kris up0003" x="57" y="37" width="19" height="37" frameX="0" frameY="-1" frameWidth="19" frameHeight="38" />
+</TextureAtlas>
