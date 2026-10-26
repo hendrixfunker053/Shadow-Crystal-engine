@@ -378,7 +378,8 @@ class StoryMenuState extends MusicBeatState
 				{
 					for (num => item in grpWeekText.members)
 					{
-						if (mobile.TouchInput.tappedOn(item, null, 10))
+						// Some week entries can be null (for example after filtering/locking).
+						if (item != null && item.exists && item.visible && mobile.TouchInput.tappedOn(item, null, 10))
 						{
 							if (num == curWeek) touchAccept = true;
 							else
@@ -592,6 +593,7 @@ class StoryMenuState extends MusicBeatState
 		var unlocked:Bool = !weekIsLocked(leWeek.fileName);
 		for (num => item in grpWeekText.members)
 		{
+			if (item == null) continue;
 			item.alpha = 0.6;
 			if (num - curWeek == 0 && unlocked)
 				item.alpha = 1;
@@ -633,8 +635,12 @@ class StoryMenuState extends MusicBeatState
 	function updateText()
 	{
 		var weekArray:Array<String> = loadedWeeks[curWeek].weekCharacters;
-		for (i in 0...grpWeekCharacters.length) {
-			grpWeekCharacters.members[i].changeCharacter(weekArray[i]);
+		for (i in 0...grpWeekCharacters.length)
+		{
+			var character = grpWeekCharacters.members[i];
+			if (character == null) continue;
+			var characterId:String = (weekArray != null && i < weekArray.length && weekArray[i] != null) ? weekArray[i] : '';
+			character.changeCharacter(characterId);
 		}
 
 		var leWeek:WeekData = loadedWeeks[curWeek];
