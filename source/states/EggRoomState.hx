@@ -166,6 +166,9 @@ class EggRoomState extends MusicBeatState
 	// ==================================================================
 	override function create()
 	{
+		// super.create() primero: en este fork MusicBeatState reinicia las cámaras ahí dentro
+		super.create();
+
 		#if DISCORD_ALLOWED
 		DiscordClient.changePresence("Somewhere in between?", null);
 		#end
@@ -175,13 +178,12 @@ class EggRoomState extends MusicBeatState
 		#end
 
 		// --- Cámaras -----------------------------------------------------
-		camWorld = new FlxCamera();
+		camWorld = FlxG.camera; // cámara por defecto, sin FlxG.cameras.reset()
 		camWorld.bgColor = FlxColor.BLACK;
 
 		camHUD = new FlxCamera();
 		camHUD.bgColor = FlxColor.TRANSPARENT;
 
-		FlxG.cameras.reset(camWorld);
 		FlxG.cameras.add(camHUD, false);
 
 		// Cámara fija en (0, -400), como el camFollow del Lua.
@@ -228,15 +230,12 @@ class EggRoomState extends MusicBeatState
 		createTouchControls();
 		#end
 
-		super.create();
-
-		// Por si MusicBeatState / el fork tocó las cámaras en super.create()
-		camWorld.zoom = WORLD_ZOOM;
-		focusWorldCamera();
 	}
 
 	function focusWorldCamera():Void
 	{
+		if (camWorld == null || camFollow == null || camWorld.scroll == null)
+			return;
 		camWorld.scroll.set(camFollow.x - camWorld.width * 0.5, camFollow.y - camWorld.height * 0.5);
 	}
 
