@@ -74,6 +74,7 @@ class StoryMenuState extends MusicBeatState
 	var switchEnabled:Bool = false;
 
 	var loadedWeeks:Array<WeekData> = [];
+	var redirected:Bool = false; // true when this state only forwards to OldStoryMenuState
 
 	override function create()
 	{
@@ -82,6 +83,7 @@ class StoryMenuState extends MusicBeatState
 		{
 			FlxTransitionableState.skipNextTransIn = true;
 			FlxTransitionableState.skipNextTransOut = true;
+			redirected = true;
 			MusicBeatState.switchState(new OldStoryMenuState());
 			return;
 		}
@@ -307,7 +309,15 @@ class StoryMenuState extends MusicBeatState
 		changeDifficulty();
 
 		#if mobile
-		add(mobile.MobileButton.back());
+		var backBtn:FlxBasic = mobile.MobileButton.back();
+		add(backBtn);
+		// Widescreen off: the back button (bottom right) covers the HIGHSCORE window, so move it to the free bottom-left corner
+		if (mobile.WideScreen.offset <= 0 && Std.isOfType(backBtn, FlxSprite))
+		{
+			var sp:FlxSprite = cast backBtn;
+			sp.x = 12;
+			sp.y = FlxG.height - sp.height - 12;
+		}
 		#end
 		super.create();
 	}
@@ -405,6 +415,13 @@ class StoryMenuState extends MusicBeatState
 
 	override function update(elapsed:Float)
 	{
+		// create() returned early, nothing was built: don't touch any sprite
+		if (redirected)
+		{
+			super.update(elapsed);
+			return;
+		}
+
 		if(WeekData.weeksList.length < 1)
 		{
 			if (controls.BACK && !movedBack && !selectedWeek)
@@ -436,15 +453,15 @@ class StoryMenuState extends MusicBeatState
 			{
 				if (switchEnabled && overSwitch(tap.x, tap.y))
 					toggleSwitchChar();
-				else if (hitSprite(leftArrow, tap, 20))
+				else if (hitSprite(leftArrow, tap, 0))
 					changeDifficulty(-1);
-				else if (hitSprite(rightArrow, tap, 20))
+				else if (hitSprite(rightArrow, tap, 0))
 					changeDifficulty(1);
-				else if (tap.x >= listX && tap.x <= listX + listW && tap.y >= listY)
+				else if (tap.x >= listX && tap.x <= listX + listW && tap.y >= listY) // only inside the center window
 				{
 					for (num => item in grpWeekText.members)
 					{
-						if (item.visible && hitSprite(item, tap, 6))
+						if (item.visible && hitSprite(item, tap, 0))
 						{
 							if (num == curWeek) touchAccept = true;
 							else
