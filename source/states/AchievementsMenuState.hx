@@ -29,6 +29,9 @@ class AchievementsMenuState extends MusicBeatState
 		DiscordClient.changePresence("Achievements Menu", null);
 		#end
 
+		// Asegura que el logro del easter egg esté en la lista (aparece bloqueado con su pista)
+		EggRoomState.registerAchievement();
+
 		// prepare achievement list
 		for (achievement => data in Achievements.achievements)
 		{
@@ -60,7 +63,7 @@ class AchievementsMenuState extends MusicBeatState
 			if(option.unlocked)
 			{
 				#if MODS_ALLOWED Mods.currentModDirectory = option.mod; #end
-				var image:String = 'achievements/' + (option.name == 'well_there_is_a_man_here' ? 'egg' : option.name);
+				var image:String = 'achievements/' + option.name;
 				if(Paths.fileExists('images/$image-pixel.png', IMAGE))
 				{
 					graphic = Paths.image('$image-pixel');

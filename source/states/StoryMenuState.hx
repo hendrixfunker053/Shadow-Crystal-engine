@@ -7,6 +7,8 @@ import backend.Song;
 import flixel.group.FlxGroup;
 import flixel.graphics.FlxGraphic;
 import flixel.util.FlxStringUtil;
+import flixel.math.FlxPoint;
+import flixel.math.FlxRect;
 
 import objects.MenuItem;
 import objects.MenuCharacter;
@@ -18,6 +20,7 @@ import backend.StageData;
 
 /**
 	New Story Mode menu (layout based on a 2400x1080 design).
+	If "Old Story Menu" is enabled in Shadow Crystal Options, it redirects to OldStoryMenuState.
 **/
 class StoryMenuState extends MusicBeatState
 {
@@ -49,7 +52,12 @@ class StoryMenuState extends MusicBeatState
 	var grpWeekText:FlxTypedGroup<MenuItem>;
 	var grpWeekCharacters:FlxTypedGroup<MenuCharacter>;
 	var grpLocks:FlxTypedGroup<FlxSprite>;
-	var listCam:FlxCamera; // clips the week list to the center window
+	// Center window (game px). Week items are clipped to this rect.
+	var listX:Float;
+	var listY:Float;
+	var listW:Float;
+	var listH:Float;
+	var visW:Float; // visible width of the screen (game px)
 
 	var difficultySelectors:FlxGroup;
 	var sprDifficulty:FlxSprite;
@@ -62,11 +70,22 @@ class StoryMenuState extends MusicBeatState
 	var switchSpr:FlxSprite;
 	var txtPlayingAs:FlxText;
 	var playAsOpponent:Bool = false;
+	// Disabled for now (it will be used to switch to Pico mixes later)
+	var switchEnabled:Bool = false;
 
 	var loadedWeeks:Array<WeekData> = [];
 
 	override function create()
 	{
+		// Toggle: old menu
+		if (ClientPrefs.data.oldStoryMenu)
+		{
+			FlxTransitionableState.skipNextTransIn = true;
+			FlxTransitionableState.skipNextTransOut = true;
+			MusicBeatState.switchState(new OldStoryMenuState());
+			return;
+		}
+
 		Paths.clearStoredMemory();
 		Paths.clearUnusedMemory();
 
@@ -92,12 +111,13 @@ class StoryMenuState extends MusicBeatState
 
 		S = FlxG.height / DH;
 		ox = (FlxG.initialWidth - DW * S) / 2 + mobile.WideScreen.offset;
+		visW = FlxG.initialWidth + mobile.WideScreen.offset * 2;
 
 		var ui_tex = Paths.getSparrowAtlas('campaign_menu_UI_assets');
 		var wideW:Int = Std.int(FlxG.width + 1200);
 
 		// --- Backgrounds ---
-		var bgYellow:FlxSprite = new FlxSprite(-600, dy(84)).makeGraphic(wideW, Std.int(dy(601)), 0xFFF9CF51);
+		var bgYellow:FlxSprite = new FlxSprite(-600, dy(84)).makeGraphic(wideW, Std.int(dy(636)), 0xFFF9CF51);
 		add(bgYellow);
 
 		bgSprite = new FlxSprite(0, dy(84));
@@ -106,21 +126,22 @@ class StoryMenuState extends MusicBeatState
 		grpWeekCharacters = new FlxTypedGroup<MenuCharacter>();
 		add(grpWeekCharacters);
 
-		// black behind the transparent "windows" of the layout art
-		var bgWindows:FlxSprite = new FlxSprite(-600, dy(660)).makeGraphic(wideW, Std.int(FlxG.height - dy(660) + 10), FlxColor.BLACK);
-		add(bgWindows);
+		// black behind the transparent "windows" of the layout art (tracks, week list, difficulty, highscore)
+		addBlack(535, 745, 790, 1005);
+		addBlack(868, 684, 1532, 1085);
+		addBlack(1615, 722, 2115, 868);
+		addBlack(1670, 880, 2065, 1050);
 
 		// --- Week list (clipped to the center window through its own camera) ---
-		listCam = new FlxCamera(Std.int(dx(885)), Std.int(dy(695)), Std.int(630 * S), Std.int((DH - 695) * S));
-		listCam.bgColor = 0x00000000;
-		FlxG.cameras.add(listCam, false);
+		listX = dx(875);
+		listY = dy(690);
+		listW = 650 * S;
+		listH = FlxG.height - listY;
 
 		grpWeekText = new FlxTypedGroup<MenuItem>();
-		grpWeekText.cameras = [listCam];
 		add(grpWeekText);
 
 		grpLocks = new FlxTypedGroup<FlxSprite>();
-		grpLocks.cameras = [listCam];
 		add(grpLocks);
 
 		var num:Int = 0;
@@ -137,12 +158,12 @@ class StoryMenuState extends MusicBeatState
 				weekThing.ID = num;
 
 				// shrink to fit the window if needed
-				var k:Float = Math.min(1, (listCam.width - 16) / weekThing.width);
+				var k:Float = Math.min(1, (listW - 6) / weekThing.width);
 				weekThing.scale.set(k, k);
 				weekThing.updateHitbox();
 
-				weekThing.x = (listCam.width - weekThing.width) / 2;
-				weekThing.y = 60 + itemTargetY;
+				weekThing.x = listX + (listW - weekThing.width) / 2;
+				weekThing.y = listY + 60 + itemTargetY;
 				weekThing.targetY = itemTargetY;
 				itemTargetY += Math.max(weekThing.height, 80) + 10;
 				grpWeekText.add(weekThing);
@@ -162,13 +183,12 @@ class StoryMenuState extends MusicBeatState
 			}
 		}
 
-		// --- Characters: [0] opponent (right), [1] bf (center), [2] gf (left) ---
+		// --- Characters: slot order comes from weekCharacters in the week .json (same positions as the old menu) ---
 		WeekData.setDirectoryFromWeek(loadedWeeks[0]);
 		var charArray:Array<String> = loadedWeeks[0].weekCharacters;
-		var charCenters:Array<Float> = [500, 1170, 1650];
 		for (char in 0...3)
 		{
-			var weekCharacterThing:MenuCharacter = new MenuCharacter(dx(charCenters[char]) - 150, charArray[char]);
+			var weekCharacterThing:MenuCharacter = new MenuCharacter((FlxG.initialWidth * 0.25) * (1 + char) - 150 + mobile.WideScreen.offset, charArray[char]);
 			weekCharacterThing.y += 70;
 			grpWeekCharacters.add(weekCharacterThing);
 		}
@@ -189,14 +209,15 @@ class StoryMenuState extends MusicBeatState
 		switchSpr.setPosition(ox, 0);
 		add(switchSpr);
 
-		var opp:Dynamic = ClientPrefs.data.gameplaySettings.get('opponentplay');
-		playAsOpponent = (opp == true);
+		if (switchEnabled)
+			playAsOpponent = (ClientPrefs.data.gameplaySettings.get('opponentplay') == true);
 
 		txtPlayingAs = new FlxText(dx(1900), dy(400), 460 * S, '', 20);
 		txtPlayingAs.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.BLACK, CENTER);
 		txtPlayingAs.alpha = 0.75;
 		add(txtPlayingAs);
 		updatePlayingAs();
+		txtPlayingAs.visible = switchEnabled;
 
 		// --- Difficulty selector ---
 		difficultySelectors = new FlxGroup();
@@ -273,7 +294,7 @@ class StoryMenuState extends MusicBeatState
 		var blackBarThingie:FlxSprite = new FlxSprite(-600, 0).makeGraphic(wideW, Std.int(dy(84)), FlxColor.BLACK);
 		add(blackBarThingie);
 
-		scoreText = new FlxText(dx(95), 10, 0, Language.getPhrase('level_score', 'LEVEL SCORE: {1}', [FlxStringUtil.formatMoney(lerpScore, false)]), 32);
+		scoreText = new FlxText(Math.max(dx(95), 14), 10, 0, Language.getPhrase('level_score', 'LEVEL SCORE: {1}', [FlxStringUtil.formatMoney(lerpScore, false)]), 32);
 		scoreText.setFormat(Paths.font("vcr.ttf"), 32);
 		add(scoreText);
 
@@ -297,15 +318,62 @@ class StoryMenuState extends MusicBeatState
 		super.closeSubState();
 	}
 
-	function overSwitch():Bool
+	function addBlack(x1:Float, y1:Float, x2:Float, y2:Float):Void
 	{
-		var px:Float = (FlxG.mouse.x - ox) / S;
-		var py:Float = FlxG.mouse.y / S;
+		var b:FlxSprite = new FlxSprite(dx(x1), dy(y1)).makeGraphic(Std.int((x2 - x1) * S) + 1, Std.int((y2 - y1) * S) + 1, FlxColor.BLACK);
+		add(b);
+	}
+
+	function overSwitch(gx:Float, gy:Float):Bool
+	{
+		var px:Float = (gx - ox) / S;
+		var py:Float = gy / S;
 		return px >= 1981 && px <= 2285 && py >= 169 && py <= 390;
+	}
+
+	// Tap/click position (game coords) this frame, or null. Does not use mobile.TouchInput.
+	function getTapPoint():FlxPoint
+	{
+		#if FLX_TOUCH
+		for (t in FlxG.touches.list)
+			if (t.justPressed)
+				return FlxPoint.get(t.x, t.y);
+		#end
+		if (FlxG.mouse.justPressed)
+			return FlxPoint.get(FlxG.mouse.x, FlxG.mouse.y);
+		return null;
+	}
+
+	function hitSprite(spr:FlxSprite, p:FlxPoint, pad:Float):Bool
+	{
+		return p.x >= spr.x - pad && p.x <= spr.x + spr.width + pad && p.y >= spr.y - pad && p.y <= spr.y + spr.height + pad;
+	}
+
+	// Clips a sprite to the center window (clipRect is in graphic pixels, so divide by scale)
+	function clipToList(spr:FlxSprite):Void
+	{
+		var left:Float = listX;
+		var top:Float = listY;
+		var right:Float = listX + listW;
+		var bottom:Float = listY + listH;
+		if (spr.x + spr.width <= left || spr.x >= right || spr.y + spr.height <= top || spr.y >= bottom)
+		{
+			spr.visible = false;
+			return;
+		}
+		spr.visible = true;
+		var k:Float = spr.scale.x;
+		if (k <= 0) k = 1;
+		var cx:Float = Math.max(0, left - spr.x) / k;
+		var cy:Float = Math.max(0, top - spr.y) / k;
+		var cr:Float = Math.min(spr.width, right - spr.x) / k;
+		var cb:Float = Math.min(spr.height, bottom - spr.y) / k;
+		spr.clipRect = new FlxRect(cx, cy, cr - cx, cb - cy);
 	}
 
 	function toggleSwitchChar():Void
 	{
+		if (!switchEnabled) return;
 		playAsOpponent = !playAsOpponent;
 		ClientPrefs.data.gameplaySettings.set('opponentplay', playAsOpponent);
 		FlxG.sound.play(Paths.sound('scrollMenu'));
@@ -363,23 +431,20 @@ class StoryMenuState extends MusicBeatState
 			var changeDiff = false;
 			var touchAccept:Bool = false;
 
-			if (FlxG.mouse.justPressed && overSwitch())
-				toggleSwitchChar();
-
-			#if mobile
-			if (mobile.TouchInput.justTapped())
+			var tap:FlxPoint = getTapPoint();
+			if (tap != null)
 			{
-				mobile.TouchInput.consumeTap();
-				if (mobile.TouchInput.tappedOn(leftArrow, null, 20))
+				if (switchEnabled && overSwitch(tap.x, tap.y))
+					toggleSwitchChar();
+				else if (hitSprite(leftArrow, tap, 20))
 					changeDifficulty(-1);
-				else if (mobile.TouchInput.tappedOn(rightArrow, null, 20))
+				else if (hitSprite(rightArrow, tap, 20))
 					changeDifficulty(1);
-				else
+				else if (tap.x >= listX && tap.x <= listX + listW && tap.y >= listY)
 				{
 					for (num => item in grpWeekText.members)
 					{
-						// Some week entries can be null (for example after filtering/locking).
-						if (item != null && item.exists && item.visible && mobile.TouchInput.tappedOn(item, null, 10))
+						if (item.visible && hitSprite(item, tap, 6))
 						{
 							if (num == curWeek) touchAccept = true;
 							else
@@ -392,11 +457,8 @@ class StoryMenuState extends MusicBeatState
 						}
 					}
 				}
+				tap.put();
 			}
-			#end
-
-			if (FlxG.keys.justPressed.TAB)
-				toggleSwitchChar();
 
 			if (controls.UI_UP_P)
 			{
@@ -455,13 +517,20 @@ class StoryMenuState extends MusicBeatState
 
 		super.update(elapsed);
 
-		// week list scroll (local coordinates of listCam)
+		// week list scroll (items are clipped to the center window)
 		var offY:Float = grpWeekText.members[curWeek].targetY;
 		for (num => item in grpWeekText.members)
-			item.y = FlxMath.lerp(item.targetY - offY + 60, item.y, Math.exp(-elapsed * 10.2));
+		{
+			item.y = FlxMath.lerp(item.targetY - offY + listY + 60, item.y, Math.exp(-elapsed * 10.2));
+			clipToList(item);
+		}
 
 		for (num => lock in grpLocks.members)
-			lock.y = grpWeekText.members[lock.ID].y + grpWeekText.members[lock.ID].height/2 - lock.height/2;
+		{
+			var owner:MenuItem = grpWeekText.members[lock.ID];
+			lock.y = owner.y + owner.height/2 - lock.height/2;
+			clipToList(lock);
+		}
 	}
 
 	var movedBack:Bool = false;
@@ -556,6 +625,12 @@ class StoryMenuState extends MusicBeatState
 		if(sprDifficulty.graphic != newImage)
 		{
 			sprDifficulty.loadGraphic(newImage);
+			// shrink to fit between the arrows (e.g. NORMAL is wider than HARD)
+			sprDifficulty.scale.set(1, 1);
+			sprDifficulty.updateHitbox();
+			var fit:Float = Math.min(1, Math.min((320 * S) / sprDifficulty.width, (105 * S) / sprDifficulty.height));
+			sprDifficulty.scale.set(fit, fit);
+			sprDifficulty.updateHitbox();
 			sprDifficulty.x = dx(1865) - sprDifficulty.width / 2;
 			var targetY:Float = dy(795) - sprDifficulty.height / 2;
 			sprDifficulty.alpha = 0;
@@ -588,12 +663,11 @@ class StoryMenuState extends MusicBeatState
 
 		var leName:String = Language.getPhrase('storyname_${leWeek.fileName}', leWeek.storyName);
 		txtWeekTitle.text = leName.toUpperCase();
-		txtWeekTitle.x = dx(2300) - txtWeekTitle.width;
+		txtWeekTitle.x = Math.min(dx(2300), visW - 14) - txtWeekTitle.width;
 
 		var unlocked:Bool = !weekIsLocked(leWeek.fileName);
 		for (num => item in grpWeekText.members)
 		{
-			if (item == null) continue;
 			item.alpha = 0.6;
 			if (num - curWeek == 0 && unlocked)
 				item.alpha = 1;
@@ -635,12 +709,8 @@ class StoryMenuState extends MusicBeatState
 	function updateText()
 	{
 		var weekArray:Array<String> = loadedWeeks[curWeek].weekCharacters;
-		for (i in 0...grpWeekCharacters.length)
-		{
-			var character = grpWeekCharacters.members[i];
-			if (character == null) continue;
-			var characterId:String = (weekArray != null && i < weekArray.length && weekArray[i] != null) ? weekArray[i] : '';
-			character.changeCharacter(characterId);
+		for (i in 0...grpWeekCharacters.length) {
+			grpWeekCharacters.members[i].changeCharacter(weekArray[i]);
 		}
 
 		var leWeek:WeekData = loadedWeeks[curWeek];
