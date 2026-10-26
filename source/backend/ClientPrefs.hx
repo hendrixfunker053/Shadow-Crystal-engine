@@ -82,6 +82,10 @@ import states.TitleState;
 	public var discordRPC:Bool = true;
 	public var loadingScreen:Bool = true;
 	public var language:String = 'en-US';
+
+	// Shadow Crystal Options (old menus toggles)
+	public var oldStoryMenu:Bool = false;
+	public var oldModsMenu:Bool = false;
 }
 
 class ClientPrefs {
