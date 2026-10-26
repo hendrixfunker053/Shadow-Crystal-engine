@@ -14,7 +14,6 @@ class OptionsState extends MusicBeatState
 		'Graphics',
 		'Visuals',
 		'Gameplay',
-		'Shadow Crystal Options',
 		#if desktop
 		'Extra Settings'
 		#else
@@ -40,8 +39,6 @@ class OptionsState extends MusicBeatState
 				openSubState(new options.GraphicsSettingsSubState());
 			case 'Visuals':
 				openSubState(new options.VisualsSettingsSubState());
-			case 'Shadow Crystal Options':
-				openSubState(new options.ShadowCrystalSubState());
 			case 'Gameplay':
 				openSubState(new options.GameplaySettingsSubState());
 			case 'Adjust Delay and Combo':
