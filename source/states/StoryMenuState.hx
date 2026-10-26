@@ -18,7 +18,6 @@ import backend.StageData;
 
 /**
 	New Story Mode menu (layout based on a 2400x1080 design).
-	If "Old Story Menu" is enabled in Shadow Crystal Options, it redirects to OldStoryMenuState.
 **/
 class StoryMenuState extends MusicBeatState
 {
@@ -68,15 +67,6 @@ class StoryMenuState extends MusicBeatState
 
 	override function create()
 	{
-		// Toggle: old menu
-		if (ClientPrefs.data.oldStoryMenu)
-		{
-			FlxTransitionableState.skipNextTransIn = true;
-			FlxTransitionableState.skipNextTransOut = true;
-			MusicBeatState.switchState(new OldStoryMenuState());
-			return;
-		}
-
 		Paths.clearStoredMemory();
 		Paths.clearUnusedMemory();
 
