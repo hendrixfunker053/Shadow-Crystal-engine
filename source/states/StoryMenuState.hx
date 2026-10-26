@@ -7,6 +7,7 @@ import backend.Song;
 import flixel.group.FlxGroup;
 import flixel.graphics.FlxGraphic;
 import flixel.util.FlxStringUtil;
+import flixel.FlxBasic;
 import flixel.math.FlxPoint;
 import flixel.math.FlxRect;
 
