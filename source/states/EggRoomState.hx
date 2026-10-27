@@ -66,7 +66,7 @@ class EggRoomState extends MusicBeatState
 	// ------------------------------------------------------------------
 	//  Ajustes rápidos
 	// ------------------------------------------------------------------
-	static inline var DEBUG_TOUCH:Bool = true; // pon false cuando el joystick funcione
+	static inline var DEBUG_TOUCH:Bool = false; // pon false cuando el joystick funcione
 	static inline var TEXT_SIZE:Int = 16; // tamaño del texto de los diálogos
 	static inline var WORLD_ZOOM:Float = 0.75; // mismo defaultZoom que la stage original
 	static inline var WALK_SPEED:Float = 300;
@@ -414,7 +414,6 @@ class EggRoomState extends MusicBeatState
 	#if mobile
 	function createTouchControls():Void
 	{
-		var margin:Float = 36;
 		var W:Float = camHUD.width;
 		var H:Float = camHUD.height;
 
@@ -430,57 +429,58 @@ class EggRoomState extends MusicBeatState
 			return spr;
 		}
 
+		// Medidas tomadas de la captura original (700x315):
+		//   unidad u = alto_pantalla / 315; las posiciones X van como fracción del ancho.
+		var u:Float = H / 315;
+
+		function placeCentered(spr:FlxSprite, fx:Float, fy:Float):Void
+		{
+			spr.setPosition(W * fx - spr.width * 0.5, H * fy - spr.height * 0.5);
+		}
+
 		// Botón de menú (arriba a la izquierda): sale de la sala
-		touchMenu = touchSprite('menu', 3);
-		touchMenu.setPosition(margin * 0.6, margin * 0.6);
+		var menuScale:Float = 26 * u / 19;
+		touchMenu = touchSprite('menu', menuScale);
+		touchMenu.setPosition(W * (101 / 700), H * (3.75 / 315));
 		add(touchMenu);
-		touchMenuOn = touchSprite('menu_on', 3);
+		touchMenuOn = touchSprite('menu_on', menuScale);
 		touchMenuOn.setPosition(touchMenu.x, touchMenu.y);
 		touchMenuOn.visible = false;
 		add(touchMenuOn);
 
-		// Joystick (abajo a la izquierda)
-		joyBase = touchSprite('joy_base', 4);
-		joyBase.alpha = 0.7;
-		joyBase.setPosition(margin, H - joyBase.height - margin);
+		// Joystick: base de 116 px de ref, centrada en (154, 228)
+		var joyScale:Float = 116 * u / 59;
+		joyBase = touchSprite('joy_base', joyScale);
+		joyBase.alpha = 0.85;
+		placeCentered(joyBase, 154 / 700, 228 / 315);
 		add(joyBase);
 
-		joyThumb = touchSprite('joy_thumb', 4);
+		joyThumb = touchSprite('joy_thumb', joyScale);
 		joyThumb.setPosition(joyBase.x + (joyBase.width - joyThumb.width) * 0.5, joyBase.y + (joyBase.height - joyThumb.height) * 0.5);
 		add(joyThumb);
 
-		// Z / X / C en diagonal ascendente hacia la derecha (como en Deltarune)
-		var bs:Float = 3.4;
-		var bw:Float = 27 * bs;
-		var stepX:Float = bw * 1.3;
-		var stepY:Float = bw * 0.62;
+		// Z / X / C: 52 px de ref de ancho, casi pegados, en diagonal ascendente
+		var bs:Float = 52 * u / 27;
 
-		var cCx:Float = W - bw * 0.5 - 40;
-		var cCy:Float = H * 0.58;
-		var cXx:Float = cCx - stepX;
-		var cXy:Float = cCy + stepY;
-		var cZx:Float = cXx - stepX;
-		var cZy:Float = cXy + stepY;
-
-		function makePair(off:String, on:String, cx:Float, cy:Float):Array<FlxSprite>
+		function makePair(off:String, on:String, fx:Float, fy:Float):Array<FlxSprite>
 		{
 			var a:FlxSprite = touchSprite(off, bs);
-			a.setPosition(cx - a.width * 0.5, cy - a.height * 0.5);
+			placeCentered(a, fx, fy);
 			add(a);
 			var b:FlxSprite = touchSprite(on, bs);
-			b.setPosition(cx - b.width * 0.5, cy - b.height * 0.5);
+			placeCentered(b, fx, fy);
 			b.visible = false;
 			add(b);
 			return [a, b];
 		}
 
-		var zp = makePair('z', 'z_on', cZx, cZy);
+		var zp = makePair('z', 'z_on', 474 / 700, 239.5 / 315);
 		touchZ = zp[0];
 		touchZOn = zp[1];
-		var xp = makePair('x', 'x_on', cXx, cXy);
+		var xp = makePair('x', 'x_on', 527.5 / 700, 214 / 315);
 		touchX = xp[0];
 		touchXOn = xp[1];
-		var cp = makePair('c', 'c_on', cCx, cCy);
+		var cp = makePair('c', 'c_on', 581 / 700, 188.5 / 315);
 		touchC = cp[0];
 		touchCOn = cp[1];
 
@@ -739,6 +739,7 @@ class EggRoomState extends MusicBeatState
 	function openDialogue():Void
 	{
 		inDialogue = true;
+		playChar('idle ' + direction);
 		setDialogueVisible(true);
 		showDialogueLine();
 	}
@@ -875,7 +876,13 @@ class EggRoomState extends MusicBeatState
 
 	function updateMovement(elapsed:Float):Void
 	{
-		if (!canControl || inDialogue)
+		if (inDialogue)
+		{
+			playChar('idle ' + direction); // Kris se queda quieto mientras hay texto
+			return;
+		}
+
+		if (!canControl)
 			return;
 
 		var left:Bool = inLeft();
