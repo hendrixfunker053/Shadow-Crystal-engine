@@ -9,6 +9,10 @@ import flixel.text.FlxText;
 import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
+#if mobile
+import openfl.events.MouseEvent;
+import openfl.events.TouchEvent;
+#end
 
 /**
  * Easter egg: "The Egg Room" (port nativo del mod Lua a Haxe).
@@ -62,6 +66,7 @@ class EggRoomState extends MusicBeatState
 	// ------------------------------------------------------------------
 	//  Ajustes rápidos
 	// ------------------------------------------------------------------
+	static inline var DEBUG_TOUCH:Bool = true; // pon false cuando el joystick funcione
 	static inline var TEXT_SIZE:Int = 16; // tamaño del texto de los diálogos
 	static inline var WORLD_ZOOM:Float = 0.75; // mismo defaultZoom que la stage original
 	static inline var WALK_SPEED:Float = 300;
@@ -157,6 +162,8 @@ class EggRoomState extends MusicBeatState
 
 	var tZJust:Bool = false; // Z táctil recién presionada (o toque sobre la caja de texto)
 
+	var tMenuJust:Bool = false; // botón menú (arriba a la izquierda) -> salir
+
 	#if mobile
 	var joyBase:FlxSprite;
 	var joyThumb:FlxSprite;
@@ -164,7 +171,18 @@ class EggRoomState extends MusicBeatState
 	var touchZOn:FlxSprite;
 	var touchX:FlxSprite;
 	var touchXOn:FlxSprite;
+	var touchC:FlxSprite;
+	var touchCOn:FlxSprite;
+	var touchMenu:FlxSprite;
+	var touchMenuOn:FlxSprite;
 	var joyTouchId:Int = -999;
+	var debugText:FlxText;
+	var evCount:Int = 0;
+
+	// Toques crudos de OpenFL (id -> [x, y] en coordenadas del juego).
+	// No dependemos de FlxG.touches ni de controls.UI_* (que en este fork se activan con deslizar).
+	var rawTouches:Map<Int, Array<Float>> = new Map();
+	var rawJust:Array<Int> = [];
 	#end
 
 	// ==================================================================
@@ -174,7 +192,7 @@ class EggRoomState extends MusicBeatState
 		super.create();
 
 		#if DISCORD_ALLOWED
-		DiscordClient.changePresence("Somewhere in between?", null);
+		DiscordClient.changePresence(Language.getPhrase('eggroom_presence', "Somewhere in between?"), null);
 		#end
 
 		#if ACHIEVEMENTS_ALLOWED
@@ -205,22 +223,21 @@ class EggRoomState extends MusicBeatState
 		eggs = Std.int(FlxG.save.data.eggRoomEggs);
 
 		var dispEggs:Int = eggs + 1;
+		var eggCount:String = Language.getPhrase(dispEggs == 1 ? 'eggroom_dia_count_one' : 'eggroom_dia_count_many',
+			dispEggs == 1 ? '* ( You now have {1} egg.)' : '* ( You now have {1} eggs.)', [dispEggs]);
 
-		// Índices 1-based igual que en el Lua (el 0 no se usa).
-		// Todo pasa por Language.getPhrase: el segundo parámetro es el texto en inglés por defecto,
-		// y las traducciones van en los .lang (ver carpeta lang_to_append del zip).
+		// Índices 1-based igual que en el Lua (el 0 no se usa). Textos en data/en-US.lang
 		dialogues = [
 			'',
-			Language.getPhrase('eggroom_behind_tree', '* ( He is behind the tree.)'),
-			Language.getPhrase('eggroom_tree', '* ( It is a tree.)'),
-			Language.getPhrase('eggroom_man_here', '* ( Well, there is a man here.)'),
-			Language.getPhrase('eggroom_offers', '* ( He offers you something.)'),
+			Language.getPhrase('eggroom_dia_tree_hint', '* ( He is behind the tree.)'),
+			Language.getPhrase('eggroom_dia_tree', '* ( It is a tree.)'),
+			Language.getPhrase('eggroom_dia_man', '* ( Well, there is a man here.)'),
+			Language.getPhrase('eggroom_dia_offer', '* ( He offers you something.)'),
 			'',
-			Language.getPhrase('eggroom_received', '* ( You received the "Egg".)'),
-			(dispEggs == 1) ? Language.getPhrase('eggroom_have_one', '* ( You now have {1} egg.)', [dispEggs]) : Language.getPhrase('eggroom_have_many',
-				'* ( You now have {1} eggs.)', [dispEggs]),
-			Language.getPhrase('eggroom_no_man', '* ( Well, there is not a man here.)'),
-			Language.getPhrase('eggroom_dots', '* ( ...)')
+			Language.getPhrase('eggroom_dia_received', '* ( You received the "Egg".)'),
+			eggCount,
+			Language.getPhrase('eggroom_dia_no_man', '* ( Well, there is not a man here.)'),
+			Language.getPhrase('eggroom_dia_dots', '* ( ...)')
 		];
 
 		// --- Música --------------------------------------------------------
@@ -397,7 +414,7 @@ class EggRoomState extends MusicBeatState
 	#if mobile
 	function createTouchControls():Void
 	{
-		var margin:Float = 40;
+		var margin:Float = 36;
 		var W:Float = camHUD.width;
 		var H:Float = camHUD.height;
 
@@ -407,79 +424,153 @@ class EggRoomState extends MusicBeatState
 			spr.scale.set(scale, scale);
 			spr.updateHitbox();
 			spr.antialiasing = false;
-			spr.alpha = 0.8;
+			spr.alpha = 0.85;
 			spr.scrollFactor.set();
 			spr.cameras = [camHUD];
 			return spr;
 		}
 
-		// Joystick (izquierda)
-		joyBase = touchSprite('joy_base', 3);
-		joyBase.alpha = 0.6;
+		// Botón de menú (arriba a la izquierda): sale de la sala
+		touchMenu = touchSprite('menu', 3);
+		touchMenu.setPosition(margin * 0.6, margin * 0.6);
+		add(touchMenu);
+		touchMenuOn = touchSprite('menu_on', 3);
+		touchMenuOn.setPosition(touchMenu.x, touchMenu.y);
+		touchMenuOn.visible = false;
+		add(touchMenuOn);
+
+		// Joystick (abajo a la izquierda)
+		joyBase = touchSprite('joy_base', 4);
+		joyBase.alpha = 0.7;
 		joyBase.setPosition(margin, H - joyBase.height - margin);
 		add(joyBase);
 
-		joyThumb = touchSprite('joy_thumb', 3);
+		joyThumb = touchSprite('joy_thumb', 4);
 		joyThumb.setPosition(joyBase.x + (joyBase.width - joyThumb.width) * 0.5, joyBase.y + (joyBase.height - joyThumb.height) * 0.5);
 		add(joyThumb);
 
-		// Botones (derecha)
-		touchZ = touchSprite('z', 3.5);
-		touchZ.setPosition(W - touchZ.width - margin, H - touchZ.height - margin);
-		add(touchZ);
+		// Z / X / C en diagonal ascendente hacia la derecha (como en Deltarune)
+		var bs:Float = 3.4;
+		var bw:Float = 27 * bs;
+		var stepX:Float = bw * 1.3;
+		var stepY:Float = bw * 0.62;
 
-		touchZOn = touchSprite('z_on', 3.5);
-		touchZOn.setPosition(touchZ.x, touchZ.y);
-		touchZOn.visible = false;
-		add(touchZOn);
+		var cCx:Float = W - bw * 0.5 - 40;
+		var cCy:Float = H * 0.58;
+		var cXx:Float = cCx - stepX;
+		var cXy:Float = cCy + stepY;
+		var cZx:Float = cXx - stepX;
+		var cZy:Float = cXy + stepY;
 
-		touchX = touchSprite('x', 3.5);
-		touchX.setPosition(touchZ.x, touchZ.y - touchX.height - 24);
-		add(touchX);
+		function makePair(off:String, on:String, cx:Float, cy:Float):Array<FlxSprite>
+		{
+			var a:FlxSprite = touchSprite(off, bs);
+			a.setPosition(cx - a.width * 0.5, cy - a.height * 0.5);
+			add(a);
+			var b:FlxSprite = touchSprite(on, bs);
+			b.setPosition(cx - b.width * 0.5, cy - b.height * 0.5);
+			b.visible = false;
+			add(b);
+			return [a, b];
+		}
 
-		touchXOn = touchSprite('x_on', 3.5);
-		touchXOn.setPosition(touchX.x, touchX.y);
-		touchXOn.visible = false;
-		add(touchXOn);
+		var zp = makePair('z', 'z_on', cZx, cZy);
+		touchZ = zp[0];
+		touchZOn = zp[1];
+		var xp = makePair('x', 'x_on', cXx, cXy);
+		touchX = xp[0];
+		touchXOn = xp[1];
+		var cp = makePair('c', 'c_on', cCx, cCy);
+		touchC = cp[0];
+		touchCOn = cp[1];
+
+		if (DEBUG_TOUCH)
+		{
+			debugText = new FlxText(12, 70, camHUD.width - 24, '', 18);
+			debugText.setFormat(null, 18, FlxColor.LIME, LEFT, OUTLINE, FlxColor.BLACK);
+			debugText.cameras = [camHUD];
+			add(debugText);
+		}
+
+		// Entrada táctil directa
+		FlxG.stage.addEventListener(TouchEvent.TOUCH_BEGIN, onTouchBegin);
+		FlxG.stage.addEventListener(TouchEvent.TOUCH_MOVE, onTouchMove);
+		FlxG.stage.addEventListener(TouchEvent.TOUCH_END, onTouchEnd);
+		FlxG.stage.addEventListener(MouseEvent.MOUSE_DOWN, onMouseDown);
+		FlxG.stage.addEventListener(MouseEvent.MOUSE_MOVE, onMouseMove);
+		FlxG.stage.addEventListener(MouseEvent.MOUSE_UP, onMouseUp);
 	}
+
+	function removeTouchListeners():Void
+	{
+		if (FlxG.stage == null)
+			return;
+		FlxG.stage.removeEventListener(TouchEvent.TOUCH_BEGIN, onTouchBegin);
+		FlxG.stage.removeEventListener(TouchEvent.TOUCH_MOVE, onTouchMove);
+		FlxG.stage.removeEventListener(TouchEvent.TOUCH_END, onTouchEnd);
+		FlxG.stage.removeEventListener(MouseEvent.MOUSE_DOWN, onMouseDown);
+		FlxG.stage.removeEventListener(MouseEvent.MOUSE_MOVE, onMouseMove);
+		FlxG.stage.removeEventListener(MouseEvent.MOUSE_UP, onMouseUp);
+	}
+
+	// Pasa de píxeles de ventana a coordenadas del juego (igual que hace Flixel)
+	function setRaw(id:Int, stageX:Float, stageY:Float, begin:Bool):Void
+	{
+		var sx:Float = FlxG.scaleMode.scale.x;
+		var sy:Float = FlxG.scaleMode.scale.y;
+		if (sx == 0) sx = 1;
+		if (sy == 0) sy = 1;
+		var gx:Float = (stageX - FlxG.scaleMode.offset.x) / sx;
+		var gy:Float = (stageY - FlxG.scaleMode.offset.y) / sy;
+		evCount++;
+		rawTouches.set(id, [gx, gy]);
+		if (begin)
+			rawJust.push(id);
+	}
+
+	function onTouchBegin(e:TouchEvent):Void setRaw(e.touchPointID, e.stageX, e.stageY, true);
+	function onTouchMove(e:TouchEvent):Void
+	{
+		if (rawTouches.exists(e.touchPointID))
+			setRaw(e.touchPointID, e.stageX, e.stageY, false);
+	}
+	function onTouchEnd(e:TouchEvent):Void rawTouches.remove(e.touchPointID);
+	function onMouseDown(e:MouseEvent):Void setRaw(-2, e.stageX, e.stageY, true);
+	function onMouseMove(e:MouseEvent):Void
+	{
+		if (rawTouches.exists(-2))
+			setRaw(-2, e.stageX, e.stageY, false);
+	}
+	function onMouseUp(e:MouseEvent):Void rawTouches.remove(-2);
 
 	function touchHit(spr:FlxSprite, px:Float, py:Float):Bool
 	{
-		var pad:Float = spr.width * 0.1;
+		var pad:Float = spr.width * 0.08;
 		return px >= spr.x - pad && px <= spr.x + spr.width + pad && py >= spr.y - pad && py <= spr.y + spr.height + pad;
 	}
 
 	function updateTouchControls():Void
 	{
-		// --- Reunir punteros: multitouch de Flixel, y el mouse como respaldo ---
+		// --- Punteros actuales ---
 		var px:Array<Float> = [];
 		var py:Array<Float> = [];
 		var pid:Array<Int> = [];
 		var pj:Array<Bool> = [];
 
-		for (t in FlxG.touches.list)
+		for (id => pos in rawTouches)
 		{
-			if (!t.pressed)
-				continue;
-			px.push(t.screenX);
-			py.push(t.screenY);
-			pid.push(t.touchPointID);
-			pj.push(t.justPressed);
+			px.push(pos[0]);
+			py.push(pos[1]);
+			pid.push(id);
+			pj.push(rawJust.indexOf(id) >= 0);
 		}
-
-		if (px.length == 0 && FlxG.mouse.pressed)
-		{
-			px.push(FlxG.mouse.screenX);
-			py.push(FlxG.mouse.screenY);
-			pid.push(-2);
-			pj.push(FlxG.mouse.justPressed);
-		}
+		rawJust = [];
 
 		// --- Joystick ---
 		var bcx:Float = joyBase.x + joyBase.width * 0.5;
 		var bcy:Float = joyBase.y + joyBase.height * 0.5;
 		var maxR:Float = joyBase.width * 0.32;
-		var grabR:Float = joyBase.width * 0.9;
+		var grabR:Float = joyBase.width * 0.8;
 
 		var found:Int = -1;
 		for (i in 0...px.length)
@@ -515,7 +606,7 @@ class EggRoomState extends MusicBeatState
 			var dy:Float = py[found] - bcy;
 			var dist:Float = Math.sqrt(dx * dx + dy * dy);
 
-			if (dist > maxR * 0.35)
+			if (dist > maxR * 0.3)
 			{
 				var nx:Float = dx / dist;
 				var ny:Float = dy / dist;
@@ -533,22 +624,31 @@ class EggRoomState extends MusicBeatState
 
 		joyThumb.setPosition(thumbX - joyThumb.width * 0.5, thumbY - joyThumb.height * 0.5);
 
-		// --- Botones Z / X y toque sobre la caja de texto ---
+		// --- Botones ---
 		var zHeld:Bool = false;
 		var zJust:Bool = false;
 		var xHeld:Bool = false;
+		var cHeld:Bool = false;
+		var menuHeld:Bool = false;
+		var menuJust:Bool = false;
 
 		for (i in 0...px.length)
 		{
+			if (pid[i] == joyTouchId)
+				continue; // ese dedo es del joystick
+
 			if (touchHit(touchZ, px[i], py[i]))
 			{
 				zHeld = true;
-				if (pj[i])
-					zJust = true;
+				if (pj[i]) zJust = true;
 			}
-
-			if (touchHit(touchX, px[i], py[i]))
-				xHeld = true;
+			if (touchHit(touchX, px[i], py[i])) xHeld = true;
+			if (touchHit(touchC, px[i], py[i])) cHeld = true;
+			if (touchHit(touchMenu, px[i], py[i]))
+			{
+				menuHeld = true;
+				if (pj[i]) menuJust = true;
+			}
 
 			// Tocar la caja de diálogo también avanza el texto
 			if (pj[i] && textBox.visible && px[i] >= textBox.x && px[i] <= textBox.x + textBox.width && py[i] >= textBox.y
@@ -563,11 +663,25 @@ class EggRoomState extends MusicBeatState
 		tZ = zHeld;
 		tZJust = zJust;
 		tX = xHeld;
+		tMenuJust = menuJust;
 
 		touchZ.visible = !zHeld;
 		touchZOn.visible = zHeld;
 		touchX.visible = !xHeld;
 		touchXOn.visible = xHeld;
+		touchC.visible = !cHeld;
+		touchCOn.visible = cHeld;
+		touchMenu.visible = !menuHeld;
+		touchMenuOn.visible = menuHeld;
+
+		if (DEBUG_TOUCH && debugText != null)
+		{
+			var first:String = (px.length > 0) ? Std.int(px[0]) + ',' + Std.int(py[0]) : '-';
+			debugText.text = 'events:' + evCount + ' raw:' + px.length + ' pos:' + first + ' flxTouches:' + FlxG.touches.list.length
+				+ ' mouse:' + FlxG.mouse.pressed + '\njoyId:' + joyTouchId + ' L' + (l ? 1 : 0) + ' R' + (r ? 1 : 0) + ' U' + (u ? 1 : 0) + ' D'
+				+ (d ? 1 : 0) + ' Z' + (zHeld ? 1 : 0) + '\nscale:' + FlxG.scaleMode.scale.x + ' off:' + FlxG.scaleMode.offset.x + ' hud:'
+				+ camHUD.width + 'x' + camHUD.height + ' joy:' + Std.int(joyBase.x) + ',' + Std.int(joyBase.y) + ' ' + Std.int(joyBase.width);
+		}
 	}
 	#end
 
@@ -638,12 +752,52 @@ class EggRoomState extends MusicBeatState
 	// ------------------------------------------------------------------
 	//  Input unificado (teclado / gamepad / táctil)
 	// ------------------------------------------------------------------
-	inline function inLeft():Bool return controls.UI_LEFT || tLeft;
-	inline function inRight():Bool return controls.UI_RIGHT || tRight;
-	inline function inUp():Bool return controls.UI_UP || tUp;
-	inline function inDown():Bool return controls.UI_DOWN || tDown;
+	// En mobile NO se usa controls.UI_* (este fork lo activa al deslizar la pantalla):
+	// solo el joystick táctil y, si hay, un teclado físico.
+	function inLeft():Bool
+	{
+		#if mobile
+		return tLeft; // solo el joystick táctil
+		#else
+		return controls.UI_LEFT || tLeft;
+		#end
+	}
 
-	inline function inRun():Bool return FlxG.keys.pressed.SHIFT || FlxG.keys.pressed.X || tX;
+	function inRight():Bool
+	{
+		#if mobile
+		return tRight; // solo el joystick táctil
+		#else
+		return controls.UI_RIGHT || tRight;
+		#end
+	}
+
+	function inUp():Bool
+	{
+		#if mobile
+		return tUp; // solo el joystick táctil
+		#else
+		return controls.UI_UP || tUp;
+		#end
+	}
+
+	function inDown():Bool
+	{
+		#if mobile
+		return tDown; // solo el joystick táctil
+		#else
+		return controls.UI_DOWN || tDown;
+		#end
+	}
+
+	function inRun():Bool
+	{
+		#if mobile
+		return tX;
+		#else
+		return FlxG.keys.pressed.SHIFT || FlxG.keys.pressed.X || tX;
+		#end
+	}
 
 	// ------------------------------------------------------------------
 	//  Update
@@ -662,16 +816,30 @@ class EggRoomState extends MusicBeatState
 		updateTouchControls();
 		#end
 
-		var zJust:Bool = FlxG.keys.justPressed.Z || controls.ACCEPT || tZJust;
-		var leftJust:Bool = controls.UI_LEFT_P || (tLeft && !pLeft);
-		var rightJust:Bool = controls.UI_RIGHT_P || (tRight && !pRight);
+		var zJust:Bool = tZJust;
+		#if !mobile
+		zJust = zJust || FlxG.keys.justPressed.Z;
+		#end
+		var leftJust:Bool = tLeft && !pLeft;
+		var rightJust:Bool = tRight && !pRight;
+		#if mobile
+		zJust = tZJust; // en mobile solo cuenta el botón Z / tocar la caja de texto
+		#else
+		zJust = zJust || controls.ACCEPT;
+		leftJust = leftJust || controls.UI_LEFT_P;
+		rightJust = rightJust || controls.UI_RIGHT_P;
+		#end
 
 		pZ = tZ;
 		pLeft = tLeft;
 		pRight = tRight;
 
 		// Salir de emergencia (ESC / botón atrás de Android)
-		var back:Bool = controls.BACK;
+		var back:Bool = tMenuJust;
+		#if mobile
+		#else
+		back = back || controls.BACK;
+		#end
 		#if android
 		back = back || FlxG.android.justReleased.BACK;
 		#end
@@ -1016,6 +1184,9 @@ class EggRoomState extends MusicBeatState
 
 	override function destroy()
 	{
+		#if mobile
+		removeTouchListeners();
+		#end
 		FlxTween.cancelTweensOf(treeParticle);
 		eggMusic = null; // FlxG.sound lo destruye solo al cambiar de state
 		super.destroy();
