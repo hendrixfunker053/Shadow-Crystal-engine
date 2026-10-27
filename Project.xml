@@ -2,7 +2,7 @@
 <project>
 	<!-- _________________________ Application Settings _________________________ -->
 
-	<app title="Friday Night Funkin': Shadow Crystal Engine" file="PsychEngine" packageName="com.shadowmario.psychengine" package="com.shadowmario.psychengine" main="Main" version="0.2.8" company="ShadowMario" />
+	<app title="Friday Night Funkin': Shadow Crystal Engine" file="ShadowCrystal" packageName="com.hendrixfunker053.shadowcrystal" package="com.hendrixfunker053.shadowcrystal" main="Main" version="0.1.0" company="thefunkersrebirthinc." />
 	<app title="Shadow Crystal engine" if="mobile" />
 
 	<!--Switch Export with Unique ApplicationID and Icon-->
