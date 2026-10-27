@@ -14,10 +14,10 @@ import flixel.util.FlxColor;
  * Easter egg: "The Egg Room" (port nativo del mod Lua a Haxe).
  *
  * Se abre desde MainMenuState tocando 17 veces el texto "Shadow Crystal Engine".
- * Solo se usa a Kris. En mobile se muestran controles táctiles (D-pad + Z + X).
+ * Solo se usa a Kris. En mobile se muestran controles táctiles (joystick + Z + X).
  *
  * Controles:
- *   Flechas / WASD (UI)  -> moverse
+ *   Flechas / WASD (UI) / joystick -> moverse
  *   Z / ACCEPT           -> interactuar / avanzar texto
  *   X / SHIFT            -> correr (mantener)
  *   Izquierda / Derecha  -> elegir Yes / No
@@ -62,7 +62,7 @@ class EggRoomState extends MusicBeatState
 	// ------------------------------------------------------------------
 	//  Ajustes rápidos
 	// ------------------------------------------------------------------
-	static inline var TEXT_SIZE:Int = 32; // tamaño del texto de los diálogos
+	static inline var TEXT_SIZE:Int = 16; // tamaño del texto de los diálogos
 	static inline var WORLD_ZOOM:Float = 0.75; // mismo defaultZoom que la stage original
 	static inline var WALK_SPEED:Float = 300;
 	static inline var RUN_SPEED:Float = 550;
@@ -155,12 +155,16 @@ class EggRoomState extends MusicBeatState
 	var pRight:Bool = false;
 	var pZ:Bool = false;
 
+	var tZJust:Bool = false; // Z táctil recién presionada (o toque sobre la caja de texto)
+
 	#if mobile
-	var touchDpad:FlxSprite;
+	var joyBase:FlxSprite;
+	var joyThumb:FlxSprite;
 	var touchZ:FlxSprite;
 	var touchZOn:FlxSprite;
 	var touchX:FlxSprite;
 	var touchXOn:FlxSprite;
+	var joyTouchId:Int = -999;
 	#end
 
 	// ==================================================================
@@ -201,20 +205,22 @@ class EggRoomState extends MusicBeatState
 		eggs = Std.int(FlxG.save.data.eggRoomEggs);
 
 		var dispEggs:Int = eggs + 1;
-		var eggWord:String = (dispEggs == 1) ? 'egg' : 'eggs';
 
-		// Índices 1-based igual que en el Lua (el 0 no se usa)
+		// Índices 1-based igual que en el Lua (el 0 no se usa).
+		// Todo pasa por Language.getPhrase: el segundo parámetro es el texto en inglés por defecto,
+		// y las traducciones van en los .lang (ver carpeta lang_to_append del zip).
 		dialogues = [
 			'',
-			'* ( He is behind the tree.)',
-			'* ( It is a tree.)',
-			'* ( Well, there is a man here.)',
-			'* ( He offers you something.)',
+			Language.getPhrase('eggroom_behind_tree', '* ( He is behind the tree.)'),
+			Language.getPhrase('eggroom_tree', '* ( It is a tree.)'),
+			Language.getPhrase('eggroom_man_here', '* ( Well, there is a man here.)'),
+			Language.getPhrase('eggroom_offers', '* ( He offers you something.)'),
 			'',
-			'* ( You received the "Egg".)',
-			'* ( You now have $dispEggs $eggWord.)',
-			'* ( Well, there is not a man here.)',
-			'* ( ...)'
+			Language.getPhrase('eggroom_received', '* ( You received the "Egg".)'),
+			(dispEggs == 1) ? Language.getPhrase('eggroom_have_one', '* ( You now have {1} egg.)', [dispEggs]) : Language.getPhrase('eggroom_have_many',
+				'* ( You now have {1} eggs.)', [dispEggs]),
+			Language.getPhrase('eggroom_no_man', '* ( Well, there is not a man here.)'),
+			Language.getPhrase('eggroom_dots', '* ( ...)')
 		];
 
 		// --- Música --------------------------------------------------------
@@ -362,13 +368,13 @@ class EggRoomState extends MusicBeatState
 		boxText.cameras = [camHUD];
 		add(boxText);
 
-		noText = new FlxText(cx + 170 - 150, textBox.y + 65, 300, 'No', TEXT_SIZE);
+		noText = new FlxText(cx + 170 - 150, textBox.y + 65, 300, Language.getPhrase('No'), TEXT_SIZE);
 		noText.setFormat(font, TEXT_SIZE, FlxColor.WHITE, CENTER);
 		noText.antialiasing = false;
 		noText.cameras = [camHUD];
 		add(noText);
 
-		yesText = new FlxText(cx - 170 - 150, textBox.y + 65, 300, 'Yes', TEXT_SIZE);
+		yesText = new FlxText(cx - 170 - 150, textBox.y + 65, 300, Language.getPhrase('Yes'), TEXT_SIZE);
 		yesText.setFormat(font, TEXT_SIZE, FlxColor.WHITE, CENTER);
 		yesText.antialiasing = false;
 		yesText.cameras = [camHUD];
@@ -391,7 +397,7 @@ class EggRoomState extends MusicBeatState
 	#if mobile
 	function createTouchControls():Void
 	{
-		var margin:Float = 36;
+		var margin:Float = 40;
 		var W:Float = camHUD.width;
 		var H:Float = camHUD.height;
 
@@ -407,10 +413,17 @@ class EggRoomState extends MusicBeatState
 			return spr;
 		}
 
-		touchDpad = touchSprite('dpad', 3);
-		touchDpad.setPosition(margin, H - touchDpad.height - margin);
-		add(touchDpad);
+		// Joystick (izquierda)
+		joyBase = touchSprite('joy_base', 3);
+		joyBase.alpha = 0.6;
+		joyBase.setPosition(margin, H - joyBase.height - margin);
+		add(joyBase);
 
+		joyThumb = touchSprite('joy_thumb', 3);
+		joyThumb.setPosition(joyBase.x + (joyBase.width - joyThumb.width) * 0.5, joyBase.y + (joyBase.height - joyThumb.height) * 0.5);
+		add(joyThumb);
+
+		// Botones (derecha)
 		touchZ = touchSprite('z', 3.5);
 		touchZ.setPosition(W - touchZ.width - margin, H - touchZ.height - margin);
 		add(touchZ);
@@ -432,62 +445,129 @@ class EggRoomState extends MusicBeatState
 
 	function touchHit(spr:FlxSprite, px:Float, py:Float):Bool
 	{
-		var pad:Float = spr.width * 0.15;
+		var pad:Float = spr.width * 0.1;
 		return px >= spr.x - pad && px <= spr.x + spr.width + pad && py >= spr.y - pad && py <= spr.y + spr.height + pad;
 	}
 
 	function updateTouchControls():Void
 	{
-		var l:Bool = false;
-		var r:Bool = false;
-		var u:Bool = false;
-		var d:Bool = false;
-		var z:Bool = false;
-		var x:Bool = false;
-
-		var dcx:Float = touchDpad.x + touchDpad.width * 0.5;
-		var dcy:Float = touchDpad.y + touchDpad.height * 0.5;
-		var reach:Float = touchDpad.width * 0.75;
-		var dead:Float = touchDpad.width * 0.12;
+		// --- Reunir punteros: multitouch de Flixel, y el mouse como respaldo ---
+		var px:Array<Float> = [];
+		var py:Array<Float> = [];
+		var pid:Array<Int> = [];
+		var pj:Array<Bool> = [];
 
 		for (t in FlxG.touches.list)
 		{
 			if (!t.pressed)
 				continue;
+			px.push(t.screenX);
+			py.push(t.screenY);
+			pid.push(t.touchPointID);
+			pj.push(t.justPressed);
+		}
 
-			var px:Float = t.screenX;
-			var py:Float = t.screenY;
+		if (px.length == 0 && FlxG.mouse.pressed)
+		{
+			px.push(FlxG.mouse.screenX);
+			py.push(FlxG.mouse.screenY);
+			pid.push(-2);
+			pj.push(FlxG.mouse.justPressed);
+		}
 
-			var dx:Float = px - dcx;
-			var dy:Float = py - dcy;
+		// --- Joystick ---
+		var bcx:Float = joyBase.x + joyBase.width * 0.5;
+		var bcy:Float = joyBase.y + joyBase.height * 0.5;
+		var maxR:Float = joyBase.width * 0.32;
+		var grabR:Float = joyBase.width * 0.9;
+
+		var found:Int = -1;
+		for (i in 0...px.length)
+			if (pid[i] == joyTouchId)
+				found = i;
+
+		if (found < 0)
+		{
+			joyTouchId = -999;
+			for (i in 0...px.length)
+			{
+				var gx:Float = px[i] - bcx;
+				var gy:Float = py[i] - bcy;
+				if (pj[i] && Math.sqrt(gx * gx + gy * gy) <= grabR)
+				{
+					joyTouchId = pid[i];
+					found = i;
+					break;
+				}
+			}
+		}
+
+		var l:Bool = false;
+		var r:Bool = false;
+		var u:Bool = false;
+		var d:Bool = false;
+		var thumbX:Float = bcx;
+		var thumbY:Float = bcy;
+
+		if (found >= 0)
+		{
+			var dx:Float = px[found] - bcx;
+			var dy:Float = py[found] - bcy;
 			var dist:Float = Math.sqrt(dx * dx + dy * dy);
 
-			if (dist <= reach && dist > dead)
+			if (dist > maxR * 0.35)
 			{
+				var nx:Float = dx / dist;
+				var ny:Float = dy / dist;
 				// 8 direcciones: sin(22.5°) ≈ 0.38
-				if (dx / dist > 0.38) r = true;
-				else if (dx / dist < -0.38) l = true;
-
-				if (dy / dist > 0.38) d = true;
-				else if (dy / dist < -0.38) u = true;
+				r = nx > 0.38;
+				l = nx < -0.38;
+				d = ny > 0.38;
+				u = ny < -0.38;
 			}
 
-			if (touchHit(touchZ, px, py)) z = true;
-			if (touchHit(touchX, px, py)) x = true;
+			var k:Float = (dist > maxR) ? maxR / dist : 1;
+			thumbX = bcx + dx * k;
+			thumbY = bcy + dy * k;
+		}
+
+		joyThumb.setPosition(thumbX - joyThumb.width * 0.5, thumbY - joyThumb.height * 0.5);
+
+		// --- Botones Z / X y toque sobre la caja de texto ---
+		var zHeld:Bool = false;
+		var zJust:Bool = false;
+		var xHeld:Bool = false;
+
+		for (i in 0...px.length)
+		{
+			if (touchHit(touchZ, px[i], py[i]))
+			{
+				zHeld = true;
+				if (pj[i])
+					zJust = true;
+			}
+
+			if (touchHit(touchX, px[i], py[i]))
+				xHeld = true;
+
+			// Tocar la caja de diálogo también avanza el texto
+			if (pj[i] && textBox.visible && px[i] >= textBox.x && px[i] <= textBox.x + textBox.width && py[i] >= textBox.y
+				&& py[i] <= textBox.y + textBox.height)
+				zJust = true;
 		}
 
 		tLeft = l;
 		tRight = r;
 		tUp = u;
 		tDown = d;
-		tZ = z;
-		tX = x;
+		tZ = zHeld;
+		tZJust = zJust;
+		tX = xHeld;
 
-		touchZ.visible = !z;
-		touchZOn.visible = z;
-		touchX.visible = !x;
-		touchXOn.visible = x;
-		touchDpad.color = (l || r || u || d) ? 0xFFFFE066 : FlxColor.WHITE;
+		touchZ.visible = !zHeld;
+		touchZOn.visible = zHeld;
+		touchX.visible = !xHeld;
+		touchXOn.visible = xHeld;
 	}
 	#end
 
@@ -582,7 +662,7 @@ class EggRoomState extends MusicBeatState
 		updateTouchControls();
 		#end
 
-		var zJust:Bool = FlxG.keys.justPressed.Z || controls.ACCEPT || (tZ && !pZ);
+		var zJust:Bool = FlxG.keys.justPressed.Z || controls.ACCEPT || tZJust;
 		var leftJust:Bool = controls.UI_LEFT_P || (tLeft && !pLeft);
 		var rightJust:Bool = controls.UI_RIGHT_P || (tRight && !pRight);
 
