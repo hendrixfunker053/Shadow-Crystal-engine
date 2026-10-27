@@ -59,6 +59,9 @@ class Achievements {
 		createAchievement('pessy_easter_egg',		{name: "Engine Gal Pal", description: "Teehee, you found me~!", hidden: true});
 		#end
 
+		// Easter egg: Egg Room (se desbloquea al hablar con el hombre en EggRoomState)
+		createAchievement('there_is_a_man_here',	{name: "Well, there is a man here", description: "Persist on the signature. Somewhere in between, a man waits behind a tree."});
+
 		//dont delete this thing below
 		_originalLength = _sortID + 1;
 	}
