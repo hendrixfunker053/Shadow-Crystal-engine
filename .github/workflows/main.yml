@@ -1,3 +1,4 @@
+
 name: Build
 
 on:
@@ -206,4 +207,88 @@ jobs:
         with:
           name: iOSBuild
           path: PsychEngine.ipa
+          if-no-files-found: error
+
+  buildWindows:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4.1.7
+
+      - uses: krdlab/setup-haxe@master
+        with:
+          haxe-version: 4.3.7
+
+      - name: Restore Haxelib Cache
+        id: haxelib-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/haxelib
+          key: haxelib-windows-4.3.7-${{ hashFiles('setup/unix.sh') }}
+
+      - name: Restore hxcpp Cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.hxcpp_cache
+          key: hxcpp-windows-${{ github.sha }}
+          restore-keys: hxcpp-windows-
+
+      - name: Install Haxelib
+        shell: bash
+        run: |
+          mkdir -p ~/.hxcpp_cache
+          echo "HXCPP_COMPILE_CACHE=$HOME/.hxcpp_cache" >> "$GITHUB_ENV"
+
+          haxelib setup ~/haxelib
+
+          if [ "${{ steps.haxelib-cache.outputs.cache-hit }}" != "true" ]; then
+            haxelib install hxcpp --quiet
+
+            # El script debe poder ejecutarse desde Bash en Windows.
+            chmod +x ./setup/unix.sh
+            bash ./setup/unix.sh
+          fi
+
+      - name: Compile Windows
+        shell: bash
+        run: |
+          set -o pipefail
+
+          if ! haxelib run lime build windows -D officialBuild 2>&1 | tee compile-windows.log; then
+            echo "::error title=lime build windows::$(tail -n 60 compile-windows.log | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"
+            exit 1
+          fi
+
+      - name: Package Windows
+        shell: pwsh
+        run: |
+          $BuildDir = "export/release/windows/bin"
+
+          if (!(Test-Path $BuildDir)) {
+            Write-Error "Windows build directory not found: $BuildDir"
+            Get-ChildItem "export/release/windows" -Recurse -ErrorAction SilentlyContinue
+            exit 1
+          }
+
+          $Exe = Get-ChildItem "export/release/windows" -Filter "*.exe" -Recurse |
+            Select-Object -First 1
+
+          if (!$Exe) {
+            Write-Error "No Windows executable (.exe) was generated."
+            Get-ChildItem "export/release/windows" -Recurse
+            exit 1
+          }
+
+          Write-Host "Executable found: $($Exe.FullName)"
+
+          Compress-Archive `
+            -Path "$BuildDir/*" `
+            -DestinationPath "ShadowCrystalEngine-Windows-x64.zip" `
+            -Force
+
+      - name: Publish Windows Artifact
+        uses: actions/upload-artifact@v4.3.4
+        with:
+          name: WindowsBuild
+          path: ShadowCrystalEngine-Windows-x64.zip
           if-no-files-found: error
