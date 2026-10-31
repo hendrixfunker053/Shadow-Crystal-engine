@@ -1,3 +1,4 @@
+
 package states.editors;
 
 import backend.WeekData;
@@ -18,8 +19,10 @@ class MasterEditorMenu extends MusicBeatState
 		'Dialogue Editor',
 		'Dialogue Portrait Editor',
 		'Note Splash Editor',
-		'Main Menu Editor'
+		'Main Menu Editor',
+		'Crystal HUD Studio'
 	];
+
 	private var grpTexts:FlxTypedGroup<Alphabet>;
 	private var directories:Array<String> = [null];
 
@@ -30,6 +33,7 @@ class MasterEditorMenu extends MusicBeatState
 	override function create()
 	{
 		FlxG.camera.bgColor = FlxColor.BLACK;
+
 		#if DISCORD_ALLOWED
 		// Updating Discord Rich Presence
 		DiscordClient.changePresence("Editors Main Menu", null);
@@ -52,32 +56,43 @@ class MasterEditorMenu extends MusicBeatState
 			grpTexts.add(leText);
 			leText.snapToPosition();
 		}
-		
+
 		#if MODS_ALLOWED
-		var textBG:FlxSprite = new FlxSprite(0, FlxG.height - 42).makeGraphic(FlxG.width, 42, 0xFF000000);
+		var textBG:FlxSprite = new FlxSprite(0, FlxG.height - 42).makeGraphic(
+			FlxG.width, 42, 0xFF000000
+		);
 		textBG.alpha = 0.6;
 		add(textBG);
 
-		directoryTxt = new FlxText(textBG.x, textBG.y + 4, FlxG.width, '', 32);
-		directoryTxt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER);
+		directoryTxt = new FlxText(
+			textBG.x, textBG.y + 4, FlxG.width, '', 32
+		);
+		directoryTxt.setFormat(
+			Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER
+		);
 		directoryTxt.scrollFactor.set();
 		add(directoryTxt);
-		
+
 		for (folder in Mods.getModDirectories())
 		{
 			directories.push(folder);
 		}
 
 		var found:Int = directories.indexOf(Mods.currentModDirectory);
-		if(found > -1) curDirectory = found;
+		if (found > -1)
+			curDirectory = found;
+
 		changeDirectory();
 		#end
+
 		changeSelection();
 
 		FlxG.mouse.visible = false;
+
 		#if mobile
 		add(mobile.MobileButton.back());
 		#end
+
 		super.create();
 	}
 
@@ -87,16 +102,19 @@ class MasterEditorMenu extends MusicBeatState
 		{
 			changeSelection(-1);
 		}
+
 		if (controls.UI_DOWN_P)
 		{
 			changeSelection(1);
 		}
+
 		#if MODS_ALLOWED
-		if(controls.UI_LEFT_P)
+		if (controls.UI_LEFT_P)
 		{
 			changeDirectory(-1);
 		}
-		if(controls.UI_RIGHT_P)
+
+		if (controls.UI_RIGHT_P)
 		{
 			changeDirectory(1);
 		}
@@ -108,56 +126,82 @@ class MasterEditorMenu extends MusicBeatState
 		}
 
 		var touchAccept:Bool = false;
+
 		#if mobile
 		var tapped:Int = mobile.TouchInput.tappedRow(cast grpTexts.members);
 		mobile.TouchInput.consumeTap();
+
 		if (tapped > -1)
 		{
-			if (tapped == curSelected) touchAccept = true;
-			else changeSelection(tapped - curSelected);
+			if (tapped == curSelected)
+				touchAccept = true;
+			else
+				changeSelection(tapped - curSelected);
 		}
 		#end
 
 		if (controls.ACCEPT || touchAccept)
 		{
-			switch(options[curSelected]) {
-				case 'Chart Editor'://felt it would be cool maybe
+			switch (options[curSelected])
+			{
+				case 'Chart Editor':
 					LoadingState.loadAndSwitchState(new ChartingState(), false);
+
 				case 'Character Editor':
-					LoadingState.loadAndSwitchState(new CharacterEditorState(Character.DEFAULT_CHARACTER, false));
+					LoadingState.loadAndSwitchState(
+						new CharacterEditorState(Character.DEFAULT_CHARACTER, false)
+					);
+
 				case 'Stage Editor':
 					LoadingState.loadAndSwitchState(new StageEditorState());
+
 				case 'Week Editor':
 					MusicBeatState.switchState(new WeekEditorState());
+
 				case 'Menu Character Editor':
 					MusicBeatState.switchState(new MenuCharacterEditorState());
+
 				case 'Dialogue Editor':
 					LoadingState.loadAndSwitchState(new DialogueEditorState(), false);
+
 				case 'Dialogue Portrait Editor':
 					LoadingState.loadAndSwitchState(new DialogueCharacterEditorState(), false);
+
 				case 'Note Splash Editor':
 					MusicBeatState.switchState(new NoteSplashEditorState());
+
 				case 'Main Menu Editor':
 					MusicBeatState.switchState(new MainMenuEditorState());
+
+				case 'Crystal HUD Studio':
+					MusicBeatState.switchState(new CrystalHUDStudioState());
 			}
+
 			FlxG.sound.music.volume = 0;
 			FreeplayState.destroyFreeplayVocals();
 		}
-		
+
 		for (num => item in grpTexts.members)
 		{
 			item.targetY = num - curSelected;
 			item.alpha = 0.6;
+
 			if (item.targetY == 0)
 				item.alpha = 1;
 		}
+
 		super.update(elapsed);
 	}
 
 	function changeSelection(change:Int = 0)
 	{
 		FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
-		curSelected = FlxMath.wrap(curSelected + change, 0, options.length - 1);
+
+		curSelected = FlxMath.wrap(
+			curSelected + change,
+			0,
+			options.length - 1
+		);
 	}
 
 	#if MODS_ALLOWED
@@ -167,19 +211,24 @@ class MasterEditorMenu extends MusicBeatState
 
 		curDirectory += change;
 
-		if(curDirectory < 0)
+		if (curDirectory < 0)
 			curDirectory = directories.length - 1;
-		if(curDirectory >= directories.length)
+
+		if (curDirectory >= directories.length)
 			curDirectory = 0;
-	
+
 		WeekData.setDirectoryFromWeek();
-		if(directories[curDirectory] == null || directories[curDirectory].length < 1)
+
+		if (directories[curDirectory] == null || directories[curDirectory].length < 1)
+		{
 			directoryTxt.text = '< No Mod Directory Loaded >';
+		}
 		else
 		{
 			Mods.currentModDirectory = directories[curDirectory];
 			directoryTxt.text = '< Loaded Mod Directory: ' + Mods.currentModDirectory + ' >';
 		}
+
 		directoryTxt.text = directoryTxt.text.toUpperCase();
 	}
 	#end
