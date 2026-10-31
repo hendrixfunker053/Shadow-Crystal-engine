@@ -4,8 +4,8 @@ package states.editors;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.text.FlxText;
+import flixel.text.FlxText.FlxTextBorderStyle;
 import flixel.util.FlxColor;
-import flixel.math.FlxMath;
 import flixel.group.FlxGroup.FlxTypedGroup;
 
 class CrystalHUDStudioState extends MusicBeatState
@@ -13,14 +13,17 @@ class CrystalHUDStudioState extends MusicBeatState
     static inline var FONT:String = "FunkinOptions.otf";
 
     var purple:FlxColor = 0xFF914DFF;
-    var dark:FlxColor = 0xFF100E16;
-    var panelColor:FlxColor = 0xFF191620;
+
+    var categoryButtons:Array<FlxText> = [];
+    var headerButtons:Array<FlxText> = [];
 
     var toolbox:FlxTypedGroup<FlxText>;
+    var blockList:FlxTypedGroup<FlxSprite>;
+    var blockListLabels:FlxTypedGroup<FlxText>;
+
     var workspaceBlocks:FlxTypedGroup<FlxSprite>;
     var blockLabels:FlxTypedGroup<FlxText>;
 
-    var categoryButtons:Array<FlxText> = [];
     var availableBlocks:Array<String> = [];
 
     var selectedCategory:Int = 0;
@@ -36,10 +39,10 @@ class CrystalHUDStudioState extends MusicBeatState
 
     var codeBackground:FlxSprite;
     var codeWindow:FlxText;
+    var closeButton:FlxText;
 
     var showCode:Bool = false;
-
-    var headerButtons:Array<FlxText> = [];
+    var previewVisible:Bool = true;
 
     var categories:Array<String> = [
         "EVENTS",
@@ -138,24 +141,21 @@ class CrystalHUDStudioState extends MusicBeatState
 
     function createHeader()
     {
-        var header = new FlxSprite(
-            0, 0
-        ).makeGraphic(
-            FlxG.width, 55, 0xFF121019
+        var header = new FlxSprite().makeGraphic(
+            FlxG.width,
+            55,
+            0xFF121019
         );
 
         add(header);
-
         addLine(0, 54, FlxG.width, 2, purple);
 
-        var title = createText(
+        add(createText(
             15, 12, 350,
             "CRYSTAL HUD STUDIO",
             24,
             FlxColor.WHITE
-        );
-
-        add(title);
+        ));
 
         addHeaderButton("PREVIEW", FlxG.width - 335);
         addHeaderButton("EXPORT LUA", FlxG.width - 215);
@@ -166,7 +166,9 @@ class CrystalHUDStudioState extends MusicBeatState
     {
         var button = createText(
             x, 18, 110,
-            text, 15, 0xFFD9C4FF
+            text,
+            15,
+            0xFFD9C4FF
         );
 
         button.alignment = CENTER;
@@ -183,20 +185,20 @@ class CrystalHUDStudioState extends MusicBeatState
 
     function createToolbox()
     {
-        var panel = new FlxSprite(
-            0, 56
-        ).makeGraphic(
-            190, FlxG.height - 56,
+        var panel = new FlxSprite(0, 56).makeGraphic(
+            190,
+            FlxG.height - 56,
             0xFF121019
         );
 
         add(panel);
-
         addLine(189, 56, 2, FlxG.height, purple);
 
         add(createText(
             13, 70, 165,
-            "CATEGORIES", 18, purple
+            "CATEGORIES",
+            18,
+            purple
         ));
 
         toolbox = new FlxTypedGroup<FlxText>();
@@ -218,10 +220,19 @@ class CrystalHUDStudioState extends MusicBeatState
             categoryButtons.push(item);
             toolbox.add(item);
         }
+
+        blockList = new FlxTypedGroup<FlxSprite>();
+        add(blockList);
+
+        blockListLabels = new FlxTypedGroup<FlxText>();
+        add(blockListLabels);
     }
 
     function changeCategory(index:Int)
     {
+        if (index < 0 || index >= categories.length)
+            return;
+
         selectedCategory = index;
         availableBlocks = blockData[index].copy();
 
@@ -237,38 +248,49 @@ class CrystalHUDStudioState extends MusicBeatState
 
     function refreshToolbox()
     {
-        // Limpiar los bloques anteriores.
-        for (member in blockList.members)
+        for (member in blockList.members.copy())
         {
             if (member != null)
             {
-                remove(member);
+                blockList.remove(member);
                 member.destroy();
             }
         }
 
-        blockList.clear();
+        for (member in blockListLabels.members.copy())
+        {
+            if (member != null)
+            {
+                blockListLabels.remove(member);
+                member.destroy();
+            }
+        }
 
         for (i in 0...availableBlocks.length)
         {
-            var block = createText(
-                205,
-                145 + i * 48,
+            var y = 145 + i * 48;
+
+            var block = new FlxSprite(205, y).makeGraphic(
                 245,
-                "  " + availableBlocks[i],
-                15,
+                38,
+                getCategoryColor(selectedCategory)
+            );
+
+            blockList.add(block);
+
+            var label = createText(
+                214,
+                y + 10,
+                225,
+                availableBlocks[i],
+                14,
                 FlxColor.WHITE
             );
 
-            block.background = true;
-            block.backgroundColor = getCategoryColor(selectedCategory);
-            block.ID = i;
-
-            blockList.add(block);
+            label.ID = i;
+            blockListLabels.add(label);
         }
     }
-
-    var blockList:FlxTypedGroup<FlxText>;
 
     // --------------------------------------------------
     // WORKSPACE
@@ -276,10 +298,10 @@ class CrystalHUDStudioState extends MusicBeatState
 
     function createWorkspace()
     {
-        var workspace = new FlxSprite(
-            190, 56
-        ).makeGraphic(
-            Std.int(FlxG.width * 0.47),
+        var workspaceWidth = Std.int(FlxG.width * 0.47);
+
+        var workspace = new FlxSprite(190, 56).makeGraphic(
+            workspaceWidth,
             FlxG.height - 56,
             0xFF17151D
         );
@@ -290,13 +312,16 @@ class CrystalHUDStudioState extends MusicBeatState
 
         add(createText(
             205, 70, 300,
-            "WORKSPACE", 18, purple
+            "WORKSPACE",
+            18,
+            purple
         ));
 
         add(createText(
             205, 95, 400,
-            "Drag blocks here to build your HUD",
-            12, 0xFF898493
+            "Select a toolbox block to add it here.",
+            12,
+            0xFF898493
         ));
 
         workspaceBlocks = new FlxTypedGroup<FlxSprite>();
@@ -304,9 +329,6 @@ class CrystalHUDStudioState extends MusicBeatState
 
         blockLabels = new FlxTypedGroup<FlxText>();
         add(blockLabels);
-
-        blockList = new FlxTypedGroup<FlxText>();
-        add(blockList);
     }
 
     function addWorkspaceBlock(name:String)
@@ -317,7 +339,8 @@ class CrystalHUDStudioState extends MusicBeatState
         var y:Float = 145 + index * 55;
 
         var block = new FlxSprite(x, y).makeGraphic(
-            220, 43,
+            220,
+            43,
             getCategoryColor(selectedCategory)
         );
 
@@ -336,7 +359,38 @@ class CrystalHUDStudioState extends MusicBeatState
 
         selectedBlock = index;
 
-        FlxG.sound.play(Paths.sound('scrollMenu'), 0.3);
+        FlxG.sound.play(
+            Paths.sound("scrollMenu"),
+            0.3
+        );
+
+        updateProperties();
+    }
+
+    function removeSelectedBlock()
+    {
+        if (selectedBlock < 0 ||
+            selectedBlock >= workspaceBlocks.length)
+            return;
+
+        var block = workspaceBlocks.members[selectedBlock];
+        var label = blockLabels.members[selectedBlock];
+
+        if (block != null)
+        {
+            workspaceBlocks.remove(block, true);
+            block.destroy();
+        }
+
+        if (label != null)
+        {
+            blockLabels.remove(label, true);
+            label.destroy();
+        }
+
+        selectedBlock = -1;
+        dragging = false;
+        dragIndex = -1;
 
         updateProperties();
     }
@@ -349,9 +403,7 @@ class CrystalHUDStudioState extends MusicBeatState
     {
         var x = Std.int(FlxG.width * 0.68);
 
-        var preview = new FlxSprite(
-            x, 56
-        ).makeGraphic(
+        var preview = new FlxSprite(x, 56).makeGraphic(
             FlxG.width - x,
             Std.int(FlxG.height * 0.52),
             0xFF050505
@@ -363,7 +415,18 @@ class CrystalHUDStudioState extends MusicBeatState
 
         add(createText(
             x + 12, 70, 250,
-            "HUD PREVIEW", 18, purple
+            "HUD PREVIEW",
+            18,
+            purple
+        ));
+
+        add(createText(
+            x + 12,
+            112,
+            250,
+            "16:9 - PREVIEW MODE",
+            11,
+            0xFF77717F
         ));
 
         previewText = createText(
@@ -377,15 +440,13 @@ class CrystalHUDStudioState extends MusicBeatState
 
         previewText.alignment = CENTER;
         add(previewText);
+    }
 
-        add(createText(
-            x + 12,
-            112,
-            250,
-            "16:9 - PREVIEW MODE",
-            11,
-            0xFF77717F
-        ));
+    function togglePreview()
+    {
+        previewVisible = !previewVisible;
+
+        previewText.visible = previewVisible;
     }
 
     // --------------------------------------------------
@@ -397,9 +458,7 @@ class CrystalHUDStudioState extends MusicBeatState
         var x = Std.int(FlxG.width * 0.68);
         var y = Std.int(FlxG.height * 0.59);
 
-        var panel = new FlxSprite(
-            x, y
-        ).makeGraphic(
+        var panel = new FlxSprite(x, y).makeGraphic(
             FlxG.width - x,
             FlxG.height - y,
             0xFF121019
@@ -407,7 +466,13 @@ class CrystalHUDStudioState extends MusicBeatState
 
         add(panel);
 
-        addLine(x, y, FlxG.width - x, 2, purple);
+        addLine(
+            x,
+            y,
+            FlxG.width - x,
+            2,
+            purple
+        );
 
         add(createText(
             x + 12,
@@ -432,17 +497,37 @@ class CrystalHUDStudioState extends MusicBeatState
 
     function updateProperties()
     {
+        if (propertiesText == null)
+            return;
+
         if (selectedBlock < 0 ||
-            selectedBlock >= blockLabels.length)
+            selectedBlock >= workspaceBlocks.length)
+        {
+            propertiesText.text =
+                "No block selected.\n\n" +
+                "Select a block in the workspace.";
+
+            return;
+        }
+
+        var block = workspaceBlocks.members[selectedBlock];
+        var label = blockLabels.members[selectedBlock];
+
+        if (block == null || label == null)
             return;
 
         propertiesText.text =
             "Selected block:\n" +
-            blockLabels.members[selectedBlock].text +
-            "\n\nPosition: " +
-            Std.int(workspaceBlocks.members[selectedBlock].x) +
+            label.text +
+            "\n\nPosition:\n" +
+            Std.int(block.x) +
             ", " +
-            Std.int(workspaceBlocks.members[selectedBlock].y);
+            Std.int(block.y) +
+            "\n\nBlock ID:\n" +
+            selectedBlock +
+            "\n\nCategory:\n" +
+            categories[selectedCategory] +
+            "\n\nDELETE - Remove selected block";
     }
 
     // --------------------------------------------------
@@ -464,7 +549,7 @@ class CrystalHUDStudioState extends MusicBeatState
     }
 
     // --------------------------------------------------
-    // LUA EXPORTER
+    // LUA GENERATOR
     // --------------------------------------------------
 
     function generateLua():String
@@ -477,124 +562,191 @@ class CrystalHUDStudioState extends MusicBeatState
         var updateCode:String = "";
         var stepCode:String = "";
         var beatCode:String = "";
+        var endCode:String = "";
+
+        var currentEvent:String = "create";
 
         for (i in 0...blockLabels.length)
         {
-            var name = blockLabels.members[i].text.trim();
+            var label = blockLabels.members[i];
+
+            if (label == null)
+                continue;
+
+            var name = StringTools.trim(label.text);
+            var code:String = "";
 
             switch(name)
             {
                 case "When song starts":
-                    createCode += "-- Song start event\n";
+                    currentEvent = "create";
 
                 case "When step hits":
-                    stepCode += "-- Step event\n";
+                    currentEvent = "step";
 
                 case "When beat hits":
-                    beatCode += "-- Beat event\n";
+                    currentEvent = "beat";
+
+                case "When song ends":
+                    currentEvent = "end";
 
                 case "Create text":
-                    createCode +=
+                    code =
                         "makeLuaText('myText', 'Hello!', 200, 100, 100)\n" +
                         "setTextSize('myText', 24)\n" +
                         "addLuaText('myText')\n";
 
                 case "Create sprite":
-                    createCode +=
-                        "-- Add your sprite here\n";
+                    code =
+                        "-- Create your sprite here\n" +
+                        "-- Example: makeLuaSprite('mySprite', 'image', 100, 100)\n";
 
                 case "Remove object":
-                    createCode +=
+                    code =
                         "removeLuaSprite('mySprite', true)\n";
 
                 case "Add to HUD":
-                    createCode +=
+                    code =
                         "setObjectCamera('myText', 'hud')\n";
 
                 case "Set position":
-                    createCode +=
+                    code =
                         "setProperty('myText.x', 100)\n" +
                         "setProperty('myText.y', 100)\n";
 
                 case "Set scale":
-                    createCode +=
+                    code =
                         "scaleObject('myText', 1, 1)\n";
 
                 case "Set alpha":
-                    createCode +=
+                    code =
                         "setProperty('myText.alpha', 1)\n";
 
                 case "Set visibility":
-                    createCode +=
+                    code =
                         "setProperty('myText.visible', true)\n";
 
                 case "Tween X":
-                    createCode +=
+                    code =
                         "doTweenX('moveHUD', 'myText', 300, 1, 'quadOut')\n";
 
                 case "Tween Y":
-                    createCode +=
+                    code =
                         "doTweenY('moveHUDY', 'myText', 200, 1, 'quadOut')\n";
 
                 case "Tween Alpha":
-                    createCode +=
+                    code =
                         "doTweenAlpha('fadeHUD', 'myText', 0, 1, 'linear')\n";
 
                 case "Tween Scale":
-                    createCode +=
+                    code =
                         "doTweenX('scaleHUD', 'myText.scale', 1.2, 1, 'quadOut')\n";
 
+                case "If":
+                    code = "-- TODO: Add condition\n";
+
+                case "If / Else":
+                    code = "-- TODO: Add if/else condition\n";
+
+                case "Repeat":
+                    code = "-- TODO: Add repeat block\n";
+
+                case "Forever":
+                    code = "-- TODO: Add loop block\n";
+
+                case "Set variable":
+                    code =
+                        "local myVariable = 0\n";
+
+                case "Change variable":
+                    code =
+                        "myVariable = myVariable + 1\n";
+
+                case "Get variable":
+                    code =
+                        "debugPrint(myVariable)\n";
+
                 case "Get score":
-                    updateCode +=
+                    code =
                         "local score = getProperty('songScore')\n";
 
                 case "Get combo":
-                    updateCode +=
+                    code =
                         "local currentCombo = getProperty('combo')\n";
 
                 case "Get misses":
-                    updateCode +=
+                    code =
                         "local misses = getProperty('songMisses')\n";
 
                 case "Get health":
-                    updateCode +=
+                    code =
                         "local health = getProperty('health')\n";
 
                 case "Get song position":
-                    updateCode +=
+                    code =
                         "local songPosition = getSongPosition()\n";
 
                 default:
-                    lua += "-- Block: " + name + "\n";
+                    code = "-- Unknown block: " + name + "\n";
+            }
+
+            switch(currentEvent)
+            {
+                case "create":
+                    createCode += code;
+
+                case "step":
+                    stepCode += code;
+
+                case "beat":
+                    beatCode += code;
+
+                case "end":
+                    endCode += code;
+
+                default:
+                    updateCode += code;
             }
         }
 
         if (createCode.length > 0)
         {
-            lua += "function onCreatePost()\n";
-            lua += createCode;
-            lua += "end\n\n";
+            lua +=
+                "function onCreatePost()\n" +
+                createCode +
+                "end\n\n";
         }
 
         if (updateCode.length > 0)
         {
-            lua += "function onUpdate(elapsed)\n";
-            lua += updateCode;
-            lua += "end\n\n";
+            lua +=
+                "function onUpdate(elapsed)\n" +
+                updateCode +
+                "end\n\n";
         }
 
         if (stepCode.length > 0)
         {
-            lua += "function onStepHit()\n";
-            lua += stepCode;
-            lua += "end\n\n";
+            lua +=
+                "function onStepHit()\n" +
+                stepCode +
+                "end\n\n";
         }
 
         if (beatCode.length > 0)
         {
-            lua += "function onBeatHit()\n";
-            lua += beatCode;
-            lua += "end\n\n";
+            lua +=
+                "function onBeatHit()\n" +
+                beatCode +
+                "end\n\n";
+        }
+
+        if (endCode.length > 0)
+        {
+            lua +=
+                "function onEndSong()\n" +
+                endCode +
+                "end\n\n";
         }
 
         return lua;
@@ -614,9 +766,7 @@ class CrystalHUDStudioState extends MusicBeatState
 
         showCode = true;
 
-        codeBackground = new FlxSprite(
-            0, 0
-        ).makeGraphic(
+        codeBackground = new FlxSprite().makeGraphic(
             FlxG.width,
             FlxG.height,
             0xEE08070C
@@ -624,8 +774,20 @@ class CrystalHUDStudioState extends MusicBeatState
 
         add(codeBackground);
 
+        var title = createText(
+            35,
+            25,
+            400,
+            "GENERATED LUA",
+            22,
+            purple
+        );
+
+        add(title);
+
         codeWindow = createText(
-            35, 75,
+            35,
+            75,
             FlxG.width - 70,
             generateLua(),
             15,
@@ -637,33 +799,45 @@ class CrystalHUDStudioState extends MusicBeatState
 
         add(codeWindow);
 
-        var close = createText(
-            FlxG.width - 120,
+        closeButton = createText(
+            FlxG.width - 130,
             25,
-            100,
+            110,
             "CLOSE [ESC]",
             15,
             purple
         );
 
-        close.ID = 999;
-        add(close);
-        closeButton = close;
+        add(closeButton);
     }
-
-    var closeButton:FlxText;
 
     function hideCodeWindow()
     {
+        if (!showCode)
+            return;
+
         showCode = false;
 
-        remove(codeBackground);
-        remove(codeWindow);
-        remove(closeButton);
+        if (codeBackground != null)
+        {
+            remove(codeBackground);
+            codeBackground.destroy();
+            codeBackground = null;
+        }
 
-        codeBackground.destroy();
-        codeWindow.destroy();
-        closeButton.destroy();
+        if (codeWindow != null)
+        {
+            remove(codeWindow);
+            codeWindow.destroy();
+            codeWindow = null;
+        }
+
+        if (closeButton != null)
+        {
+            remove(closeButton);
+            closeButton.destroy();
+            closeButton = null;
+        }
     }
 
     // --------------------------------------------------
@@ -680,7 +854,11 @@ class CrystalHUDStudioState extends MusicBeatState
     ):FlxText
     {
         var result = new FlxText(
-            x, y, width, text, size
+            x,
+            y,
+            width,
+            text,
+            size
         );
 
         result.setFormat(
@@ -704,7 +882,9 @@ class CrystalHUDStudioState extends MusicBeatState
     )
     {
         var line = new FlxSprite(x, y).makeGraphic(
-            width, height, color
+            width,
+            height,
+            color
         );
 
         add(line);
@@ -718,10 +898,14 @@ class CrystalHUDStudioState extends MusicBeatState
     {
         super.update(elapsed);
 
+        // CODE WINDOW
         if (showCode)
         {
             if (FlxG.keys.justPressed.ESCAPE)
+            {
                 hideCodeWindow();
+                return;
+            }
 
             if (closeButton != null &&
                 FlxG.mouse.justPressed &&
@@ -733,36 +917,86 @@ class CrystalHUDStudioState extends MusicBeatState
             return;
         }
 
-        // CATEGORIES
+        // DELETE SELECTED BLOCK
+        if (FlxG.keys.justPressed.DELETE ||
+            FlxG.keys.justPressed.BACKSPACE)
+        {
+            removeSelectedBlock();
+        }
+
+        // MOUSE CLICK
         if (FlxG.mouse.justPressed)
         {
+            var clickedUI:Bool = false;
+
+            // HEADER BUTTONS
+            for (i in 0...headerButtons.length)
+            {
+                var button = headerButtons[i];
+
+                if (FlxG.mouse.overlaps(button))
+                {
+                    clickedUI = true;
+
+                    switch(i)
+                    {
+                        case 0:
+                            togglePreview();
+
+                        case 1:
+                            showCodeWindow();
+
+                        case 2:
+                            MusicBeatState.switchState(
+                                new MasterEditorMenu()
+                            );
+                    }
+
+                    break;
+                }
+            }
+
+            if (clickedUI)
+                return;
+
+            // CATEGORIES
             for (item in categoryButtons)
             {
                 if (FlxG.mouse.overlaps(item))
                 {
                     changeCategory(item.ID);
+                    clickedUI = true;
                     break;
                 }
             }
 
-            // TOOLBOX BLOCKS
-            for (item in blockList.members)
+            if (clickedUI)
+                return;
+
+            // TOOLBOX
+            for (i in 0...blockList.length)
             {
-                if (item != null && FlxG.mouse.overlaps(item))
+                var block = blockList.members[i];
+
+                if (block != null &&
+                    FlxG.mouse.overlaps(block))
                 {
-                    addWorkspaceBlock(
-                        availableBlocks[item.ID]
-                    );
+                    addWorkspaceBlock(availableBlocks[i]);
+                    clickedUI = true;
                     break;
                 }
             }
 
-            // WORKSPACE BLOCKS
+            if (clickedUI)
+                return;
+
+            // WORKSPACE
             for (i in 0...workspaceBlocks.length)
             {
                 var block = workspaceBlocks.members[i];
 
-                if (block != null && FlxG.mouse.overlaps(block))
+                if (block != null &&
+                    FlxG.mouse.overlaps(block))
                 {
                     dragging = true;
                     dragIndex = i;
@@ -775,47 +1009,27 @@ class CrystalHUDStudioState extends MusicBeatState
                     break;
                 }
             }
-
-            // HEADER BUTTONS
-            for (i in 0...headerButtons.length)
-            {
-                var button = headerButtons[i];
-
-                if (FlxG.mouse.overlaps(button))
-                {
-                    switch(i)
-                    {
-                        case 0:
-                            previewText.text =
-                                "SCORE: 000000\nCOMBO: 0";
-
-                        case 1:
-                            showCodeWindow();
-
-                        case 2:
-                            MusicBeatState.switchState(
-                                new MasterEditorMenu()
-                            );
-                    }
-                }
-            }
         }
 
         // DRAGGING
-        if (dragging && dragIndex >= 0)
+        if (dragging && dragIndex >= 0 &&
+            dragIndex < workspaceBlocks.length)
         {
-            if (FlxG.mouse.pressed)
+            var block = workspaceBlocks.members[dragIndex];
+            var label = blockLabels.members[dragIndex];
+
+            if (block != null && label != null)
             {
-                var block = workspaceBlocks.members[dragIndex];
-                var label = blockLabels.members[dragIndex];
+                if (FlxG.mouse.pressed)
+                {
+                    block.x = FlxG.mouse.x - dragOffsetX;
+                    block.y = FlxG.mouse.y - dragOffsetY;
 
-                block.x = FlxG.mouse.x - dragOffsetX;
-                block.y = FlxG.mouse.y - dragOffsetY;
+                    label.x = block.x + 9;
+                    label.y = block.y + 11;
 
-                label.x = block.x + 9;
-                label.y = block.y + 11;
-
-                updateProperties();
+                    updateProperties();
+                }
             }
 
             if (FlxG.mouse.justReleased)
