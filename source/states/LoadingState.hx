@@ -68,6 +68,15 @@ class LoadingState extends MusicBeatState
 	var curPercent:Float = 0;
 	var stateChangeDelay:Float = 0;
 
+	// NEW LOADING SCREEN (Funkin style)
+	var useOldScreen:Bool = false;
+	var runner:FlxSprite;
+	var runStartX:Float = 0;
+	var runEndX:Float = 0;
+	var runBaseY:Float = 0;
+	var runOffX:Float = 0;
+	var runOffY:Float = 0;
+
 	#if PSYCH_WATERMARKS
 	var logo:FlxSprite;
 	var pessy:FlxSprite;
@@ -142,41 +151,49 @@ class LoadingState extends MusicBeatState
 		}
 		#end
 
-		#if PSYCH_WATERMARKS // PSYCH LOADING SCREEN
-		var bg = new FlxSprite().loadGraphic(Paths.image('menuDesat'));
-		bg.antialiasing = ClientPrefs.data.antialiasing;
-		bg.setGraphicSize(Std.int(FlxG.width));
-		bg.color = 0xFFD16FFF;
-		bg.updateHitbox();
-		addBehindBar(bg);
-	
-		loadingText = new FlxText(520, 600, 400, Language.getPhrase('now_loading', 'Now Loading', ['...']), 32);
-		loadingText.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, LEFT, OUTLINE_FAST, FlxColor.BLACK);
-		loadingText.borderSize = 2;
-		addBehindBar(loadingText);
-	
-		logo = new FlxSprite(0, 0).loadGraphic(Paths.image('loading_screen/icon'));
-		logo.antialiasing = ClientPrefs.data.antialiasing;
-		logo.scale.set(0.75, 0.75);
-		logo.updateHitbox();
-		logo.screenCenter();
-		logo.x -= 50;
-		logo.y -= 40;
-		addBehindBar(logo);
+		useOldScreen = ClientPrefs.data.oldLoadingScreen;
+		if (!useOldScreen)
+		{
+			createNewScreen();
+		}
+		else
+		{
+			#if PSYCH_WATERMARKS // PSYCH LOADING SCREEN
+			var bg = new FlxSprite().loadGraphic(Paths.image('menuDesat'));
+			bg.antialiasing = ClientPrefs.data.antialiasing;
+			bg.setGraphicSize(Std.int(FlxG.width));
+			bg.color = 0xFFD16FFF;
+			bg.updateHitbox();
+			addBehindBar(bg);
+		
+			loadingText = new FlxText(520, 600, 400, Language.getPhrase('now_loading', 'Now Loading', ['...']), 32);
+			loadingText.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, LEFT, OUTLINE_FAST, FlxColor.BLACK);
+			loadingText.borderSize = 2;
+			addBehindBar(loadingText);
+		
+			logo = new FlxSprite(0, 0).loadGraphic(Paths.image('loading_screen/icon'));
+			logo.antialiasing = ClientPrefs.data.antialiasing;
+			logo.scale.set(0.75, 0.75);
+			logo.updateHitbox();
+			logo.screenCenter();
+			logo.x -= 50;
+			logo.y -= 40;
+			addBehindBar(logo);
 
-		#else // BASE GAME LOADING SCREEN
-		var bg = new FlxSprite().makeGraphic(1, 1, 0xFFCAFF4D);
-		bg.scale.set(FlxG.width, FlxG.height);
-		bg.updateHitbox();
-		bg.screenCenter();
-		addBehindBar(bg);
+			#else // BASE GAME LOADING SCREEN
+			var bg = new FlxSprite().makeGraphic(1, 1, 0xFFCAFF4D);
+			bg.scale.set(FlxG.width, FlxG.height);
+			bg.updateHitbox();
+			bg.screenCenter();
+			addBehindBar(bg);
 
-		funkay = new FlxSprite(0, 0).loadGraphic(Paths.image('funkay'));
-		funkay.antialiasing = ClientPrefs.data.antialiasing;
-		funkay.setGraphicSize(0, FlxG.height);
-		funkay.updateHitbox();
-		addBehindBar(funkay);
-		#end
+			funkay = new FlxSprite(0, 0).loadGraphic(Paths.image('funkay'));
+			funkay.antialiasing = ClientPrefs.data.antialiasing;
+			funkay.setGraphicSize(0, FlxG.height);
+			funkay.updateHitbox();
+			addBehindBar(funkay);
+			#end
+		}
 		super.create();
 
 		if (stateChangeDelay <= 0 && checkLoaded())
@@ -189,6 +206,84 @@ class LoadingState extends MusicBeatState
 	function addBehindBar(obj:flixel.FlxBasic)
 	{
 		insert(members.indexOf(barGroup), obj);
+	}
+
+	// Picks a character using the "weight" value from each character's json
+	function pickLoadingCharacter():{id:String, data:Dynamic}
+	{
+		var pool:Array<{id:String, data:Dynamic}> = [];
+		var total:Float = 0;
+		for (id in ['bf', 'gf'])
+		{
+			var data:Dynamic = {offsets: [0, 0], scale: 0.38, weight: 1};
+			try
+			{
+				var txt:String = Paths.getTextFromFile('images/loading/characters/$id/$id.json');
+				if (txt != null) data = Json.parse(txt);
+			}
+			catch (e:Dynamic) {}
+			total += data.weight;
+			pool.push({id: id, data: data});
+		}
+
+		var roll:Float = FlxG.random.float(0, total);
+		for (c in pool)
+		{
+			roll -= c.data.weight;
+			if (roll <= 0) return c;
+		}
+		return pool[0];
+	}
+
+	function createNewScreen()
+	{
+		barGroup.visible = false; // the mic stand is the progress bar now
+
+		var bg = new FlxSprite().makeGraphic(1, 1, 0xFFCAFF4D);
+		bg.scale.set(FlxG.width, FlxG.height);
+		bg.updateHitbox();
+		bg.screenCenter();
+		addBehindBar(bg);
+
+		var funkayBg = new FlxSprite().loadGraphic(Paths.image('loading/funkay'));
+		funkayBg.antialiasing = ClientPrefs.data.antialiasing;
+		funkayBg.setGraphicSize(0, FlxG.height);
+		funkayBg.updateHitbox();
+		funkayBg.screenCenter(X);
+		addBehindBar(funkayBg);
+
+		var stand = new FlxSprite().loadGraphic(Paths.image('loading/mic-stand'));
+		stand.antialiasing = ClientPrefs.data.antialiasing;
+		stand.setGraphicSize(Std.int(FlxG.width * 0.8));
+		stand.updateHitbox();
+		stand.screenCenter(X);
+		stand.y = FlxG.height - stand.height - 20;
+		addBehindBar(stand);
+
+		var pick = pickLoadingCharacter();
+		runner = new FlxSprite();
+		runner.frames = Paths.getSparrowAtlas('loading/characters/${pick.id}/${pick.id}');
+		runner.animation.addByPrefix('run', 'run', 24, true);
+		runner.animation.play('run');
+		runner.antialiasing = ClientPrefs.data.antialiasing;
+		runner.scale.set(pick.data.scale, pick.data.scale);
+		runner.updateHitbox();
+		runOffX = pick.data.offsets[0];
+		runOffY = pick.data.offsets[1];
+
+		// TWEAK THESE 3 VALUES BY EYE
+		runStartX = stand.x + 20;
+		runEndX = stand.x + stand.width - runner.width - 140; // stops before the mic
+		runBaseY = stand.y + stand.height * 0.5 - runner.height;
+
+		runner.setPosition(runStartX + runOffX, runBaseY + runOffY);
+		addBehindBar(runner); // added after the stand so it draws on top
+	}
+
+	function updateNewScreen()
+	{
+		runner.x = FlxMath.lerp(runStartX, runEndX, curPercent) + runOffX;
+		runner.y = runBaseY + runOffY;
 	}
 
 	var transitioning:Bool = false;
@@ -228,6 +323,12 @@ class LoadingState extends MusicBeatState
 			return;
 		}
 		#end
+
+		if (!useOldScreen)
+		{
+			updateNewScreen();
+			return;
+		}
 
 		#if PSYCH_WATERMARKS // PSYCH LOADING SCREEN
 		timePassed += elapsed;
