@@ -15,6 +15,10 @@ import openfl.display.StageScaleMode;
 import lime.app.Application;
 import states.TitleState;
 
+#if android
+import flixel.input.android.FlxAndroidKey;
+#end
+
 #if HSCRIPT_ALLOWED
 import crowplexus.iris.Iris;
 import psychlua.HScript.HScriptInfos;
@@ -186,6 +190,10 @@ class Main extends Sprite
 		FlxG.fixedTimestep = false;
 		FlxG.game.focusLostFramerate = 60;
 		FlxG.keys.preventDefaultKeys = [TAB];
+		#if android
+		// Evita que el botón de retroceso de Android cierre el juego
+		FlxG.android.preventDefaultKeys = [FlxAndroidKey.BACK];
+		#end
 		
 		#if CRASH_HANDLER
 		Lib.current.loaderInfo.uncaughtErrorEvents.addEventListener(UncaughtErrorEvent.UNCAUGHT_ERROR, onCrash);
