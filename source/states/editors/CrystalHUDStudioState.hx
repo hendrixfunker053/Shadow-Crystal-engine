@@ -1,542 +1,223 @@
-
 package states.editors;
 
 import flixel.FlxG;
 import flixel.FlxSprite;
-import flixel.text.FlxText;
-import flixel.text.FlxText.FlxTextBorderStyle;
-import flixel.util.FlxColor;
 import flixel.group.FlxGroup.FlxTypedGroup;
+import flixel.text.FlxText;
+import flixel.util.FlxColor;
+import flixel.text.FlxText.FlxTextBorderStyle;
+import openfl.display.BitmapData;
+import openfl.events.Event;
+import openfl.events.IOErrorEvent;
+import openfl.net.FileFilter;
+#if mobile
+import mobile.MobileFileReference as FileReference;
+#else
+import openfl.net.FileReference;
+#end
 
+/**
+ * Crystal HUD Studio
+ * Visual HUD layout editor with draggable objects, editable properties
+ * and Lua export. Designed for the Shadow Crystal / Psych Engine fork.
+ */
 class CrystalHUDStudioState extends MusicBeatState
 {
     static inline var FONT:String = "FunkinOptions.otf";
 
     var purple:FlxColor = 0xFF914DFF;
+    var categories:Array<String> = ["EVENTS", "OBJECTS", "PROPERTIES", "ANIMATIONS", "LOGIC", "VARIABLES", "GAME DATA"];
+    var blockData:Array<Array<String>> = [
+        ["When song starts", "When step hits", "When beat hits", "When song ends"],
+        ["Create text", "Create sprite", "Remove object", "Add to HUD", "Import image"],
+        ["Set position", "Set scale", "Set alpha", "Set visibility"],
+        ["Tween X", "Tween Y", "Tween Alpha", "Tween Scale"],
+        ["If", "If / Else", "Repeat", "Forever"],
+        ["Set variable", "Change variable", "Get variable"],
+        ["Get score", "Get combo", "Get misses", "Get health", "Get song position"]
+    ];
 
     var categoryButtons:Array<FlxText> = [];
     var headerButtons:Array<FlxText> = [];
-
-    var toolbox:FlxTypedGroup<FlxText>;
-    var blockList:FlxTypedGroup<FlxSprite>;
-    var blockListLabels:FlxTypedGroup<FlxText>;
-
-    var workspaceBlocks:FlxTypedGroup<FlxSprite>;
-    var blockLabels:FlxTypedGroup<FlxText>;
-
-    var availableBlocks:Array<String> = [];
+    var toolboxItems:FlxTypedGroup<FlxSprite>;
+    var toolboxLabels:FlxTypedGroup<FlxText>;
+    var objects:FlxTypedGroup<FlxSprite>;
+    var objectLabels:FlxTypedGroup<FlxText>;
+    var selection:FlxSprite;
 
     var selectedCategory:Int = 0;
-    var selectedBlock:Int = -1;
-
+    var selectedObject:Int = -1;
     var dragging:Bool = false;
-    var dragIndex:Int = -1;
     var dragOffsetX:Float = 0;
     var dragOffsetY:Float = 0;
-
-    var previewText:FlxText;
-    var propertiesText:FlxText;
-
-    var codeBackground:FlxSprite;
-    var codeWindow:FlxText;
-    var closeButton:FlxText;
-
-    var showCode:Bool = false;
     var previewVisible:Bool = true;
+    var codeVisible:Bool = false;
 
-    var categories:Array<String> = [
-        "EVENTS",
-        "OBJECTS",
-        "PROPERTIES",
-        "ANIMATIONS",
-        "LOGIC",
-        "VARIABLES",
-        "GAME DATA"
-    ];
+    var previewPanel:FlxSprite;
+    var previewTitle:FlxText;
+    var propertiesText:FlxText;
+    var statusText:FlxText;
+    var codeBg:FlxSprite;
+    var codeText:FlxText;
+    var closeCode:FlxText;
 
-    var blockData:Array<Array<String>> = [
-        [
-            "When song starts",
-            "When step hits",
-            "When beat hits",
-            "When song ends"
-        ],
-        [
-            "Create text",
-            "Create sprite",
-            "Remove object",
-            "Add to HUD"
-        ],
-        [
-            "Set position",
-            "Set scale",
-            "Set alpha",
-            "Set visibility"
-        ],
-        [
-            "Tween X",
-            "Tween Y",
-            "Tween Alpha",
-            "Tween Scale"
-        ],
-        [
-            "If",
-            "If / Else",
-            "Repeat",
-            "Forever"
-        ],
-        [
-            "Set variable",
-            "Change variable",
-            "Get variable"
-        ],
-        [
-            "Get score",
-            "Get combo",
-            "Get misses",
-            "Get health",
-            "Get song position"
-        ]
-    ];
+    var file:FileReference;
+    #if mobile
+    var pickingImage:Bool = false;
+    #end
+
+    // Metadata kept parallel to objects/labels.
+    var objectNames:Array<String> = [];
+    var objectKinds:Array<String> = [];
+    var objectAssets:Array<String> = [];
+    var objectAlpha:Array<Float> = [];
+    var objectScale:Array<Float> = [];
 
     override function create()
     {
         super.create();
-
         FlxG.camera.bgColor = 0xFF08070C;
         FlxG.mouse.visible = true;
 
-        createBackground();
-        createHeader();
-        createToolbox();
-        createWorkspace();
-        createPreview();
-        createProperties();
+        addRect(0, 0, FlxG.width, FlxG.height, 0xFF08070C);
+        addRect(0, 0, FlxG.width, 54, 0xFF15121D);
+        addRect(0, 53, FlxG.width, 2, purple);
+
+        addText(14, 12, 330, "CRYSTAL HUD STUDIO", 23, FlxColor.WHITE);
+        addHeader("PREVIEW", FlxG.width - 350);
+        addHeader("IMPORT IMAGE", FlxG.width - 245);
+        addHeader("EXPORT LUA", FlxG.width - 130);
+
+        // Left category panel and toolbox.
+        addRect(0, 55, 178, FlxG.height - 55, 0xFF121019);
+        addRect(177, 55, 2, FlxG.height - 55, purple);
+        addText(12, 68, 155, "CATEGORIES", 16, purple);
+        for (i in 0...categories.length)
+        {
+            var t = addText(12, 101 + i * 34, 155, categories[i], 13, FlxColor.WHITE);
+            t.ID = i;
+            categoryButtons.push(t);
+        }
+
+        addText(12, 355, 155, "BLOCKS", 16, purple);
+        toolboxItems = new FlxTypedGroup<FlxSprite>();
+        toolboxLabels = new FlxTypedGroup<FlxText>();
+        add(toolboxItems);
+        add(toolboxLabels);
+
+        // Workspace.
+        addRect(179, 55, Std.int(FlxG.width * 0.39), FlxG.height - 55, 0xFF1A1721);
+        addRect(Std.int(FlxG.width * 0.39) + 178, 55, 2, FlxG.height - 55, purple);
+        addText(195, 68, 250, "WORKSPACE", 17, purple);
+        addText(195, 91, 400, "Add blocks from the left. Drag HUD objects in the preview.", 11, 0xFFAAA3B4);
+
+        objects = new FlxTypedGroup<FlxSprite>();
+        objectLabels = new FlxTypedGroup<FlxText>();
+        add(objects);
+        add(objectLabels);
+
+        // Right preview and properties.
+        var rightX:Int = Std.int(FlxG.width * 0.59);
+        var rightW:Int = FlxG.width - rightX;
+        addRect(rightX, 55, rightW, Std.int(FlxG.height * 0.52), 0xFF08080B);
+        addText(rightX + 12, 68, rightW - 20, "HUD PREVIEW", 17, purple);
+        previewPanel = new FlxSprite(rightX + 12, 105).makeGraphic(rightW - 24, Std.int(FlxG.height * 0.52) - 120, 0xFF171923);
+        add(previewPanel);
+        previewTitle = addText(rightX + 25, 116, rightW - 50, "FRIDAY NIGHT FUNKIN'  |  HUD MOCKUP", 10, 0xFFBEB8C9);
+
+        // Preview guide elements, deliberately visual rather than a static score-only label.
+        var score = addText(rightX + 28, 150, rightW - 56, "SCORE: 000000     MISSES: 0", 14, FlxColor.WHITE);
+        score.alignment = CENTER;
+        var healthBg = new FlxSprite(rightX + 35, 180).makeGraphic(rightW - 70, 8, 0xFF39313F);
+        add(healthBg);
+        var health = new FlxSprite(rightX + 35, 180).makeGraphic(Std.int((rightW - 70) * 0.65), 8, 0xFF914DFF);
+        add(health);
+        var combo = addText(rightX + 25, 198, rightW - 50, "COMBO  012", 17, 0xFFFFD966);
+        combo.alignment = CENTER;
+
+        var propY:Int = Std.int(FlxG.height * 0.59);
+        addRect(rightX, propY, rightW, FlxG.height - propY, 0xFF121019);
+        addRect(rightX, propY, rightW, 2, purple);
+        addText(rightX + 12, propY + 10, rightW - 24, "PROPERTIES", 17, purple);
+        propertiesText = addText(rightX + 12, propY + 40, rightW - 24,
+            "No object selected.\nSelect a HUD object to edit it.\n\nControls: arrows = move, +/- = scale, [ ] = alpha, Delete = remove.",
+            12, FlxColor.WHITE);
+        statusText = addText(190, FlxG.height - 24, Std.int(FlxG.width * 0.38), "Ready.", 10, 0xFFAAA3B4);
+
+        selection = new FlxSprite().makeGraphic(1, 1, 0x00FFFFFF);
+        selection.visible = false;
+        selection.scrollFactor.set();
+        add(selection);
 
         changeCategory(0);
-
         #if mobile
         add(mobile.MobileButton.back());
         #end
     }
 
-    // --------------------------------------------------
-    // BACKGROUND
-    // --------------------------------------------------
-
-    function createBackground()
+    function addRect(x:Float, y:Float, w:Int, h:Int, color:FlxColor):FlxSprite
     {
-        var bg = new FlxSprite().makeGraphic(
-            FlxG.width,
-            FlxG.height,
-            0xFF08070C
-        );
-
-        add(bg);
+        var s = new FlxSprite(x, y).makeGraphic(w, h, color);
+        s.scrollFactor.set();
+        add(s);
+        return s;
     }
 
-    // --------------------------------------------------
-    // HEADER
-    // --------------------------------------------------
-
-    function createHeader()
+    function addText(x:Float, y:Float, w:Float, value:String, size:Int, color:FlxColor):FlxText
     {
-        var header = new FlxSprite().makeGraphic(
-            FlxG.width,
-            55,
-            0xFF121019
-        );
-
-        add(header);
-        addLine(0, 54, FlxG.width, 2, purple);
-
-        add(createText(
-            15, 12, 350,
-            "CRYSTAL HUD STUDIO",
-            24,
-            FlxColor.WHITE
-        ));
-
-        addHeaderButton("PREVIEW", FlxG.width - 335);
-        addHeaderButton("EXPORT LUA", FlxG.width - 215);
-        addHeaderButton("BACK", FlxG.width - 100);
+        var t = new FlxText(x, y, w, value, size);
+        t.setFormat(Paths.font(FONT), size, color, LEFT, OUTLINE, 0xFF000000);
+        t.scrollFactor.set();
+        add(t);
+        return t;
     }
 
-    function addHeaderButton(text:String, x:Float)
+    function addHeader(label:String, x:Float):Void
     {
-        var button = createText(
-            x, 18, 110,
-            text,
-            15,
-            0xFFD9C4FF
-        );
-
-        button.alignment = CENTER;
-        button.borderStyle = FlxTextBorderStyle.OUTLINE;
-        button.borderColor = 0xFF6132A0;
-
-        headerButtons.push(button);
-        add(button);
+        var t = addText(x, 18, 105, label, 12, 0xFFE3D5FF);
+        t.alignment = CENTER;
+        t.borderStyle = FlxTextBorderStyle.OUTLINE;
+        t.borderColor = 0xFF6132A0;
+        headerButtons.push(t);
     }
 
-    // --------------------------------------------------
-    // TOOLBOX
-    // --------------------------------------------------
-
-    function createToolbox()
+    function changeCategory(index:Int):Void
     {
-        var panel = new FlxSprite(0, 56).makeGraphic(
-            190,
-            FlxG.height - 56,
-            0xFF121019
-        );
-
-        add(panel);
-        addLine(189, 56, 2, FlxG.height, purple);
-
-        add(createText(
-            13, 70, 165,
-            "CATEGORIES",
-            18,
-            purple
-        ));
-
-        toolbox = new FlxTypedGroup<FlxText>();
-        add(toolbox);
-
-        for (i in 0...categories.length)
-        {
-            var item = createText(
-                13,
-                112 + i * 43,
-                165,
-                categories[i],
-                15,
-                FlxColor.WHITE
-            );
-
-            item.ID = i;
-
-            categoryButtons.push(item);
-            toolbox.add(item);
-        }
-
-        blockList = new FlxTypedGroup<FlxSprite>();
-        add(blockList);
-
-        blockListLabels = new FlxTypedGroup<FlxText>();
-        add(blockListLabels);
-    }
-
-    function changeCategory(index:Int)
-    {
-        if (index < 0 || index >= categories.length)
-            return;
-
+        if (index < 0 || index >= categories.length) return;
         selectedCategory = index;
-        availableBlocks = blockData[index].copy();
+        for (t in categoryButtons) t.color = (t.ID == index ? purple : FlxColor.WHITE);
+        clearGroup(toolboxItems);
+        clearGroup(toolboxLabels);
 
-        for (item in categoryButtons)
+        for (i in 0...blockData[index].length)
         {
-            item.color = item.ID == index
-                ? purple
-                : FlxColor.WHITE;
-        }
-
-        refreshToolbox();
-    }
-
-    function refreshToolbox()
-    {
-        for (member in blockList.members.copy())
-        {
-            if (member != null)
-            {
-                blockList.remove(member);
-                member.destroy();
-            }
-        }
-
-        for (member in blockListLabels.members.copy())
-        {
-            if (member != null)
-            {
-                blockListLabels.remove(member);
-                member.destroy();
-            }
-        }
-
-        for (i in 0...availableBlocks.length)
-        {
-            var y = 145 + i * 48;
-
-            var block = new FlxSprite(205, y).makeGraphic(
-                245,
-                38,
-                getCategoryColor(selectedCategory)
-            );
-
-            blockList.add(block);
-
-            var label = createText(
-                214,
-                y + 10,
-                225,
-                availableBlocks[i],
-                14,
-                FlxColor.WHITE
-            );
-
+            var y:Float = 382 + i * 34;
+            if (y > FlxG.height - 35) break;
+            var b = new FlxSprite(9, y).makeGraphic(158, 27, categoryColor(index));
+            toolboxItems.add(b);
+            var label = new FlxText(16, y + 6, 146, blockData[index][i], 11);
+            label.setFormat(Paths.font(FONT), 11, FlxColor.WHITE, LEFT);
             label.ID = i;
-            blockListLabels.add(label);
+            label.scrollFactor.set();
+            toolboxLabels.add(label);
         }
     }
 
-    // --------------------------------------------------
-    // WORKSPACE
-    // --------------------------------------------------
-
-    function createWorkspace()
+    function clearGroup<T:FlxSprite>(group:FlxTypedGroup<T>):Void
     {
-        var workspaceWidth = Std.int(FlxG.width * 0.47);
-
-        var workspace = new FlxSprite(190, 56).makeGraphic(
-            workspaceWidth,
-            FlxG.height - 56,
-            0xFF17151D
-        );
-
-        add(workspace);
-
-        addLine(190, 56, 2, FlxG.height, purple);
-
-        add(createText(
-            205, 70, 300,
-            "WORKSPACE",
-            18,
-            purple
-        ));
-
-        add(createText(
-            205, 95, 400,
-            "Select a toolbox block to add it here.",
-            12,
-            0xFF898493
-        ));
-
-        workspaceBlocks = new FlxTypedGroup<FlxSprite>();
-        add(workspaceBlocks);
-
-        blockLabels = new FlxTypedGroup<FlxText>();
-        add(blockLabels);
-    }
-
-    function addWorkspaceBlock(name:String)
-    {
-        var index = workspaceBlocks.length;
-
-        var x:Float = 220;
-        var y:Float = 145 + index * 55;
-
-        var block = new FlxSprite(x, y).makeGraphic(
-            220,
-            43,
-            getCategoryColor(selectedCategory)
-        );
-
-        workspaceBlocks.add(block);
-
-        var label = createText(
-            x + 9,
-            y + 11,
-            205,
-            name,
-            14,
-            FlxColor.WHITE
-        );
-
-        blockLabels.add(label);
-
-        selectedBlock = index;
-
-        FlxG.sound.play(
-            Paths.sound("scrollMenu"),
-            0.3
-        );
-
-        updateProperties();
-    }
-
-    function removeSelectedBlock()
-    {
-        if (selectedBlock < 0 ||
-            selectedBlock >= workspaceBlocks.length)
-            return;
-
-        var block = workspaceBlocks.members[selectedBlock];
-        var label = blockLabels.members[selectedBlock];
-
-        if (block != null)
+        for (member in group.members.copy())
         {
-            workspaceBlocks.remove(block, true);
-            block.destroy();
+            if (member != null)
+            {
+                group.remove(member, true);
+                member.destroy();
+            }
         }
-
-        if (label != null)
-        {
-            blockLabels.remove(label, true);
-            label.destroy();
-        }
-
-        selectedBlock = -1;
-        dragging = false;
-        dragIndex = -1;
-
-        updateProperties();
     }
 
-    // --------------------------------------------------
-    // PREVIEW
-    // --------------------------------------------------
-
-    function createPreview()
+    function categoryColor(index:Int):FlxColor
     {
-        var x = Std.int(FlxG.width * 0.68);
-
-        var preview = new FlxSprite(x, 56).makeGraphic(
-            FlxG.width - x,
-            Std.int(FlxG.height * 0.52),
-            0xFF050505
-        );
-
-        add(preview);
-
-        addLine(x, 56, 2, FlxG.height, purple);
-
-        add(createText(
-            x + 12, 70, 250,
-            "HUD PREVIEW",
-            18,
-            purple
-        ));
-
-        add(createText(
-            x + 12,
-            112,
-            250,
-            "16:9 - PREVIEW MODE",
-            11,
-            0xFF77717F
-        ));
-
-        previewText = createText(
-            x + 15,
-            175,
-            FlxG.width - x - 30,
-            "SCORE: 000000\nCOMBO: 0",
-            19,
-            FlxColor.WHITE
-        );
-
-        previewText.alignment = CENTER;
-        add(previewText);
-    }
-
-    function togglePreview()
-    {
-        previewVisible = !previewVisible;
-
-        previewText.visible = previewVisible;
-    }
-
-    // --------------------------------------------------
-    // PROPERTIES
-    // --------------------------------------------------
-
-    function createProperties()
-    {
-        var x = Std.int(FlxG.width * 0.68);
-        var y = Std.int(FlxG.height * 0.59);
-
-        var panel = new FlxSprite(x, y).makeGraphic(
-            FlxG.width - x,
-            FlxG.height - y,
-            0xFF121019
-        );
-
-        add(panel);
-
-        addLine(
-            x,
-            y,
-            FlxG.width - x,
-            2,
-            purple
-        );
-
-        add(createText(
-            x + 12,
-            y + 12,
-            250,
-            "PROPERTIES",
-            18,
-            purple
-        ));
-
-        propertiesText = createText(
-            x + 12,
-            y + 48,
-            FlxG.width - x - 20,
-            "Select a block to inspect its properties.",
-            13,
-            FlxColor.WHITE
-        );
-
-        add(propertiesText);
-    }
-
-    function updateProperties()
-    {
-        if (propertiesText == null)
-            return;
-
-        if (selectedBlock < 0 ||
-            selectedBlock >= workspaceBlocks.length)
-        {
-            propertiesText.text =
-                "No block selected.\n\n" +
-                "Select a block in the workspace.";
-
-            return;
-        }
-
-        var block = workspaceBlocks.members[selectedBlock];
-        var label = blockLabels.members[selectedBlock];
-
-        if (block == null || label == null)
-            return;
-
-        propertiesText.text =
-            "Selected block:\n" +
-            label.text +
-            "\n\nPosition:\n" +
-            Std.int(block.x) +
-            ", " +
-            Std.int(block.y) +
-            "\n\nBlock ID:\n" +
-            selectedBlock +
-            "\n\nCategory:\n" +
-            categories[selectedCategory] +
-            "\n\nDELETE - Remove selected block";
-    }
-
-    // --------------------------------------------------
-    // COLORS
-    // --------------------------------------------------
-
-    function getCategoryColor(index:Int):FlxColor
-    {
-        return switch(index)
+        return switch (index)
         {
             case 0: 0xFFB38B26;
             case 1: 0xFF269C55;
@@ -548,508 +229,407 @@ class CrystalHUDStudioState extends MusicBeatState
         };
     }
 
-    // --------------------------------------------------
-    // LUA GENERATOR
-    // --------------------------------------------------
+    function addWorkspaceBlock(name:String):Void
+    {
+        var x:Float = 205;
+        var y:Float = 125 + objects.length * 42;
+        if (y > FlxG.height - 55) y = 125;
+        var block = new FlxSprite(x, y).makeGraphic(Std.int(FlxG.width * 0.34), 31, categoryColor(selectedCategory));
+        objects.add(block);
+        var label = new FlxText(x + 8, y + 8, block.width - 16, name, 11);
+        label.setFormat(Paths.font(FONT), 11, FlxColor.WHITE, LEFT);
+        label.scrollFactor.set();
+        objectLabels.add(label);
+
+        objectNames.push(name);
+        objectKinds.push(name == "Create text" ? "text" : "block");
+        objectAssets.push("");
+        objectAlpha.push(1);
+        objectScale.push(1);
+        selectedObject = objects.length - 1;
+        status("Added: " + name);
+        updateProperties();
+    }
+
+    function addPreviewObject(name:String, sprite:FlxSprite, asset:String = ""):Void
+    {
+        objects.add(sprite);
+        var label = new FlxText(sprite.x, sprite.y - 16, 180, name, 10);
+        label.setFormat(Paths.font(FONT), 10, FlxColor.WHITE, LEFT);
+        label.scrollFactor.set();
+        objectLabels.add(label);
+        objectNames.push(name);
+        objectKinds.push("sprite");
+        objectAssets.push(asset);
+        objectAlpha.push(sprite.alpha);
+        objectScale.push(sprite.scale.x);
+        selectedObject = objects.length - 1;
+        updateProperties();
+    }
+
+    function selectObject(index:Int):Void
+    {
+        if (index < 0 || index >= objects.length) return;
+        selectedObject = index;
+        updateProperties();
+    }
+
+    function updateProperties():Void
+    {
+        if (propertiesText == null) return;
+        if (selectedObject < 0 || selectedObject >= objects.length)
+        {
+            propertiesText.text = "No object selected.\nSelect a HUD object to edit it.";
+            selection.visible = false;
+            return;
+        }
+        var s = objects.members[selectedObject];
+        if (s == null) return;
+        propertiesText.text = "Name: " + objectNames[selectedObject]
+            + "\nType: " + objectKinds[selectedObject]
+            + "\nX: " + Std.int(s.x) + "    Y: " + Std.int(s.y)
+            + "\nScale: " + objectScale[selectedObject]
+            + "\nAlpha: " + objectAlpha[selectedObject]
+            + "\nVisible: " + s.visible
+            + "\n\nArrows: move | +/-: scale\n[ ]: alpha | Delete: remove";
+        selection.x = s.x - 2;
+        selection.y = s.y - 2;
+        selection.setGraphicSize(Std.int(Math.max(4, s.width * s.scale.x + 4)), Std.int(Math.max(4, s.height * s.scale.y + 4)));
+        selection.updateHitbox();
+        selection.color = purple;
+        selection.alpha = 0.85;
+        selection.visible = true;
+    }
+
+    function removeSelected():Void
+    {
+        if (selectedObject < 0 || selectedObject >= objects.length) return;
+        var s = objects.members[selectedObject];
+        var label = objectLabels.members[selectedObject];
+        if (s != null) { objects.remove(s, true); s.destroy(); }
+        if (label != null) { objectLabels.remove(label, true); label.destroy(); }
+        objectNames.splice(selectedObject, 1);
+        objectKinds.splice(selectedObject, 1);
+        objectAssets.splice(selectedObject, 1);
+        objectAlpha.splice(selectedObject, 1);
+        objectScale.splice(selectedObject, 1);
+        // Rebuild groups so indices remain aligned after deletion.
+        compactObjects();
+        selectedObject = -1;
+        updateProperties();
+        status("Object removed.");
+    }
+
+    function compactObjects():Void
+    {
+        var oldSprites = objects.members.copy();
+        var oldLabels = objectLabels.members.copy();
+        objects.clear();
+        objectLabels.clear();
+        for (i in 0...oldSprites.length)
+        {
+            if (oldSprites[i] != null) objects.add(oldSprites[i]);
+            if (oldLabels[i] != null) objectLabels.add(oldLabels[i]);
+        }
+    }
+
+    function status(message:String):Void
+    {
+        if (statusText != null) statusText.text = message;
+    }
+
+    function importImage():Void
+    {
+        if (file != null) return;
+        #if mobile
+        if (pickingImage) return;
+        pickingImage = true;
+        mobile.StageImageImport.pick(function(path:String)
+        {
+            pickingImage = false;
+            try
+            {
+                var sprite = new FlxSprite(Std.int(FlxG.width * 0.64), 245);
+                sprite.loadGraphic(path);
+                sprite.setGraphicSize(Std.int(Math.min(sprite.width, 150)));
+                sprite.updateHitbox();
+                addPreviewObject("Imported image", sprite, path);
+                status("Image imported.");
+            }
+            catch (e:Dynamic) status("Could not load image: " + Std.string(e));
+        }, function(message:String)
+        {
+            pickingImage = false;
+            status("Import error: " + message);
+        }, function()
+        {
+            pickingImage = false;
+            status("Image selection cancelled.");
+        });
+        #else
+        file = new FileReference();
+        file.addEventListener(Event.SELECT, onImageSelected);
+        file.addEventListener(Event.CANCEL, onImageCancelled);
+        file.addEventListener(IOErrorEvent.IO_ERROR, onImageError);
+        file.browse([new FileFilter("Images", "*.png;*.jpg;*.jpeg")]);
+        #end
+    }
+
+    #if !mobile
+    function onImageSelected(_):Void
+    {
+        if (file == null) return;
+        file.removeEventListener(Event.SELECT, onImageSelected);
+        file.addEventListener(Event.COMPLETE, onImageLoaded);
+        file.load();
+    }
+
+    function onImageLoaded(_):Void
+    {
+        if (file == null) return;
+        try
+        {
+            var bitmap = BitmapData.fromBytes(file.data);
+            var sprite = new FlxSprite(Std.int(FlxG.width * 0.64), 245);
+            sprite.loadGraphic(bitmap);
+            sprite.setGraphicSize(Std.int(Math.min(sprite.width, 150)));
+            sprite.updateHitbox();
+            addPreviewObject("Imported image", sprite);
+            status("Image imported into preview.");
+        }
+        catch (e:Dynamic) status("Could not decode image: " + Std.string(e));
+        cleanupFile();
+    }
+
+    function onImageCancelled(_):Void { cleanupFile(); status("Image selection cancelled."); }
+    function onImageError(_):Void { cleanupFile(); status("Image import failed."); }
+
+    function cleanupFile():Void
+    {
+        if (file == null) return;
+        file.removeEventListener(Event.SELECT, onImageSelected);
+        file.removeEventListener(Event.COMPLETE, onImageLoaded);
+        file.removeEventListener(Event.CANCEL, onImageCancelled);
+        file.removeEventListener(IOErrorEvent.IO_ERROR, onImageError);
+        file = null;
+    }
+    #end
+
+    function togglePreview():Void
+    {
+        previewVisible = !previewVisible;
+        previewPanel.visible = previewVisible;
+        previewTitle.visible = previewVisible;
+        for (i in 0...objects.length)
+        {
+            var s = objects.members[i];
+            if (s != null) s.visible = previewVisible && s.visible;
+        }
+        status(previewVisible ? "Preview shown." : "Preview hidden.");
+    }
 
     function generateLua():String
     {
-        var lua:String =
-            "-- Crystal HUD Studio\n" +
-            "-- Generated Lua Script\n\n";
+        var out = "-- Crystal HUD Studio - generated script\n\n";
+        var create = "";
+        var step = "";
+        var beat = "";
+        var ending = "";
+        var event = "create";
 
-        var createCode:String = "";
-        var updateCode:String = "";
-        var stepCode:String = "";
-        var beatCode:String = "";
-        var endCode:String = "";
-
-        var currentEvent:String = "create";
-
-        for (i in 0...blockLabels.length)
+        for (i in 0...objectNames.length)
         {
-            var label = blockLabels.members[i];
-
-            if (label == null)
-                continue;
-
-            var name = StringTools.trim(label.text);
-            var code:String = "";
-
-            switch(name)
+            var name = objectNames[i];
+            switch (name)
             {
-                case "When song starts":
-                    currentEvent = "create";
-
-                case "When step hits":
-                    currentEvent = "step";
-
-                case "When beat hits":
-                    currentEvent = "beat";
-
-                case "When song ends":
-                    currentEvent = "end";
-
+                case "When song starts": event = "create";
+                case "When step hits": event = "step";
+                case "When beat hits": event = "beat";
+                case "When song ends": event = "end";
                 case "Create text":
-                    code =
-                        "makeLuaText('myText', 'Hello!', 200, 100, 100)\n" +
-                        "setTextSize('myText', 24)\n" +
-                        "addLuaText('myText')\n";
-
-                case "Create sprite":
-                    code =
-                        "-- Create your sprite here\n" +
-                        "-- Example: makeLuaSprite('mySprite', 'image', 100, 100)\n";
-
-                case "Remove object":
-                    code =
-                        "removeLuaSprite('mySprite', true)\n";
-
-                case "Add to HUD":
-                    code =
-                        "setObjectCamera('myText', 'hud')\n";
-
+                    create += "makeLuaText('studioText" + i + "', 'Hello!', 220, 100, 100)\nsetTextSize('studioText" + i + "', 24)\nsetObjectCamera('studioText" + i + "', 'hud')\naddLuaText('studioText" + i + "')\n";
                 case "Set position":
-                    code =
-                        "setProperty('myText.x', 100)\n" +
-                        "setProperty('myText.y', 100)\n";
-
-                case "Set scale":
-                    code =
-                        "scaleObject('myText', 1, 1)\n";
-
-                case "Set alpha":
-                    code =
-                        "setProperty('myText.alpha', 1)\n";
-
-                case "Set visibility":
-                    code =
-                        "setProperty('myText.visible', true)\n";
-
-                case "Tween X":
-                    code =
-                        "doTweenX('moveHUD', 'myText', 300, 1, 'quadOut')\n";
-
-                case "Tween Y":
-                    code =
-                        "doTweenY('moveHUDY', 'myText', 200, 1, 'quadOut')\n";
-
-                case "Tween Alpha":
-                    code =
-                        "doTweenAlpha('fadeHUD', 'myText', 0, 1, 'linear')\n";
-
-                case "Tween Scale":
-                    code =
-                        "doTweenX('scaleHUD', 'myText.scale', 1.2, 1, 'quadOut')\n";
-
-                case "If":
-                    code = "-- TODO: Add condition\n";
-
-                case "If / Else":
-                    code = "-- TODO: Add if/else condition\n";
-
-                case "Repeat":
-                    code = "-- TODO: Add repeat block\n";
-
-                case "Forever":
-                    code = "-- TODO: Add loop block\n";
-
-                case "Set variable":
-                    code =
-                        "local myVariable = 0\n";
-
-                case "Change variable":
-                    code =
-                        "myVariable = myVariable + 1\n";
-
-                case "Get variable":
-                    code =
-                        "debugPrint(myVariable)\n";
-
-                case "Get score":
-                    code =
-                        "local score = getProperty('songScore')\n";
-
-                case "Get combo":
-                    code =
-                        "local currentCombo = getProperty('combo')\n";
-
-                case "Get misses":
-                    code =
-                        "local misses = getProperty('songMisses')\n";
-
-                case "Get health":
-                    code =
-                        "local health = getProperty('health')\n";
-
-                case "Get song position":
-                    code =
-                        "local songPosition = getSongPosition()\n";
-
+                    create += "-- Set position using the selected object's X/Y values in the editor.\n";
+                case "Get score": create += "local score = getProperty('songScore')\n";
+                case "Get combo": create += "local combo = getProperty('combo')\n";
+                case "Get misses": create += "local misses = getProperty('songMisses')\n";
+                case "Get health": create += "local health = getProperty('health')\n";
+                case "Get song position": create += "local songPosition = getSongPosition()\n";
                 default:
-                    code = "-- Unknown block: " + name + "\n";
-            }
-
-            switch(currentEvent)
-            {
-                case "create":
-                    createCode += code;
-
-                case "step":
-                    stepCode += code;
-
-                case "beat":
-                    beatCode += code;
-
-                case "end":
-                    endCode += code;
-
-                default:
-                    updateCode += code;
+                    create += "-- " + name + " (configure this action in your script)\n";
             }
         }
+        if (create.length > 0) out += "function onCreatePost()\n" + create + "end\n\n";
+        if (step.length > 0) out += "function onStepHit()\n" + step + "end\n\n";
+        if (beat.length > 0) out += "function onBeatHit()\n" + beat + "end\n\n";
+        if (ending.length > 0) out += "function onEndSong()\n" + ending + "end\n\n";
 
-        if (createCode.length > 0)
+        for (i in 0...objects.length)
         {
-            lua +=
-                "function onCreatePost()\n" +
-                createCode +
-                "end\n\n";
+            var s = objects.members[i];
+            if (s == null || objectKinds[i] != "sprite") continue;
+            out += "-- Imported object " + i + ": " + objectNames[i] + "\n";
+            out += "-- Image asset must be placed in the mod's images folder before use.\n";
+            out += "makeLuaSprite('studioImage" + i + "', 'REPLACE_WITH_IMAGE_PATH', " + Std.int(s.x) + ", " + Std.int(s.y) + ")\n";
+            out += "scaleObject('studioImage" + i + "', " + objectScale[i] + ", " + objectScale[i] + ")\n";
+            out += "setProperty('studioImage" + i + ".alpha', " + objectAlpha[i] + ")\n";
+            out += "setObjectCamera('studioImage" + i + "', 'hud')\naddLuaSprite('studioImage" + i + "', true)\n\n";
         }
-
-        if (updateCode.length > 0)
-        {
-            lua +=
-                "function onUpdate(elapsed)\n" +
-                updateCode +
-                "end\n\n";
-        }
-
-        if (stepCode.length > 0)
-        {
-            lua +=
-                "function onStepHit()\n" +
-                stepCode +
-                "end\n\n";
-        }
-
-        if (beatCode.length > 0)
-        {
-            lua +=
-                "function onBeatHit()\n" +
-                beatCode +
-                "end\n\n";
-        }
-
-        if (endCode.length > 0)
-        {
-            lua +=
-                "function onEndSong()\n" +
-                endCode +
-                "end\n\n";
-        }
-
-        return lua;
+        return out;
     }
 
-    // --------------------------------------------------
-    // CODE WINDOW
-    // --------------------------------------------------
-
-    function showCodeWindow()
+    function showCode():Void
     {
-        if (showCode)
-        {
-            hideCodeWindow();
-            return;
-        }
-
-        showCode = true;
-
-        codeBackground = new FlxSprite().makeGraphic(
-            FlxG.width,
-            FlxG.height,
-            0xEE08070C
-        );
-
-        add(codeBackground);
-
-        var title = createText(
-            35,
-            25,
-            400,
-            "GENERATED LUA",
-            22,
-            purple
-        );
-
-        add(title);
-
-        codeWindow = createText(
-            35,
-            75,
-            FlxG.width - 70,
-            generateLua(),
-            15,
-            FlxColor.WHITE
-        );
-
-        codeWindow.borderStyle = FlxTextBorderStyle.OUTLINE;
-        codeWindow.borderColor = 0xFF000000;
-
-        add(codeWindow);
-
-        closeButton = createText(
-            FlxG.width - 130,
-            25,
-            110,
-            "CLOSE [ESC]",
-            15,
-            purple
-        );
-
-        add(closeButton);
+        if (codeVisible) return;
+        codeVisible = true;
+        codeBg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, 0xF208070C);
+        add(codeBg);
+        codeText = new FlxText(24, 68, FlxG.width - 48, generateLua(), 12);
+        codeText.setFormat(Paths.font(FONT), 12, FlxColor.WHITE, LEFT);
+        codeText.scrollFactor.set();
+        add(codeText);
+        closeCode = addText(FlxG.width - 130, 22, 110, "CLOSE [ESC]", 13, purple);
     }
 
-    function hideCodeWindow()
+    function hideCode():Void
     {
-        if (!showCode)
-            return;
-
-        showCode = false;
-
-        if (codeBackground != null)
-        {
-            remove(codeBackground);
-            codeBackground.destroy();
-            codeBackground = null;
-        }
-
-        if (codeWindow != null)
-        {
-            remove(codeWindow);
-            codeWindow.destroy();
-            codeWindow = null;
-        }
-
-        if (closeButton != null)
-        {
-            remove(closeButton);
-            closeButton.destroy();
-            closeButton = null;
-        }
+        if (!codeVisible) return;
+        codeVisible = false;
+        if (codeBg != null) { remove(codeBg); codeBg.destroy(); codeBg = null; }
+        if (codeText != null) { remove(codeText); codeText.destroy(); codeText = null; }
+        if (closeCode != null) { remove(closeCode); closeCode.destroy(); closeCode = null; }
     }
 
-    // --------------------------------------------------
-    // TEXT HELPERS
-    // --------------------------------------------------
-
-    function createText(
-        x:Float,
-        y:Float,
-        width:Float,
-        text:String,
-        size:Int,
-        color:FlxColor
-    ):FlxText
-    {
-        var result = new FlxText(
-            x,
-            y,
-            width,
-            text,
-            size
-        );
-
-        result.setFormat(
-            Paths.font(FONT),
-            size,
-            color,
-            LEFT
-        );
-
-        result.scrollFactor.set();
-
-        return result;
-    }
-
-    function addLine(
-        x:Float,
-        y:Float,
-        width:Int,
-        height:Int,
-        color:FlxColor
-    )
-    {
-        var line = new FlxSprite(x, y).makeGraphic(
-            width,
-            height,
-            color
-        );
-
-        add(line);
-    }
-
-    // --------------------------------------------------
-    // UPDATE
-    // --------------------------------------------------
-
-    override function update(elapsed:Float)
+    override function update(elapsed:Float):Void
     {
         super.update(elapsed);
 
-        // CODE WINDOW
-        if (showCode)
+        if (codeVisible)
         {
-            if (FlxG.keys.justPressed.ESCAPE)
-            {
-                hideCodeWindow();
-                return;
-            }
-
-            if (closeButton != null &&
-                FlxG.mouse.justPressed &&
-                FlxG.mouse.overlaps(closeButton))
-            {
-                hideCodeWindow();
-            }
-
+            if (FlxG.keys.justPressed.ESCAPE || (FlxG.mouse.justPressed && closeCode != null && FlxG.mouse.overlaps(closeCode)))
+                hideCode();
             return;
         }
 
-        // DELETE SELECTED BLOCK
-        if (FlxG.keys.justPressed.DELETE ||
-            FlxG.keys.justPressed.BACKSPACE)
-        {
-            removeSelectedBlock();
-        }
-
-        // MOUSE CLICK
         if (FlxG.mouse.justPressed)
         {
-            var clickedUI:Bool = false;
-
-            // HEADER BUTTONS
             for (i in 0...headerButtons.length)
             {
-                var button = headerButtons[i];
-
-                if (FlxG.mouse.overlaps(button))
+                if (FlxG.mouse.overlaps(headerButtons[i]))
                 {
-                    clickedUI = true;
-
-                    switch(i)
+                    switch (i)
                     {
-                        case 0:
-                            togglePreview();
-
-                        case 1:
-                            showCodeWindow();
-
-                        case 2:
-                            MusicBeatState.switchState(
-                                new MasterEditorMenu()
-                            );
+                        case 0: togglePreview();
+                        case 1: importImage();
+                        case 2: showCode();
                     }
-
-                    break;
+                    return;
                 }
             }
 
-            if (clickedUI)
-                return;
-
-            // CATEGORIES
-            for (item in categoryButtons)
+            for (t in categoryButtons)
             {
-                if (FlxG.mouse.overlaps(item))
+                if (FlxG.mouse.overlaps(t)) { changeCategory(t.ID); return; }
+            }
+
+            for (i in 0...toolboxItems.length)
+            {
+                var b = toolboxItems.members[i];
+                if (b != null && FlxG.mouse.overlaps(b))
                 {
-                    changeCategory(item.ID);
-                    clickedUI = true;
-                    break;
+                    addWorkspaceBlock(blockData[selectedCategory][i]);
+                    return;
                 }
             }
 
-            if (clickedUI)
-                return;
-
-            // TOOLBOX
-            for (i in 0...blockList.length)
+            for (i in 0...objects.length)
             {
-                var block = blockList.members[i];
-
-                if (block != null &&
-                    FlxG.mouse.overlaps(block))
+                var s = objects.members[i];
+                if (s != null && FlxG.mouse.overlaps(s))
                 {
-                    addWorkspaceBlock(availableBlocks[i]);
-                    clickedUI = true;
-                    break;
-                }
-            }
-
-            if (clickedUI)
-                return;
-
-            // WORKSPACE
-            for (i in 0...workspaceBlocks.length)
-            {
-                var block = workspaceBlocks.members[i];
-
-                if (block != null &&
-                    FlxG.mouse.overlaps(block))
-                {
+                    selectObject(i);
                     dragging = true;
-                    dragIndex = i;
-                    selectedBlock = i;
-
-                    dragOffsetX = FlxG.mouse.x - block.x;
-                    dragOffsetY = FlxG.mouse.y - block.y;
-
-                    updateProperties();
-                    break;
+                    dragOffsetX = FlxG.mouse.x - s.x;
+                    dragOffsetY = FlxG.mouse.y - s.y;
+                    return;
                 }
             }
+            selectedObject = -1;
+            updateProperties();
         }
 
-        // DRAGGING
-        if (dragging && dragIndex >= 0 &&
-            dragIndex < workspaceBlocks.length)
+        if (dragging && selectedObject >= 0 && selectedObject < objects.length)
         {
-            var block = workspaceBlocks.members[dragIndex];
-            var label = blockLabels.members[dragIndex];
-
-            if (block != null && label != null)
+            var s = objects.members[selectedObject];
+            var label = objectLabels.members[selectedObject];
+            if (s != null && FlxG.mouse.pressed)
             {
-                if (FlxG.mouse.pressed)
+                s.x = FlxG.mouse.x - dragOffsetX;
+                s.y = FlxG.mouse.y - dragOffsetY;
+                if (label != null) { label.x = s.x; label.y = s.y - 16; }
+                updateProperties();
+            }
+            if (FlxG.mouse.justReleased) dragging = false;
+        }
+
+        if (selectedObject >= 0 && selectedObject < objects.length)
+        {
+            var s = objects.members[selectedObject];
+            if (s != null)
+            {
+                var moved = false;
+                if (FlxG.keys.pressed.LEFT) { s.x -= 2; moved = true; }
+                if (FlxG.keys.pressed.RIGHT) { s.x += 2; moved = true; }
+                if (FlxG.keys.pressed.UP) { s.y -= 2; moved = true; }
+                if (FlxG.keys.pressed.DOWN) { s.y += 2; moved = true; }
+                if (FlxG.keys.justPressed.PLUS || FlxG.keys.justPressed.NUMPADPLUS)
                 {
-                    block.x = FlxG.mouse.x - dragOffsetX;
-                    block.y = FlxG.mouse.y - dragOffsetY;
-
-                    label.x = block.x + 9;
-                    label.y = block.y + 11;
-
+                    objectScale[selectedObject] = Math.min(5, objectScale[selectedObject] + 0.1);
+                    s.scale.set(objectScale[selectedObject], objectScale[selectedObject]); s.updateHitbox(); moved = true;
+                }
+                if (FlxG.keys.justPressed.MINUS || FlxG.keys.justPressed.NUMPADMINUS)
+                {
+                    objectScale[selectedObject] = Math.max(0.1, objectScale[selectedObject] - 0.1);
+                    s.scale.set(objectScale[selectedObject], objectScale[selectedObject]); s.updateHitbox(); moved = true;
+                }
+                if (FlxG.keys.justPressed.LBRACKET)
+                {
+                    objectAlpha[selectedObject] = Math.max(0, objectAlpha[selectedObject] - 0.1);
+                    s.alpha = objectAlpha[selectedObject]; moved = true;
+                }
+                if (FlxG.keys.justPressed.RBRACKET)
+                {
+                    objectAlpha[selectedObject] = Math.min(1, objectAlpha[selectedObject] + 0.1);
+                    s.alpha = objectAlpha[selectedObject]; moved = true;
+                }
+                if (moved)
+                {
+                    var label = objectLabels.members[selectedObject];
+                    if (label != null) { label.x = s.x; label.y = s.y - 16; }
                     updateProperties();
                 }
             }
-
-            if (FlxG.mouse.justReleased)
-            {
-                dragging = false;
-                dragIndex = -1;
-            }
         }
 
-        if (controls.BACK)
+        if (FlxG.keys.justPressed.DELETE || FlxG.keys.justPressed.BACKSPACE) removeSelected();
+        if (FlxG.keys.justPressed.ESCAPE || controls.BACK)
         {
-            MusicBeatState.switchState(
-                new MasterEditorMenu()
-            );
+            MusicBeatState.switchState(new MasterEditorMenu());
+            return;
         }
     }
 
-    override function destroy()
+    override function destroy():Void
     {
+        cleanupOnDestroy();
         FlxG.mouse.visible = false;
         super.destroy();
+    }
+
+    function cleanupOnDestroy():Void
+    {
+        #if !mobile
+        cleanupFile();
+        #end
     }
 }
