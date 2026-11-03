@@ -151,7 +151,7 @@ class LoadingState extends MusicBeatState
 		}
 		#end
 
-		useOldScreen = ClientPrefs.data.oldLoadingScreen;
+		useOldScreen = ClientPrefs.data.loadingScreen;
 		if (!useOldScreen)
 		{
 			createNewScreen();
