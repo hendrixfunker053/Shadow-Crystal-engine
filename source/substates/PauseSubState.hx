@@ -1,4 +1,3 @@
-
 package substates;
 
 import backend.WeekData;
@@ -250,7 +249,9 @@ class PauseSubState extends MusicBeatSubstate
 
 		super.update(elapsed);
 
-		if (controls.BACK)
+		// FIX: ignorar BACK durante los primeros 0.1s para que la misma
+		// pulsación que abrió el pausa no lo cierre al instante.
+		if (controls.BACK && cantUnpause <= 0)
 		{
 			if (showingDifficultyMenu)
 				returnToPauseMenu();
