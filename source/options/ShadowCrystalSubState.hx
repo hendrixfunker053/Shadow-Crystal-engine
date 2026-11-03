@@ -21,7 +21,7 @@ class ShadowCrystalSubState extends BaseOptionsMenu
 
 		var option:Option = new Option('Old Loading Screen',
 			'If checked, uses the old loading screen instead of the new one.',
-			'loadingScreen',
+			'oldLoadingScreen',
 			BOOL);
 		addOption(option);
 
