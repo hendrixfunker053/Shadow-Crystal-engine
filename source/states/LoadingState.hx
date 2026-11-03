@@ -10,6 +10,7 @@ import openfl.utils.Assets as OpenFlAssets;
 import flixel.graphics.FlxGraphic;
 import flixel.system.FlxAssets;
 import flixel.FlxState;
+import flixel.math.FlxRect;
 
 import flash.media.Sound;
 
