@@ -71,11 +71,8 @@ class LoadingState extends MusicBeatState
 	// NEW LOADING SCREEN (Funkin style)
 	var useOldScreen:Bool = false;
 	var runner:FlxSprite;
-	var runStartX:Float = 0;
-	var runEndX:Float = 0;
-	var runBaseY:Float = 0;
-	var runOffX:Float = 0;
-	var runOffY:Float = 0;
+	var standFill:FlxSprite;
+	var lastFillPct:Float = -1;
 
 	#if PSYCH_WATERMARKS
 	var logo:FlxSprite;
@@ -151,7 +148,7 @@ class LoadingState extends MusicBeatState
 		}
 		#end
 
-		useOldScreen = ClientPrefs.data.loadingScreen;
+		useOldScreen = ClientPrefs.data.oldLoadingScreen;
 		if (!useOldScreen)
 		{
 			createNewScreen();
@@ -239,27 +236,33 @@ class LoadingState extends MusicBeatState
 	{
 		barGroup.visible = false; // the mic stand is the progress bar now
 
-		var bg = new FlxSprite().makeGraphic(1, 1, 0xFFCAFF4D);
+		// black background
+		var bg = new FlxSprite().makeGraphic(1, 1, FlxColor.BLACK);
 		bg.scale.set(FlxG.width, FlxG.height);
 		bg.updateHitbox();
 		bg.screenCenter();
 		addBehindBar(bg);
 
-		var funkayBg = new FlxSprite().loadGraphic(Paths.image('loading/funkay'));
-		funkayBg.antialiasing = ClientPrefs.data.antialiasing;
-		funkayBg.setGraphicSize(0, FlxG.height);
-		funkayBg.updateHitbox();
-		funkayBg.screenCenter(X);
-		addBehindBar(funkayBg);
-
+		// mic stand (empty = dark gray), bottom right
+		var standW:Int = Std.int(FlxG.height * 0.3375);
 		var stand = new FlxSprite().loadGraphic(Paths.image('loading/mic-stand'));
 		stand.antialiasing = ClientPrefs.data.antialiasing;
-		stand.setGraphicSize(Std.int(FlxG.width * 0.8));
+		stand.setGraphicSize(standW);
 		stand.updateHitbox();
-		stand.screenCenter(X);
-		stand.y = FlxG.height - stand.height - 20;
+		stand.color = 0xFF333333;
+		stand.x = FlxG.width - stand.width - FlxG.height * 0.065;
+		stand.y = FlxG.height * 0.852;
 		addBehindBar(stand);
 
+		// same sprite in white, clipped from the left: it fills up as it loads
+		standFill = new FlxSprite(stand.x, stand.y).loadGraphic(Paths.image('loading/mic-stand'));
+		standFill.antialiasing = ClientPrefs.data.antialiasing;
+		standFill.setGraphicSize(standW);
+		standFill.updateHitbox();
+		standFill.clipRect = new FlxRect(0, 0, 0, standFill.frameHeight);
+		addBehindBar(standFill);
+
+		// character (white silhouette) standing above the stand
 		var pick = pickLoadingCharacter();
 		runner = new FlxSprite();
 		runner.frames = Paths.getSparrowAtlas('loading/characters/${pick.id}/${pick.id}');
@@ -268,22 +271,19 @@ class LoadingState extends MusicBeatState
 		runner.antialiasing = ClientPrefs.data.antialiasing;
 		runner.scale.set(pick.data.scale, pick.data.scale);
 		runner.updateHitbox();
-		runOffX = pick.data.offsets[0];
-		runOffY = pick.data.offsets[1];
-
-		// TWEAK THESE 3 VALUES BY EYE
-		runStartX = stand.x + 20;
-		runEndX = stand.x + stand.width - runner.width - 140; // stops before the mic
-		runBaseY = stand.y + stand.height * 0.5 - runner.height;
-
-		runner.setPosition(runStartX + runOffX, runBaseY + runOffY);
-		addBehindBar(runner); // added after the stand so it draws on top
+		runner.x = stand.x + (stand.width - runner.width) / 2;
+		runner.y = stand.y - runner.height - FlxG.height * 0.012;
+		addBehindBar(runner);
 	}
 
 	function updateNewScreen()
 	{
-		runner.x = FlxMath.lerp(runStartX, runEndX, curPercent) + runOffX;
-		runner.y = runBaseY + runOffY;
+		var pct:Float = FlxMath.bound(curPercent, 0, 1);
+		if (pct != lastFillPct)
+		{
+			lastFillPct = pct;
+			standFill.clipRect = new FlxRect(0, 0, standFill.frameWidth * pct, standFill.frameHeight);
+		}
 	}
 
 	var transitioning:Bool = false;
@@ -304,7 +304,7 @@ class LoadingState extends MusicBeatState
 				}
 				else stateChangeDelay = Math.max(0, stateChangeDelay - elapsed);
 			}
-			intendedPercent = loaded / loadMax;
+			intendedPercent = (loadMax > 0) ? Math.min(1, loaded / loadMax) : 0;
 		}
 
 		if (curPercent != intendedPercent)
