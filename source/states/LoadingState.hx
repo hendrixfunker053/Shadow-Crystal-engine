@@ -149,7 +149,7 @@ class LoadingState extends MusicBeatState
 		}
 		#end
 
-		useOldScreen = ClientPrefs.data.oldLoadingScreen;
+		useOldScreen = (Reflect.getProperty(ClientPrefs.data, 'oldLoadingScreen') == true); // safe even if the field is missing
 		if (!useOldScreen)
 		{
 			createNewScreen();
