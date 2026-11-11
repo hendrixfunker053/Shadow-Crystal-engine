@@ -1,12 +1,11 @@
-
 name: Build
 
 on:
   push:
-    branches: [ main, experimental ]
+    branches: [ main, experimental, ps3-html5-prototype ]
     paths-ignore: [ '**.md', 'docs/**', 'art/**', '.vscode/**' ]
   pull_request:
-    branches: [ main, experimental ]
+    branches: [ main, experimental, ps3-html5-prototype ]
     paths-ignore: [ '**.md', 'docs/**', 'art/**', '.vscode/**' ]
   workflow_dispatch:
 
@@ -244,7 +243,6 @@ jobs:
           if [ "${{ steps.haxelib-cache.outputs.cache-hit }}" != "true" ]; then
             haxelib install hxcpp --quiet
 
-            # El script debe poder ejecutarse desde Bash en Windows.
             chmod +x ./setup/unix.sh
             bash ./setup/unix.sh
           fi
@@ -291,4 +289,68 @@ jobs:
         with:
           name: WindowsBuild
           path: ShadowCrystalEngine-Windows-x64.zip
+          if-no-files-found: error
+
+  buildHTML5:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4.1.7
+
+      - uses: krdlab/setup-haxe@master
+        with:
+          haxe-version: 4.3.7
+
+      - name: Restore Haxelib Cache
+        id: haxelib-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/haxelib
+          key: haxelib-html5-4.3.7-${{ hashFiles('setup/unix.sh') }}
+
+      - name: Install Haxelib Dependencies
+        run: |
+          haxelib setup ~/haxelib
+
+          if [ "${{ steps.haxelib-cache.outputs.cache-hit }}" != "true" ]; then
+            haxelib install hxcpp --quiet
+            chmod +x ./setup/unix.sh
+            sh ./setup/unix.sh
+          fi
+
+      - name: Skip SScript setup mode
+        run: echo 'oy9:showMacroty8:loopCosti25y10:includeAllfg' >> ~/settings.cocoa
+
+      - name: Compile HTML5
+        run: |
+          set -o pipefail
+
+          if ! haxelib run lime build html5 -D officialBuild 2>&1 | tee compile-html5.log; then
+            echo "::error title=HTML5 compilation failed::$(tail -n 60 compile-html5.log | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"
+            exit 1
+          fi
+
+      - name: Package HTML5
+        run: |
+          INDEX=$(find export -type f -name "index.html" -print -quit)
+
+          if [ -z "$INDEX" ]; then
+            echo "HTML5 index.html was not generated."
+            find export -maxdepth 5 -type f
+            exit 1
+          fi
+
+          WEB_DIR=$(dirname "$INDEX")
+
+          mkdir -p html5-package
+          cp -R "$WEB_DIR"/. html5-package/
+
+          cd html5-package
+          zip -qr ../ShadowCrystal-HTML5.zip .
+
+      - name: Publish HTML5 Artifact
+        uses: actions/upload-artifact@v4.3.4
+        with:
+          name: ShadowCrystal-HTML5
+          path: ShadowCrystal-HTML5.zip
           if-no-files-found: error
