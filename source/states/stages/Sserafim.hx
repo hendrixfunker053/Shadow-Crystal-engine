@@ -1282,13 +1282,18 @@ class Sserafim extends BaseStage
 			return;
 		}
 
-		var touched:Bool = FlxG.mouse.justPressed;
+		var touched:Bool = (FlxG.mouse != null && FlxG.mouse.justPressed);
 		#if mobile
 		if (!touched && FlxG.touches != null)
 			for (t in FlxG.touches.list) if (t != null && t.justPressed) { touched = true; break; }
 		#end
 
-		if (touched || game.controls.ACCEPT)
+		// FIX: game.controls puede ser null en este fork -> caer a Controls.instance
+		var ctl:Dynamic = (game != null) ? Reflect.getProperty(game, 'controls') : null;
+		if (ctl == null) ctl = backend.Controls.instance;
+		var accept:Bool = (ctl != null && ctl.ACCEPT == true);
+
+		if (touched || accept)
 		{
 			if (!canSkipCutscene)
 			{
