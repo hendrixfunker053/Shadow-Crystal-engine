@@ -533,6 +533,8 @@ class SserafimGirls
 	}
 
 	var updateErrors:Int = 0;
+	public var dbg:Array<String> = ['', '', '', '', ''];
+	public function debugInfo():String return dbg.join('\n');
 
 	/** Opcional: el stage se suscribe para mostrar el error en pantalla. */
 	public var onError:String->Void = null;
@@ -620,8 +622,9 @@ class SserafimGirls
 			if (yunjin != null && yunjin.visible != yunjinVisible) yunjin.visible = yunjinVisible;
 		}
 
-		for (cfg in cfgs)
+		for (ci in 0...cfgs.length)
 		{
+			var cfg:GirlCfg = cfgs[ci];
 			var c:Character = cfg.c;
 			var lip:FlxSprite = cfg.lip;
 			var fr:Dynamic = cfg.fr;
@@ -631,6 +634,8 @@ class SserafimGirls
 
 			if (!charVis || (cfg.idx == 0 && yunjinUsandoIntro))
 			{
+				dbg[ci] = 'idx' + cfg.idx + ' NOVIS ex=' + (c != null && c.exists) + ' vis=' + (c != null && c.visible) + ' inCut=' + inCut
+					+ ' atlas=' + (c != null && c.isAnimateAtlas) + ' intro=' + (cfg.idx == 0 && yunjinUsandoIntro);
 				if (cfg.wasFrontVis || cfg.hiddenC.length > 0 || cfg.hiddenFr.length > 0) restoreLayers(cfg);
 				if (lip != null && lip.visible) lip.visible = false;
 				if (fr != null && fr.visible) fr.visible = false;
@@ -678,6 +683,7 @@ class SserafimGirls
 
 			if (!entry.found)
 			{
+				dbg[ci] = 'idx' + cfg.idx + ' NOMOUTH anim=' + animName + ' fr=' + curFr + ' sym=' + cfg.sym;
 				if (cfg.wasFrontVis || cfg.hiddenC.length > 0 || cfg.hiddenFr.length > 0) restoreLayers(cfg);
 				if (lip != null && lip.visible) lip.visible = false;
 				if (fr != null && fr.visible) fr.visible = false;
@@ -701,6 +707,8 @@ class SserafimGirls
 
 			if (lip != null)
 			{
+				dbg[ci] = 'idx' + cfg.idx + ' OK anim=' + animName + ' sing=' + isSinging + ' lipFr=' + lip.animation.frameIndex + '/' + lip.numFrames
+					+ ' pos=' + Std.int(lip.x) + ',' + Std.int(lip.y) + ' sz=' + Std.int(lip.width) + 'x' + Std.int(lip.height);
 				if (!lip.visible) lip.visible = true;
 				if (lip.scrollFactor.x != c.scrollFactor.x || lip.scrollFactor.y != c.scrollFactor.y)
 					lip.scrollFactor.set(c.scrollFactor.x, c.scrollFactor.y);
