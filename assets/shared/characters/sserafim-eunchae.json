@@ -1,0 +1,257 @@
+{
+	"animations": [
+		{
+			"anim": "idle",
+			"name": "eunchae",
+			"fps": 24,
+			"loop": false,
+			"indices": [
+				0,
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7,
+				8,
+				9,
+				10,
+				11,
+				12,
+				13,
+				14
+			],
+			"offsets": [
+				0,
+				0
+			]
+		},
+		{
+			"anim": "singLEFT",
+			"name": "eunchae",
+			"fps": 24,
+			"loop": false,
+			"indices": [
+				15,
+				16,
+				17,
+				18,
+				19,
+				20,
+				21,
+				22,
+				23,
+				24,
+				25,
+				26
+			],
+			"offsets": [
+				0,
+				0
+			]
+		},
+		{
+			"anim": "singDOWN",
+			"name": "eunchae",
+			"fps": 24,
+			"loop": false,
+			"indices": [
+				52,
+				53,
+				54,
+				55,
+				56,
+				57,
+				58,
+				59,
+				60,
+				61,
+				62,
+				63,
+				64
+			],
+			"offsets": [
+				0,
+				0
+			]
+		},
+		{
+			"anim": "singUP",
+			"name": "eunchae",
+			"fps": 24,
+			"loop": false,
+			"indices": [
+				39,
+				40,
+				41,
+				42,
+				43,
+				44,
+				45,
+				46,
+				47,
+				48,
+				49,
+				50,
+				51
+			],
+			"offsets": [
+				0,
+				0
+			]
+		},
+		{
+			"anim": "singRIGHT",
+			"name": "eunchae",
+			"fps": 24,
+			"loop": false,
+			"indices": [
+				27,
+				28,
+				29,
+				30,
+				31,
+				32,
+				33,
+				34,
+				35,
+				36,
+				37,
+				38
+			],
+			"offsets": [
+				0,
+				0
+			]
+		},
+		{
+			"anim": "singLEFTmiss",
+			"name": "eunchae",
+			"fps": 24,
+			"loop": false,
+			"indices": [
+				65,
+				66,
+				67,
+				68,
+				69,
+				70,
+				71,
+				72,
+				73,
+				74,
+				75,
+				76,
+				77,
+				78,
+				79,
+				80
+			],
+			"offsets": [
+				0,
+				0
+			]
+		},
+		{
+			"anim": "singDOWNmiss",
+			"name": "eunchae",
+			"fps": 24,
+			"loop": false,
+			"indices": [
+				108,
+				109,
+				110,
+				111,
+				112,
+				113,
+				114,
+				115,
+				116,
+				117,
+				118,
+				119,
+				120,
+				121,
+				122,
+				123
+			],
+			"offsets": [
+				0,
+				0
+			]
+		},
+		{
+			"anim": "singUPmiss",
+			"name": "eunchae",
+			"fps": 24,
+			"loop": false,
+			"indices": [
+				95,
+				96,
+				97,
+				98,
+				99,
+				100,
+				101,
+				102,
+				103,
+				104,
+				105,
+				106,
+				107
+			],
+			"offsets": [
+				0,
+				0
+			]
+		},
+		{
+			"anim": "singRIGHTmiss",
+			"name": "eunchae",
+			"fps": 24,
+			"loop": false,
+			"indices": [
+				81,
+				82,
+				83,
+				84,
+				85,
+				86,
+				87,
+				88,
+				89,
+				90,
+				91,
+				92,
+				93,
+				94
+			],
+			"offsets": [
+				0,
+				0
+			]
+		}
+	],
+	"vocals_file": "",
+	"no_antialiasing": false,
+	"image": "characters/sserafim/eunchae",
+	"position": [
+		-492,
+		-413
+	],
+	"healthicon": "eunchae",
+	"flip_x": false,
+	"healthbar_colors": [
+		220,
+		0,
+		100
+	],
+	"camera_position": [
+		492,
+		260
+	],
+	"sing_duration": 6.1,
+	"scale": 1,
+	"_editor_isPlayer": false
+}

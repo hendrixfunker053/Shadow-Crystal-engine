@@ -1,0 +1,12 @@
+{
+	"idle_anim": "SPL_0",
+	"image": "spaghetti",
+	"position": [
+		70,
+		-30
+	],
+	"flipX": false,
+	"antialiasing": true,
+	"scale": 1,
+	"confirm_anim": "SPL_0"
+}

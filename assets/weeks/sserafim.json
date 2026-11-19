@@ -1,0 +1,27 @@
+{
+	"storyName": "LE SSERAFIM",
+	"difficulties": "Easy, Normal, Hard",
+	"hideFreeplay": false,
+	"weekBackground": "",
+	"weekBefore": "",
+	"startUnlocked": true,
+	"weekCharacters": [
+		"spaghetti",
+		"bf",
+		"gf"
+	],
+	"songs": [
+		[
+			"Spaghetti",
+			"kazuha",
+			[
+				249,
+				207,
+				81
+			]
+		]
+	],
+	"hideStoryMode": false,
+	"weekName": "SP. COLLAB 1",
+	"hiddenUntilUnlocked": false
+}

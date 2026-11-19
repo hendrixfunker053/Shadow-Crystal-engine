@@ -1,0 +1,2 @@
+Flash luces del camion
+Value 1: {"amount":0.7,"duration":0.5}

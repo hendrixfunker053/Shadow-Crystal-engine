@@ -1,0 +1,2 @@
+Flash blanco en camGame
+Value 1: {"duration":1.6}

@@ -1,0 +1,2 @@
+Modo beautiful de GF (-beautiful)
+Value 1: {"beautiful":true}

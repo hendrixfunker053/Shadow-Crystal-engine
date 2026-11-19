@@ -1,0 +1,2 @@
+Telon negro instantaneo
+Value 1: {"visible":true}

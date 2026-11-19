@@ -1,0 +1,3 @@
+SetCameraBop V-Slice JSON
+Value 1: {"intensity":1,"rate":4,"offset":0}
+Value 2: (unused)

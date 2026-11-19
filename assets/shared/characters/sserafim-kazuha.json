@@ -1,0 +1,237 @@
+{
+	"animations": [
+		{
+			"anim": "idle",
+			"name": "kazuha",
+			"fps": 24,
+			"loop": false,
+			"indices": [
+				0,
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7,
+				8,
+				9,
+				10,
+				11,
+				12,
+				13,
+				14
+			],
+			"offsets": [
+				0,
+				0
+			]
+		},
+		{
+			"anim": "singLEFT",
+			"name": "kazuha",
+			"fps": 24,
+			"loop": false,
+			"indices": [
+				15,
+				16,
+				17,
+				18,
+				19,
+				20,
+				21,
+				22,
+				23,
+				24,
+				25,
+				26,
+				27
+			],
+			"offsets": [
+				0,
+				0
+			]
+		},
+		{
+			"anim": "singDOWN",
+			"name": "kazuha",
+			"fps": 24,
+			"loop": false,
+			"indices": [
+				56,
+				57,
+				58,
+				59,
+				60,
+				61,
+				62,
+				63,
+				64,
+				65,
+				66,
+				67,
+				68,
+				69
+			],
+			"offsets": [
+				0,
+				0
+			]
+		},
+		{
+			"anim": "singUP",
+			"name": "kazuha",
+			"fps": 24,
+			"loop": false,
+			"indices": [
+				43,
+				44,
+				45,
+				46,
+				47,
+				48,
+				49,
+				50,
+				51,
+				52,
+				53,
+				54,
+				55
+			],
+			"offsets": [
+				0,
+				0
+			]
+		},
+		{
+			"anim": "singRIGHT",
+			"name": "kazuha",
+			"fps": 24,
+			"loop": false,
+			"indices": [
+				28,
+				29,
+				30,
+				31,
+				32,
+				33,
+				34,
+				35,
+				36,
+				37,
+				38,
+				39,
+				40,
+				41,
+				42
+			],
+			"offsets": [
+				0,
+				0
+			]
+		},
+		{
+			"anim": "singLEFTmiss",
+			"name": "kazuha",
+			"fps": 24,
+			"loop": false,
+			"indices": [
+				70,
+				71,
+				72,
+				73,
+				74,
+				75,
+				76,
+				77,
+				78
+			],
+			"offsets": [
+				0,
+				0
+			]
+		},
+		{
+			"anim": "singDOWNmiss",
+			"name": "kazuha",
+			"fps": 24,
+			"loop": false,
+			"indices": [
+				97,
+				98,
+				99,
+				100,
+				101,
+				102,
+				103
+			],
+			"offsets": [
+				0,
+				0
+			]
+		},
+		{
+			"anim": "singUPmiss",
+			"name": "kazuha",
+			"fps": 24,
+			"loop": false,
+			"indices": [
+				88,
+				89,
+				90,
+				91,
+				92,
+				93,
+				94,
+				95,
+				96
+			],
+			"offsets": [
+				0,
+				0
+			]
+		},
+		{
+			"anim": "singRIGHTmiss",
+			"name": "kazuha",
+			"fps": 24,
+			"loop": false,
+			"indices": [
+				79,
+				80,
+				81,
+				82,
+				83,
+				84,
+				85,
+				86,
+				87
+			],
+			"offsets": [
+				0,
+				0
+			]
+		}
+	],
+	"vocals_file": "",
+	"no_antialiasing": false,
+	"image": "characters/sserafim/kazuha",
+	"position": [
+		-479,
+		-520
+	],
+	"healthicon": "kazuha",
+	"flip_x": false,
+	"healthbar_colors": [
+		220,
+		0,
+		100
+	],
+	"camera_position": [
+		329,
+		611
+	],
+	"sing_duration": 6.1,
+	"scale": 1,
+	"_editor_isPlayer": false
+}

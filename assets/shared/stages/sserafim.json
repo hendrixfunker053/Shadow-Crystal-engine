@@ -1,0 +1,36 @@
+{
+	"directory": "",
+	"defaultZoom": 0.5,
+	"stageUI": "",
+	"boyfriend": [
+		1530,
+		970
+	],
+	"girlfriend": [
+		938.5,
+		392
+	],
+	"opponent": [
+		70,
+		470
+	],
+	"hide_girlfriend": false,
+	"camera_boyfriend": [
+		-100,
+		-100
+	],
+	"camera_opponent": [
+		150,
+		-100
+	],
+	"camera_girlfriend": [
+		0,
+		0
+	],
+	"camera_speed": 1,
+	"_editorMeta": {
+		"dad": "sserafim-kazuha",
+		"boyfriend": "sserafim-sakura",
+		"gf": "sserafim-gf"
+	}
+}

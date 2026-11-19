@@ -1,0 +1,2 @@
+Mostrar/ocultar cantantes [Yunjin, Kazuha, Chaewon, Eunchae, Sakura]
+Value 1: {"visible":[true,true,false,false,true]}

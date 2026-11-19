@@ -1,0 +1,2 @@
+Patada de Yunjin en la puerta
+Value 1: {"final":false} o {"final":true}

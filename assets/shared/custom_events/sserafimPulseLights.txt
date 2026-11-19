@@ -1,0 +1,2 @@
+Luces traseras al compas
+Value 1: {"enabled":true,"colors":["0xFF6D43FF"],"durations":[0.5],"intensities":[0.7]}
