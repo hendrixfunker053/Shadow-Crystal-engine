@@ -101,6 +101,7 @@ class SserafimGirls
 
 		var clearSym = function(sym:Dynamic)
 		{
+			try {
 			if (sym == null || sym.timeline == null) return;
 			var normalType:Dynamic = null;
 			var layers:Dynamic = sym.timeline.getList();
@@ -126,6 +127,7 @@ class SserafimGirls
 					}
 				}
 			}
+			} catch (e:Dynamic) { trace('[SserafimGirls] hideClipperLayers: ' + e); }
 		};
 
 		if (spr.anim.symbolDictionary != null)
@@ -210,6 +212,7 @@ class SserafimGirls
 		for (i in 0...SserafimLipMaps.YUN.length) yunFrames.push(SserafimLipMaps.YUN.charCodeAt(i) - 65);
 		for (_ in 0...16) matPool.push(new FlxMatrix());
 
+		if (game == null) return;
 		var dad = game.dad;
 		var bf = game.boyfriend;
 
@@ -357,10 +360,10 @@ class SserafimGirls
 		yunjinVisible = v0;
 		if (yunjin != null) yunjin.visible = v0;
 		if (yunjinIntro != null && !v0) yunjinIntro.visible = false;
-		if (game.dad != null) game.dad.visible = v1;
+		if (game != null && game.dad != null) game.dad.visible = v1;
 		if (chaewon != null) chaewon.visible = v2;
 		if (eunchae != null) eunchae.visible = v3;
-		if (game.boyfriend != null) game.boyfriend.visible = v4;
+		if (game != null && game.boyfriend != null) game.boyfriend.visible = v4;
 	}
 
 	public function setSinging(arr:Array<Bool>):Void
@@ -383,7 +386,7 @@ class SserafimGirls
 	public function setBeautiful(b:Bool):Void
 	{
 		isBeautiful = b;
-		if (game.gf != null)
+		if (game != null && game.gf != null)
 		{
 			game.gf.idleSuffix = b ? '-beautiful' : '';
 			game.gf.dance();
@@ -406,7 +409,8 @@ class SserafimGirls
 	/** Nota acertada / fallada -> cantan los personajes marcados con sserafimSing */
 	public function sing(noteData:Int, noteType:String, isMiss:Bool):Void
 	{
-		var baseAnim:String = SING_ANIMS[noteData % 4];
+		if (chars.length < 6) return;
+		var baseAnim:String = SING_ANIMS[Std.int(Math.abs(noteData)) % 4];
 		if (baseAnim == null) baseAnim = 'singLEFT';
 		if (isMiss) baseAnim += 'miss';
 
@@ -520,7 +524,32 @@ class SserafimGirls
 		return false;
 	}
 
+	var updateErrors:Int = 0;
+
+	/** Envuelve el lip-sync para que un error raro de FlxAnimate no tumbe el juego entero. */
 	public function update():Void
+	{
+		if (updateErrors >= 5) return;
+		try
+		{
+			updateInner();
+		}
+		catch (e:Dynamic)
+		{
+			updateErrors++;
+			trace('[SserafimGirls] error en lip-sync (' + updateErrors + '/5): ' + e);
+			if (updateErrors >= 5)
+			{
+				for (cfg in cfgs)
+				{
+					if (cfg.lip != null) cfg.lip.visible = false;
+					if (cfg.fr != null) cfg.fr.visible = false;
+				}
+			}
+		}
+	}
+
+	function updateInner():Void
 	{
 		#if flxanimate
 		var inCut:Bool = game.inCutscene;
@@ -666,6 +695,8 @@ class SserafimGirls
 				if (lip.shader != c.shader) lip.shader = c.shader;
 				if (lip.cameras != c.cameras) lip.cameras = c.cameras;
 				var targetLipFr:Int = isSinging ? (cfg.yun ? yunFr : stdFr) : 0;
+				// FIX: si el strip de la boca no cargo (1 solo frame) o la letra se sale de rango, no crashear
+				if (targetLipFr < 0 || targetLipFr >= lip.numFrames) targetLipFr = 0;
 				if (cfg.lastLipFrame != targetLipFr)
 				{
 					lip.animation.frameIndex = targetLipFr;

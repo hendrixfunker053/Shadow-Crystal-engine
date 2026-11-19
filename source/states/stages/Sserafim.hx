@@ -142,6 +142,7 @@ class Sserafim extends BaseStage
 			shTargets = [stageSh, charSh, floorSh, floorCutSh];
 			for (sh in shTargets)
 			{
+				if (sh == null) continue;
 				sh.setFloat('isCharVal', (sh == charSh) ? 1.0 : 0.0);
 				sh.setFloat('darkAmt', 0.0);
 				sh.setFloat('truckStrength', 0.0);
@@ -152,10 +153,10 @@ class Sserafim extends BaseStage
 				sh.setFloat('saturation', 0.0);
 				sh.setFloatArray('lightColor', ultColor);
 			}
-			floorSh.setFloat('floorSkewU', 0.0);
-			floorCutSh.setFloat('floorSkewU', 0.0);
-			perspectiveFloor.shader = floorSh;
-			perspectiveFloorCut.shader = floorCutSh;
+			if (floorSh != null) floorSh.setFloat('floorSkewU', 0.0);
+			if (floorCutSh != null) floorCutSh.setFloat('floorSkewU', 0.0);
+			if (floorSh != null) perspectiveFloor.shader = floorSh;
+			if (floorCutSh != null) perspectiveFloorCut.shader = floorCutSh;
 		}
 
 		backTables = new BGSprite('back-tables', -1857, 267, 0.93, 0.93);
@@ -216,9 +217,13 @@ class Sserafim extends BaseStage
 
 		// GF levantandose (cuerpo bakeado + manos al frente)
 		sserafimGfBody = new FlxSprite(717.00, -85.10);
-		sserafimGfBody.frames = Paths.getSparrowAtlas('cutscene/gfGetUpBody');
-		sserafimGfBody.animation.addByPrefix('static', 'static', 24, false);
-		sserafimGfBody.animation.addByPrefix('getup', 'getup', 24, false);
+		var gfBodyFrames = Paths.getSparrowAtlas('cutscene/gfGetUpBody');
+		if (gfBodyFrames != null)
+		{
+			sserafimGfBody.frames = gfBodyFrames;
+			sserafimGfBody.animation.addByPrefix('static', 'static', 24, false);
+			sserafimGfBody.animation.addByPrefix('getup', 'getup', 24, false);
+		}
 		sserafimGfBody.antialiasing = ClientPrefs.data.antialiasing;
 		sserafimGfBody.scrollFactor.set(0.95, 0.95);
 		sserafimGfBody.active = false;
@@ -278,10 +283,14 @@ class Sserafim extends BaseStage
 
 		// Yunjin intro pre-bakeada (detras de la puerta)
 		yunjinIntroSpr = new FlxSprite(-1033.0, -190.0);
-		yunjinIntroSpr.frames = Paths.getSparrowAtlas('cutscene/yunjinIntro');
-		yunjinIntroSpr.animation.addByPrefix('doorclosed', 'doorclosed', 24, false);
-		yunjinIntroSpr.animation.addByPrefix('kick1', 'kick1', 24, false);
-		yunjinIntroSpr.animation.addByPrefix('kick2', 'kick2', 24, false);
+		var yunjinIntroFrames = Paths.getSparrowAtlas('cutscene/yunjinIntro');
+		if (yunjinIntroFrames != null)
+		{
+			yunjinIntroSpr.frames = yunjinIntroFrames;
+			yunjinIntroSpr.animation.addByPrefix('doorclosed', 'doorclosed', 24, false);
+			yunjinIntroSpr.animation.addByPrefix('kick1', 'kick1', 24, false);
+			yunjinIntroSpr.animation.addByPrefix('kick2', 'kick2', 24, false);
+		}
 		yunjinIntroSpr.antialiasing = ClientPrefs.data.antialiasing;
 		yunjinIntroSpr.scrollFactor.set(0.95, 0.95);
 		yunjinIntroSpr.active = false;
@@ -289,9 +298,11 @@ class Sserafim extends BaseStage
 		add(yunjinIntroSpr);
 
 		// Polvo/humo (empieza oculto hasta resetPolvo)
-		function addDust(img:String, px:Float, py:Float, sf:Float, sc:Float, a:Float, vx:Float, col:Int)
+		function addDust(img:String, px:Float, py:Float, sf:Float, sc:Float, a:Float, vx:Float, col:Int):FlxBackdrop
 		{
-			var d = new FlxBackdrop(Paths.image(img), FlxAxes.X);
+			var dustGraphic = Paths.image(img);
+			if (dustGraphic == null) return null;
+			var d = new FlxBackdrop(dustGraphic, FlxAxes.X);
 			d.setPosition(px, py);
 			d.scrollFactor.set(sf, sf);
 			d.scale.set(sc, sc);
@@ -326,7 +337,7 @@ class Sserafim extends BaseStage
 		if (useShaders)
 		{
 			for (o in [solidBG, bg, backTables, backTablesCutscene, burgerCutscene, backStools, truck, truckDoor, frontStool])
-				o.shader = stageSh;
+				if (o != null && stageSh != null) o.shader = stageSh;
 			if (dad != null) dad.shader = charSh;
 			if (boyfriend != null) boyfriend.shader = charSh;
 			if (gf != null) gf.shader = charSh;
@@ -338,10 +349,13 @@ class Sserafim extends BaseStage
 		if (gf != null) gf.visible = false;
 
 		// ---- HUD / notas (end_y_hud.lua + notetypes) ----
-		game.comboGroup.visible = false; // sin popups de Sick/Good/Bad/Combo
+		if (game.comboGroup != null) game.comboGroup.visible = false; // sin popups de Sick/Good/Bad/Combo
 		if (game.iconP2 != null) game.iconP2.visible = false;
 
-		seeYou1 = new FlxSprite().loadGraphic(Paths.image('end/end1'));
+		seeYou1 = new FlxSprite();
+		var end1Graphic = Paths.image('end/end1');
+		if (end1Graphic != null) seeYou1.loadGraphic(end1Graphic);
+		else seeYou1.makeGraphic(1, 1, FlxColor.TRANSPARENT);
 		seeYou1.scale.set(0.67, 0.67);
 		seeYou1.updateHitbox();
 		seeYou1.cameras = [camOther];
@@ -350,7 +364,10 @@ class Sserafim extends BaseStage
 		seeYou1.visible = false;
 		add(seeYou1);
 
-		seeYou2 = new FlxSprite().loadGraphic(Paths.image('end/end2'));
+		seeYou2 = new FlxSprite();
+		var end2Graphic = Paths.image('end/end2');
+		if (end2Graphic != null) seeYou2.loadGraphic(end2Graphic);
+		else seeYou2.makeGraphic(1, 1, FlxColor.TRANSPARENT);
 		seeYou2.scale.set(0.67, 0.67);
 		seeYou2.updateHitbox();
 		seeYou2.cameras = [camOther];
@@ -362,6 +379,7 @@ class Sserafim extends BaseStage
 		hideP2Strums();
 		for (note in unspawnNotes)
 		{
+			if (note == null) continue;
 			note.noAnimation = true;
 			note.noMissAnimation = true;
 			switch (note.noteType)
@@ -404,7 +422,7 @@ class Sserafim extends BaseStage
 
 		// GF levantandose: sincroniza el cuerpo bakeado con el atlas
 		#if flxanimate
-		if (sserafimGf != null)
+		if (sserafimGf != null && sserafimGfBody != null)
 		{
 			if (!sserafimGf.visible)
 			{
@@ -594,27 +612,27 @@ class Sserafim extends BaseStage
 					if (sserafimGf != null) { sserafimGf.visible = false; sserafimGf.active = false; }
 					if (sserafimBf != null) { sserafimBf.visible = false; sserafimBf.active = false; }
 					#end
-					sserafimGfBody.visible = false;
+					if (sserafimGfBody != null) sserafimGfBody.visible = false;
 					viendoKick = true;
 					limpiarPolvo();
-					girls.yunjinKickFinal();
+					if (girls != null) girls.yunjinKickFinal();
 				}
 				else
 				{
 					FlxG.sound.play(Paths.sound('doorKick1'), 1.0);
-					girls.yunjinKickFirst();
+					if (girls != null) girls.yunjinKickFirst();
 				}
 
 			case 'sserafimShow':
 				var v = boolArray(j, 'visible');
-				if (v.length >= 5) girls.setVisibility(v[0], v[1], v[2], v[3], v[4]);
+				if (v.length >= 5 && girls != null) girls.setVisibility(v[0], v[1], v[2], v[3], v[4]);
 
 			case 'sserafimSing':
 				var s = boolArray(j, 'singing');
-				if (s.length > 0) girls.setSinging(s);
+				if (s.length > 0 && girls != null) girls.setSinging(s);
 
 			case 'sserafimBeautiful':
-				if (j != null) girls.setBeautiful(bool(j, 'beautiful', false));
+				if (j != null && girls != null) girls.setBeautiful(bool(j, 'beautiful', false));
 
 			case 'sserafimGuitarVibration':
 				var dur:Float = num(j, 'duration', 0.5);
@@ -867,11 +885,13 @@ class Sserafim extends BaseStage
 
 	function ponerCover(vis:Bool):Void
 	{
+		if (solidCover == null) return;
 		solidCover.alpha = vis ? 1.0 : 0.0;
 	}
 
 	function fadeCover(a:Float, dur:Float, ease:String):Void
 	{
+		if (solidCover == null) return;
 		if (coverTw != null) coverTw.cancel();
 		coverTw = FlxTween.tween(solidCover, {alpha: a}, dur, {ease: getEase(ease)});
 	}
@@ -944,7 +964,7 @@ class Sserafim extends BaseStage
 
 	function resetPolvo():Void
 	{
-		truckDoor.visible = false;
+		if (truckDoor != null) truckDoor.visible = false;
 		ponerDark(0, 0);
 		ponerHsb(-24, 6, -26, -74, 0, 'linear');
 
@@ -969,7 +989,7 @@ class Sserafim extends BaseStage
 		rs(3, -1500, -150);
 
 		syncShaders(true);
-		girls.resetYunjinDoor();
+		if (girls != null) girls.resetYunjinDoor();
 	}
 
 	function limpiarPolvo():Void
@@ -992,8 +1012,8 @@ class Sserafim extends BaseStage
 
 	function checkKick():Bool
 	{
+		if (girls == null || girls.yunjin == null) return false;
 		var y = girls.yunjin;
-		if (y == null) return false;
 		var curA:String = y.getAnimationName();
 		var cf:Int = 0;
 		#if flxanimate
@@ -1006,7 +1026,7 @@ class Sserafim extends BaseStage
 		#end
 		if ((curA == 'kick2' && cf >= 23) || curA != 'kick2')
 		{
-			truckDoor.visible = true;
+			if (truckDoor != null) truckDoor.visible = true;
 			return true;
 		}
 		return false;
@@ -1028,8 +1048,11 @@ class Sserafim extends BaseStage
 		if (backTablesCutscene != null) backTablesCutscene.visible = cutOn;
 		if (burgerCutscene != null) burgerCutscene.visible = cutOn;
 		#if flxanimate
-		sserafimCutscene.visible = cutOn;
-		sserafimCutscene.active = cutOn;
+		if (sserafimCutscene != null)
+		{
+			sserafimCutscene.visible = cutOn;
+			sserafimCutscene.active = cutOn;
+		}
 		#end
 		if (perspectiveFloor != null) perspectiveFloor.visible = !cutOn;
 		if (perspectiveFloorCut != null) perspectiveFloorCut.visible = cutOn;
@@ -1039,12 +1062,14 @@ class Sserafim extends BaseStage
 			gf.alpha = 1.0;
 		}
 
+		// FIX: startIntro() puede correr antes de createPost(), cuando 'girls' aun es null.
+		// Al terminar createPost() se vuelve a llamar aplicarCutscene(true), asi que queda sincronizado.
 		if (cutOn)
 		{
-			girls.setVisibility(false, false, false, false, false);
+			if (girls != null) girls.setVisibility(false, false, false, false, false);
 			setDustVis(false);
 		}
-		else girls.setVisibility(true, false, false, false, false);
+		else if (girls != null) girls.setVisibility(true, false, false, false, false);
 		lastScrollX = -999999.0; // fuerza resync del piso
 		syncFloor();
 	}
@@ -1052,6 +1077,7 @@ class Sserafim extends BaseStage
 	function playCutsceneMain():Void
 	{
 		#if flxanimate
+		if (sserafimCutscene == null) return;
 		sserafimCutscene.visible = true;
 		sserafimCutscene.active = true;
 		sserafimCutscene.anim.play('cutscene', true, false, 0);
@@ -1062,32 +1088,50 @@ class Sserafim extends BaseStage
 	function playGfBfGetUp(f:Int):Void
 	{
 		#if flxanimate
-		sserafimGf.visible = true;
-		sserafimGf.active = true;
-		sserafimGf.anim.play('getup', true, false, f);
-		sserafimGf.anim.resume();
+		if (sserafimGf != null)
+		{
+			sserafimGf.visible = true;
+			sserafimGf.active = true;
+			sserafimGf.anim.play('getup', true, false, f);
+			sserafimGf.anim.resume();
+		}
 
-		sserafimGfBody.visible = true;
-		sserafimGfBody.animation.play('getup', true, false, f);
+		if (sserafimGfBody != null && sserafimGfBody.animation.exists('getup'))
+		{
+			sserafimGfBody.visible = true;
+			sserafimGfBody.animation.play('getup', true, false, f);
+		}
 
-		sserafimBf.visible = true;
-		sserafimBf.active = true;
-		sserafimBf.anim.play('getup', true, false, f);
-		sserafimBf.anim.resume();
+		if (sserafimBf != null)
+		{
+			sserafimBf.visible = true;
+			sserafimBf.active = true;
+			sserafimBf.anim.play('getup', true, false, f);
+			sserafimBf.anim.resume();
+		}
 		#end
 	}
 
 	function playGfBfStatic():Void
 	{
 		#if flxanimate
-		sserafimGf.visible = true;
-		sserafimGf.active = true;
-		sserafimGf.anim.play('static', true, false, 0);
-		sserafimGfBody.visible = true;
-		sserafimGfBody.animation.play('static', true, false, 0);
-		sserafimBf.visible = true;
-		sserafimBf.active = true;
-		sserafimBf.anim.play('static', true, false, 0);
+		if (sserafimGf != null)
+		{
+			sserafimGf.visible = true;
+			sserafimGf.active = true;
+			sserafimGf.anim.play('static', true, false, 0);
+		}
+		if (sserafimGfBody != null && sserafimGfBody.animation.exists('static'))
+		{
+			sserafimGfBody.visible = true;
+			sserafimGfBody.animation.play('static', true, false, 0);
+		}
+		if (sserafimBf != null)
+		{
+			sserafimBf.visible = true;
+			sserafimBf.active = true;
+			sserafimBf.anim.play('static', true, false, 0);
+		}
 		#end
 	}
 
@@ -1185,7 +1229,7 @@ class Sserafim extends BaseStage
 		{
 			cutsceneSkipped = true;
 			canSkipCutscene = false;
-			FlxTween.tween(skipTxt, {alpha: 0}, 0.5, {ease: FlxEase.quadIn});
+			if (skipTxt != null) FlxTween.tween(skipTxt, {alpha: 0}, 0.5, {ease: FlxEase.quadIn});
 			ponerHsb(55, 0, -30, 0, 49.0 / 24.0, 'sineOut');
 		});
 		startTimer(548.0 / fps, function() ponerHsb(66, 10, -17, 0, 15.0 / 24.0, 'expoIn'));
@@ -1270,7 +1314,7 @@ class Sserafim extends BaseStage
 		FlxG.sound.play(Paths.sound('cutscene/end1'), 1.0);
 		new FlxTimer().start(0.05, function(_)
 		{
-			seeYou1.visible = true;
+			if (seeYou1 != null) seeYou1.visible = true;
 			ponerCover(true);
 			camHUD.visible = false;
 			inCutscene = true;
@@ -1278,14 +1322,14 @@ class Sserafim extends BaseStage
 		});
 		new FlxTimer().start(4.0, function(_)
 		{
-			seeYou1.visible = false;
-			seeYou2.visible = true;
+			if (seeYou1 != null) seeYou1.visible = false;
+			if (seeYou2 != null) seeYou2.visible = true;
 			FlxG.sound.play(Paths.sound('cutscene/end2'), 1.0);
 		});
 		new FlxTimer().start(8.0, function(_)
 		{
-			seeYou1.visible = false;
-			seeYou2.visible = false;
+			if (seeYou1 != null) seeYou1.visible = false;
+			if (seeYou2 != null) seeYou2.visible = false;
 		});
 		new FlxTimer().start(9.0, function(_)
 		{
