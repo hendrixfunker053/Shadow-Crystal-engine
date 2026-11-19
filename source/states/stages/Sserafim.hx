@@ -273,6 +273,7 @@ class Sserafim extends BaseStage
 		#end
 
 		frontStool = new BGSprite('front-stool', -280, 818, 1.0, 1.0);
+		frontStool.visible = !enCutscene;
 		add(frontStool);
 
 		// Yunjin intro pre-bakeada (detras de la puerta)
@@ -1017,19 +1018,21 @@ class Sserafim extends BaseStage
 	function aplicarCutscene(cutOn:Bool):Void
 	{
 		enCutscene = cutOn;
-		truck.visible = !cutOn;
-		truckDoor.visible = false;
-		backTables.visible = !cutOn;
-		backStools.visible = !cutOn;
-		frontStool.visible = !cutOn;
-		backTablesCutscene.visible = cutOn;
-		burgerCutscene.visible = cutOn;
+		// startIntro puede ejecutarse antes de createPost(), donde se crea frontStool.
+		// Protegemos las referencias y sincronizamos su visibilidad al terminar createPost().
+		if (truck != null) truck.visible = !cutOn;
+		if (truckDoor != null) truckDoor.visible = false;
+		if (backTables != null) backTables.visible = !cutOn;
+		if (backStools != null) backStools.visible = !cutOn;
+		if (frontStool != null) frontStool.visible = !cutOn;
+		if (backTablesCutscene != null) backTablesCutscene.visible = cutOn;
+		if (burgerCutscene != null) burgerCutscene.visible = cutOn;
 		#if flxanimate
 		sserafimCutscene.visible = cutOn;
 		sserafimCutscene.active = cutOn;
 		#end
-		perspectiveFloor.visible = !cutOn;
-		perspectiveFloorCut.visible = cutOn;
+		if (perspectiveFloor != null) perspectiveFloor.visible = !cutOn;
+		if (perspectiveFloorCut != null) perspectiveFloorCut.visible = cutOn;
 		if (gf != null)
 		{
 			gf.visible = false;
@@ -1099,14 +1102,11 @@ class Sserafim extends BaseStage
 
 	function hideP2Strums():Void
 	{
-		// BaseStage.game es Dynamic; tipamos PlayState antes de acceder al grupo.
-		var playState:PlayState = cast game;
-		if (playState == null || playState.opponentStrums == null) return;
-		for (strum in playState.opponentStrums.members)
+		for (s in game.opponentStrums.members)
 		{
-			if (strum == null) continue;
-			strum.visible = false;
-			strum.alpha = 0;
+			if (s == null) continue;
+			s.visible = false;
+			s.alpha = 0;
 		}
 	}
 
