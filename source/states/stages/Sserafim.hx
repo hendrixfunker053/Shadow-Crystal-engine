@@ -66,8 +66,6 @@ class Sserafim extends BaseStage
 	var lastScrollX:Float = -999999.0;
 	var lastScrollY:Float = -999999.0;
 	var lastFlVis:Int = -1;
-	var lastFloorSkew:Float = Math.NaN;
-	var opponentStrumsHidden:Bool = false;
 
 	// ---- Luces al compas ----
 	var lucesOn:Bool = false;
@@ -798,8 +796,7 @@ class Sserafim extends BaseStage
 		var br = sv.bri; var hu = sv.hue; var co = sv.con; var sa = sv.sat;
 		if (!forceAll && d == lastSh[0] && tr == lastSh[1] && pu == lastSh[2]
 			&& br == lastSh[3] && hu == lastSh[4] && co == lastSh[5] && sa == lastSh[6]) return;
-		lastSh[0] = d; lastSh[1] = tr; lastSh[2] = pu; lastSh[3] = br;
-		lastSh[4] = hu; lastSh[5] = co; lastSh[6] = sa;
+		lastSh = [d, tr, pu, br, hu, co, sa];
 		for (sh in shTargets)
 		{
 			if (sh == null) continue;
@@ -846,18 +843,13 @@ class Sserafim extends BaseStage
 		{
 			perspectiveFloor.setPosition(px, topY);
 			perspectiveFloor.scale.y = syScale;
+			if (useShaders && floorSh != null) floorSh.setFloat('floorSkewU', skew);
 		}
 		if (perspectiveFloorCut.visible)
 		{
 			perspectiveFloorCut.setPosition(px, topY);
 			perspectiveFloorCut.scale.y = syScale;
-		}
-		// Los uniforms solo se actualizan cuando cambia la perspectiva, no cada frame.
-		if (useShaders && skew != lastFloorSkew)
-		{
-			if (floorSh != null) floorSh.setFloat('floorSkewU', skew);
-			if (floorCutSh != null) floorCutSh.setFloat('floorSkewU', skew);
-			lastFloorSkew = skew;
+			if (useShaders && floorCutSh != null) floorCutSh.setFloat('floorSkewU', skew);
 		}
 	}
 
@@ -1107,14 +1099,15 @@ class Sserafim extends BaseStage
 
 	function hideP2Strums():Void
 	{
-		if (opponentStrumsHidden) return;
-		for (s in game.opponentStrums.members)
+		// BaseStage.game es Dynamic; tipamos PlayState antes de acceder al grupo.
+		var playState:PlayState = cast game;
+		if (playState == null || playState.opponentStrums == null) return;
+		for (strum in playState.opponentStrums.members)
 		{
-			if (s == null) continue;
-			s.visible = false;
-			s.alpha = 0;
+			if (strum == null) continue;
+			strum.visible = false;
+			strum.alpha = 0;
 		}
-		opponentStrumsHidden = true;
 	}
 
 	function terminarCutscene():Void
