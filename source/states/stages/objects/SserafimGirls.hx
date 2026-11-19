@@ -1,7 +1,5 @@
 package states.stages.objects;
 
-import flixel.FlxBasic;
-
 import flixel.math.FlxMatrix;
 import flixel.math.FlxMath;
 import haxe.ds.StringMap;

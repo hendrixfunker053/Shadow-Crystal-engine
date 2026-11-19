@@ -1102,11 +1102,18 @@ class Sserafim extends BaseStage
 
 	function hideP2Strums():Void
 	{
-		for (s in game.opponentStrums.members)
+		// BaseStage.game is Dynamic in this engine fork. Read the strum group
+		// through Reflect, then cast its members to an iterable array.
+		if (game == null) return;
+		var strumGroup:Dynamic = Reflect.field(game, "opponentStrums");
+		if (strumGroup == null) return;
+		var strumMembers:Array<Dynamic> = cast Reflect.field(strumGroup, "members");
+		if (strumMembers == null) return;
+		for (strum in strumMembers)
 		{
-			if (s == null) continue;
-			s.visible = false;
-			s.alpha = 0;
+			if (strum == null) continue;
+			strum.visible = false;
+			strum.alpha = 0;
 		}
 	}
 
