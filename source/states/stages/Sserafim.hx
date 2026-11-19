@@ -448,7 +448,12 @@ class Sserafim extends BaseStage
 				if (sserafimGfBody.alpha != sserafimGf.alpha) sserafimGfBody.alpha = sserafimGf.alpha;
 				if (sserafimGf.anim != null && sserafimGfBody.animation.curAnim != null)
 				{
+					// FlxAnimate puede exponer un curFrame desfasado respecto al simbolo
+					// que realmente se esta dibujando. Usa el frame de la instancia activa.
 					var gfFrame:Int = Std.int(sserafimGf.anim.curFrame);
+					var gfInstance:Dynamic = sserafimGf.anim.curInstance;
+					if (gfInstance != null && gfInstance.symbol != null)
+						gfFrame = Std.int(gfInstance.symbol._curFrame);
 					if (gfFrame >= 0 && gfFrame < sserafimGfBody.animation.curAnim.numFrames && sserafimGfBody.animation.curAnim.curFrame != gfFrame)
 						sserafimGfBody.animation.curAnim.curFrame = gfFrame;
 				}

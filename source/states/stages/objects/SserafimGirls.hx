@@ -791,7 +791,8 @@ class SserafimGirls
 						cfg.lastFr = curFr;
 					}
 
-					if (fr.cameras != c.cameras) fr.cameras = c.cameras;
+					// FlxAnimate no expone cameras como FlxSprite en todas las versiones.
+				// Los atlas frontales se agregan al estado y usan camGame por defecto.
 					if (fr.scrollFactor.x != c.scrollFactor.x || fr.scrollFactor.y != c.scrollFactor.y)
 						fr.scrollFactor.set(c.scrollFactor.x, c.scrollFactor.y);
 					if (fr.scale.x != c.scale.x || fr.scale.y != c.scale.y)
