@@ -1,12 +1,23 @@
+
 name: Build
 
 on:
   push:
-    branches: [ main, experimental, ps3-html5-prototype ]
-    paths-ignore: [ '**.md', 'docs/**', 'art/**', '.vscode/**' ]
+    branches: [main, experimental]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'art/**'
+      - '.vscode/**'
+
   pull_request:
-    branches: [ main, experimental, ps3-html5-prototype ]
-    paths-ignore: [ '**.md', 'docs/**', 'art/**', '.vscode/**' ]
+    branches: [main, experimental]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'art/**'
+      - '.vscode/**'
+
   workflow_dispatch:
 
 concurrency:
@@ -35,21 +46,21 @@ jobs:
         with:
           haxe-version: 4.3.7
 
-      - name: Restore Haxelib Cache
+      - name: Restore Haxelib cache
         id: haxelib-cache
         uses: actions/cache@v4
         with:
           path: ~/haxelib
           key: haxelib-android-4.3.7-${{ hashFiles('setup/unix.sh') }}
 
-      - name: Restore hxcpp Cache
+      - name: Restore hxcpp cache
         uses: actions/cache@v4
         with:
           path: ~/.hxcpp_cache
           key: hxcpp-android-${{ github.sha }}
           restore-keys: hxcpp-android-
 
-      - name: Restore Gradle Cache
+      - name: Restore Gradle cache
         uses: actions/cache@v4
         with:
           path: |
@@ -63,29 +74,33 @@ jobs:
           mkdir -p ~/.hxcpp_cache
           echo "HXCPP_COMPILE_CACHE=$HOME/.hxcpp_cache" >> $GITHUB_ENV
           echo "::notice title=hxcpp cache (restored)::$(du -sh ~/.hxcpp_cache | cut -f1)"
+
           haxelib setup ~/haxelib
+
           if [ "${{ steps.haxelib-cache.outputs.cache-hit }}" != "true" ]; then
-            haxelib install hxcpp > /dev/null --quiet
+            haxelib install hxcpp --quiet
             chmod +x ./setup/unix.sh
             sh ./setup/unix.sh
           fi
 
-      - name: Use Bundled Lua
+      - name: Use bundled Lua
         run: |
           LUA_PATH=$(haxelib libpath linc_luajit)
-          for LIB in "$LUA_PATH"/lib/lua/lib/Android/*.a; do printf '!<arch>\n' > "$LIB"; done
+          for LIB in "$LUA_PATH"/lib/lua/lib/Android/*.a; do
+            printf '!<arch>\n' > "$LIB"
+          done
 
-      - name: Configure Android
+      - name: Setup Android
         run: |
           haxelib run lime config ANDROID_SDK $ANDROID_HOME
           haxelib run lime config ANDROID_NDK_ROOT ${{ steps.setup-ndk.outputs.ndk-path }}
           haxelib run lime config JAVA_HOME $JAVA_HOME
           haxelib run lime config ANDROID_SETUP true
 
-      - name: Skip SScript setup mode
+      - name: Skip SScript configuration mode
         run: echo 'oy9:showMacroty8:loopCosti25y10:includeAllfg' >> ~/settings.cocoa
 
-      - name: Prepare Signing Key
+      - name: Prepare signing key
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
@@ -93,36 +108,45 @@ jobs:
             echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > release.keystore
             echo "SIGNING_FLAG=-D ANDROID_SIGNING" >> $GITHUB_ENV
           else
-            echo "No ANDROID_KEYSTORE_BASE64 secret, building with the debug key"
+            echo "ANDROID_KEYSTORE_BASE64 secret not found, building with debug keystore"
           fi
 
-      - name: Compile
+      - name: Build Android
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           set -o pipefail
+
           if ! haxelib run lime build android -D officialBuild $SIGNING_FLAG 2>&1 | tee compile.log; then
             grep -n -i -E "error|failed|exception" compile.log | tail -n 40 > errors.log || true
+
             echo "::error title=lime build android (errors)::$(sed 's/%/%25/g' errors.log | awk '{printf "%s%%0A", $0}')"
             echo "::error title=lime build android (tail)::$(tail -n 60 compile.log | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"
+
             exit 1
           fi
+
           echo "::notice title=hxcpp cache (after build)::$(du -sh ~/.hxcpp_cache | cut -f1)"
 
       - name: Verify APK
         run: |
           BUILD_TOOLS=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -n 1)
           APKS=$(find export/release/android/bin/app/build/outputs/apk -name "*.apk")
-          if [ -z "$APKS" ]; then echo "No APK found"; exit 1; fi
+
+          if [ -z "$APKS" ]; then
+            echo "No APK found"
+            exit 1
+          fi
+
           for APK in $APKS; do
             echo "Verifying $APK"
             "$BUILD_TOOLS/zipalign" -c -p 4 "$APK"
             "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK"
           done
 
-      - name: Publish Artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4.3.4
         with:
           name: androidBuild
@@ -139,14 +163,14 @@ jobs:
         with:
           haxe-version: 4.3.7
 
-      - name: Restore Haxelib Cache
+      - name: Restore Haxelib cache
         id: haxelib-cache
         uses: actions/cache@v4
         with:
           path: ~/haxelib
           key: haxelib-ios-4.3.7-${{ hashFiles('setup/unix.sh') }}
 
-      - name: Restore hxcpp Cache
+      - name: Restore hxcpp cache
         uses: actions/cache@v4
         with:
           path: ~/.hxcpp_cache
@@ -158,26 +182,29 @@ jobs:
           mkdir -p ~/.hxcpp_cache
           echo "HXCPP_COMPILE_CACHE=$HOME/.hxcpp_cache" >> $GITHUB_ENV
           echo "::notice title=hxcpp cache (restored)::$(du -sh ~/.hxcpp_cache | cut -f1)"
-          arch -x86_64 haxelib setup ~/haxelib
+
+          haxelib setup ~/haxelib
+
           if [ "${{ steps.haxelib-cache.outputs.cache-hit }}" != "true" ]; then
-            arch -x86_64 haxelib install hxcpp > /dev/null --quiet
+            arch -x86_64 haxelib install hxcpp --quiet
             chmod +x ./setup/unix.sh
             arch -x86_64 /bin/sh ./setup/unix.sh
           fi
 
-      - name: Use Bundled Lua
+      - name: Use bundled Lua
         run: |
           LUA_PATH=$(arch -x86_64 haxelib libpath linc_luajit)
           mkdir -p "$LUA_PATH/lib/lua/lib/iPhone"
           printf '!<arch>\n' > "$LUA_PATH/lib/lua/lib/iPhone/libluajit.iphoneos-64.a"
           printf '!<arch>\n' > "$LUA_PATH/lib/lua/lib/iPhone/libluajit.iphonesim-64.a"
 
-      - name: Skip SScript setup mode
+      - name: Skip SScript configuration mode
         run: echo 'oy9:showMacroty8:loopCosti25y10:includeAllfg' >> ~/settings.cocoa
 
-      - name: Compile
+      - name: Build iOS
         run: |
           arch -x86_64 haxelib run lime build ios -D officialBuild 2>&1 | tee compile.log || true
+
           if ! ls export/release/ios/*.xcodeproj > /dev/null 2>&1; then
             echo "::error title=lime build ios::$(tail -n 60 compile.log | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"
             arch -x86_64 haxe -version 2>&1 | sed 's/^/::error title=haxe::/'
@@ -185,23 +212,35 @@ jobs:
             exit 1
           fi
 
-      - name: Build Xcode Project
+      - name: Create Xcode project
         run: |
           cd export/release/ios
           PROJECT=$(find . -maxdepth 1 -name "*.xcodeproj" | head -n 1)
-          if [ -z "$PROJECT" ]; then echo "The Xcode project was not generated, check the Compile step for the real error"; exit 1; fi
+
+          if [ -z "$PROJECT" ]; then
+            echo "Xcode project was not generated"
+            exit 1
+          fi
+
           xcodebuild -project "$PROJECT" -configuration Release -sdk iphoneos -arch arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+
           echo "::notice title=hxcpp cache (after build)::$(du -sh ~/.hxcpp_cache | cut -f1)"
 
       - name: Package IPA
         run: |
           APP=$(find export/release/ios/build -type d -name "*.app" -path "*iphoneos*" | head -n 1)
-          if [ -z "$APP" ]; then echo "No .app found"; find export/release/ios -maxdepth 4; exit 1; fi
+
+          if [ -z "$APP" ]; then
+            echo "No .app found"
+            find export/release/ios -maxdepth 4
+            exit 1
+          fi
+
           mkdir -p ipa/Payload
           cp -R "$APP" ipa/Payload/
           cd ipa && zip -qry ../PsychEngine.ipa Payload
 
-      - name: Publish Artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4.3.4
         with:
           name: iOSBuild
@@ -218,14 +257,14 @@ jobs:
         with:
           haxe-version: 4.3.7
 
-      - name: Restore Haxelib Cache
+      - name: Restore Haxelib cache
         id: haxelib-cache
         uses: actions/cache@v4
         with:
           path: ~/haxelib
           key: haxelib-windows-4.3.7-${{ hashFiles('setup/unix.sh') }}
 
-      - name: Restore hxcpp Cache
+      - name: Restore hxcpp cache
         uses: actions/cache@v4
         with:
           path: ~/.hxcpp_cache
@@ -242,12 +281,11 @@ jobs:
 
           if [ "${{ steps.haxelib-cache.outputs.cache-hit }}" != "true" ]; then
             haxelib install hxcpp --quiet
-
             chmod +x ./setup/unix.sh
             bash ./setup/unix.sh
           fi
 
-      - name: Compile Windows
+      - name: Build Windows
         shell: bash
         run: |
           set -o pipefail
@@ -268,11 +306,10 @@ jobs:
             exit 1
           }
 
-          $Exe = Get-ChildItem "export/release/windows" -Filter "*.exe" -Recurse |
-            Select-Object -First 1
+          $Exe = Get-ChildItem "export/release/windows" -Filter "*.exe" -Recurse | Select-Object -First 1
 
           if (!$Exe) {
-            Write-Error "No Windows executable (.exe) was generated."
+            Write-Error "No Windows executable was generated"
             Get-ChildItem "export/release/windows" -Recurse
             exit 1
           }
@@ -284,73 +321,9 @@ jobs:
             -DestinationPath "ShadowCrystalEngine-Windows-x64.zip" `
             -Force
 
-      - name: Publish Windows Artifact
+      - name: Upload Windows artifact
         uses: actions/upload-artifact@v4.3.4
         with:
           name: WindowsBuild
           path: ShadowCrystalEngine-Windows-x64.zip
-          if-no-files-found: error
-
-  buildHTML5:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4.1.7
-
-      - uses: krdlab/setup-haxe@master
-        with:
-          haxe-version: 4.3.7
-
-      - name: Restore Haxelib Cache
-        id: haxelib-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/haxelib
-          key: haxelib-html5-4.3.7-${{ hashFiles('setup/unix.sh') }}
-
-      - name: Install Haxelib Dependencies
-        run: |
-          haxelib setup ~/haxelib
-
-          if [ "${{ steps.haxelib-cache.outputs.cache-hit }}" != "true" ]; then
-            haxelib install hxcpp --quiet
-            chmod +x ./setup/unix.sh
-            sh ./setup/unix.sh
-          fi
-
-      - name: Skip SScript setup mode
-        run: echo 'oy9:showMacroty8:loopCosti25y10:includeAllfg' >> ~/settings.cocoa
-
-      - name: Compile HTML5
-        run: |
-          set -o pipefail
-
-          if ! haxelib run lime build html5 -D officialBuild 2>&1 | tee compile-html5.log; then
-            echo "::error title=HTML5 compilation failed::$(tail -n 60 compile-html5.log | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"
-            exit 1
-          fi
-
-      - name: Package HTML5
-        run: |
-          INDEX=$(find export -type f -name "index.html" -print -quit)
-
-          if [ -z "$INDEX" ]; then
-            echo "HTML5 index.html was not generated."
-            find export -maxdepth 5 -type f
-            exit 1
-          fi
-
-          WEB_DIR=$(dirname "$INDEX")
-
-          mkdir -p html5-package
-          cp -R "$WEB_DIR"/. html5-package/
-
-          cd html5-package
-          zip -qr ../ShadowCrystal-HTML5.zip .
-
-      - name: Publish HTML5 Artifact
-        uses: actions/upload-artifact@v4.3.4
-        with:
-          name: ShadowCrystal-HTML5
-          path: ShadowCrystal-HTML5.zip
           if-no-files-found: error
