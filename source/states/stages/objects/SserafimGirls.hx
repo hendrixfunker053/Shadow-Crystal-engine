@@ -109,7 +109,20 @@ class SserafimGirls
 			{
 				if (layer == null) continue;
 				var lt:String = (layer.type != null) ? Type.enumConstructor(layer.type) : '';
-				if (lt == 'Clipper')
+				if (killClippedToo)
+				{
+					// Igual que limpiarSym del stage .lua: Clipper, Clipped y capas con _clipper -> Normal + ocultas
+					if (lt == 'Clipper' || lt == 'Clipped' || layer._clipper != null)
+					{
+						if (normalType == null && layer.type != null)
+							normalType = Type.createEnum(Type.getEnum(layer.type), 'Normal');
+						layer._clipper = null;
+						if (normalType != null) layer.type = normalType;
+						layer._correctClip = true;
+						layer.visible = false;
+					}
+				}
+				else if (lt == 'Clipper')
 				{
 					layer._correctClip = true;
 					layer.visible = false;
@@ -120,11 +133,6 @@ class SserafimGirls
 						normalType = Type.createEnum(Type.getEnum(layer.type), 'Normal');
 					layer._clipper = null;
 					if (normalType != null) layer.type = normalType;
-					if (killClippedToo)
-					{
-						layer._correctClip = true;
-						layer.visible = false;
-					}
 				}
 			}
 			} catch (e:Dynamic) { trace('[SserafimGirls] hideClipperLayers: ' + e); }
@@ -526,6 +534,9 @@ class SserafimGirls
 
 	var updateErrors:Int = 0;
 
+	/** Opcional: el stage se suscribe para mostrar el error en pantalla. */
+	public var onError:String->Void = null;
+
 	/** Envuelve el lip-sync para que un error raro de FlxAnimate no tumbe el juego entero. */
 	public function update():Void
 	{
@@ -538,6 +549,7 @@ class SserafimGirls
 		{
 			updateErrors++;
 			trace('[SserafimGirls] error en lip-sync (' + updateErrors + '/5): ' + e);
+			if (onError != null) onError('Lip-sync error ' + updateErrors + '/5: ' + Std.string(e));
 			if (updateErrors >= 5)
 			{
 				for (cfg in cfgs)

@@ -322,6 +322,7 @@ class Sserafim extends BaseStage
 
 		// Chicas extra + lip-sync (se insertan antes de frontStool)
 		girls = new SserafimGirls(PlayState.instance, charSh);
+		girls.onError = showDebugError;
 		girls.create(frontStool, yunjinIntroSpr);
 
 		for (d in dust) add(d);
@@ -377,6 +378,11 @@ class Sserafim extends BaseStage
 		add(seeYou2);
 
 		hideP2Strums();
+		if (!postHooked)
+		{
+			postHooked = true;
+			FlxG.signals.postUpdate.add(postStageUpdate);
+		}
 		for (note in unspawnNotes)
 		{
 			if (note == null) continue;
@@ -410,10 +416,18 @@ class Sserafim extends BaseStage
 	}
 
 	// =============================================================================================
-	// Update
+	// Post-update: equivale a onUpdatePost() de los .lua (corre DESPUES de actualizar los personajes).
+	// Antes esto estaba en update(), asi el frame de FlxAnimate quedaba desfasado 1 frame y el
+	// lip-sync / cuerpo de la GF no coincidian con lo que se dibujaba.
 	// =============================================================================================
-	override function update(elapsed:Float)
+	var postHooked:Bool = false;
+
+	function postStageUpdate():Void
 	{
+		if (game == null || FlxG.state != game) return;
+		if (paused) return;
+		if (perspectiveFloor == null || perspectiveFloorCut == null) return;
+
 		syncFloor();
 		syncShaders(false);
 
@@ -463,6 +477,64 @@ class Sserafim extends BaseStage
 		hideP2Strums();
 
 		if (girls != null) girls.update();
+
+		// HUD oculto durante cutscenes (la healthbar aparecia por encima de la intro)
+		if (inCutscene) hideHudForCutscene();
+	}
+
+	var dbgTxt:FlxText;
+	var dbgTimer:Float = 0;
+
+	/** Muestra un error de lip-sync en pantalla unos segundos (para poder ver que falla sin logcat). */
+	function showDebugError(msg:String):Void
+	{
+		if (dbgTxt == null)
+		{
+			dbgTxt = new FlxText(10, 80, FlxG.width - 20, '', 20);
+			dbgTxt.setFormat(Paths.font('vcr.ttf'), 20, FlxColor.RED, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+			dbgTxt.cameras = [camOther];
+			add(dbgTxt);
+		}
+		dbgTxt.text = msg;
+		dbgTxt.visible = true;
+		new FlxTimer().start(10, function(_) { if (dbgTxt != null) dbgTxt.visible = false; });
+	}
+
+	var hudSaved:Map<String, Bool> = new Map<String, Bool>();
+
+	function hideHudForCutscene():Void
+	{
+		if (camHUD != null) camHUD.visible = false;
+		for (n in ['healthBar', 'iconP1', 'iconP2', 'scoreTxt', 'timeBar', 'timeTxt'])
+		{
+			var o:Dynamic = Reflect.getProperty(game, n);
+			if (o != null && o.visible == true && !hudSaved.exists(n))
+			{
+				hudSaved.set(n, true);
+				o.visible = false;
+			}
+		}
+	}
+
+	function restoreHudAfterCutscene():Void
+	{
+		if (camHUD != null) camHUD.visible = !ClientPrefs.data.hideHud;
+		for (n in hudSaved.keys())
+		{
+			var o:Dynamic = Reflect.getProperty(game, n);
+			if (o != null) o.visible = !ClientPrefs.data.hideHud;
+		}
+		hudSaved = new Map<String, Bool>();
+		// iconP2 (Kazuha) se mantiene oculto hasta el sserafimKick final
+		if (game.iconP2 != null) game.iconP2.visible = false;
+	}
+
+	// =============================================================================================
+	// Update
+	// =============================================================================================
+	override function update(elapsed:Float)
+	{
+		// (sync del stage, GF, polvo y lip-sync se hace en postStageUpdate(), como onUpdatePost del Lua)
 
 		// Camara con tween manual (FocusCamera)
 		if (camTweeneando)
@@ -1167,7 +1239,7 @@ class Sserafim extends BaseStage
 		cutsceneSkipped = true;
 		inCutscene = false;
 		canPause = true;
-		camHUD.visible = !ClientPrefs.data.hideHud;
+		restoreHudAfterCutscene();
 		if (skipTxt != null) skipTxt.visible = false;
 		hideP2Strums();
 		startCountdown();
@@ -1370,6 +1442,8 @@ class Sserafim extends BaseStage
 
 	override function destroy()
 	{
+		if (postHooked) FlxG.signals.postUpdate.remove(postStageUpdate);
+		postHooked = false;
 		limpiarTimers();
 		super.destroy();
 	}
