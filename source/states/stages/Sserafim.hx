@@ -12,7 +12,6 @@ import haxe.Json;
 import states.PlayState;
 
 import objects.Note;
-import backend.SserafimGirls;
 
 /**
  * LE SSERAFIM - Spaghetti (SP. COLLAB 1), integrado en el engine.
@@ -74,7 +73,6 @@ class Sserafim extends BaseStage
 	var lucesAmts:Array<Float> = [];
 
 	// ---- Cutscene / final ----
-	var girls:SserafimGirls;
 	var viendoKick:Bool = false;
 	var enCutscene:Bool = false;
 	var cutsceneSkipped:Bool = false;
@@ -242,7 +240,7 @@ class Sserafim extends BaseStage
 		add(sserafimGf);
 
 		// Atlas de GF: oculta Clipper/Clipped para que cabeza/pelo queden detras del camion
-		SserafimGirls.hideClipperLayers(sserafimGf, true);
+		hideClipperLayers(sserafimGf, true);
 		#end
 
 		// Scrollfactors de los personajes base
@@ -280,6 +278,7 @@ class Sserafim extends BaseStage
 		frontStool = new BGSprite('front-stool', -280, 818, 1.0, 1.0);
 		frontStool.visible = !enCutscene;
 		add(frontStool);
+		game.variables.set('frontStool', frontStool); // lo usa data/spaghetti/lipsync.hx
 
 		// Yunjin intro pre-bakeada (detras de la puerta)
 		yunjinIntroSpr = new FlxSprite(-1033.0, -190.0);
@@ -296,6 +295,7 @@ class Sserafim extends BaseStage
 		yunjinIntroSpr.active = false;
 		yunjinIntroSpr.visible = false;
 		add(yunjinIntroSpr);
+		game.variables.set('yunjinIntroSpr', yunjinIntroSpr); // lo usa lipsync.hx
 
 		// Polvo/humo (empieza oculto hasta resetPolvo)
 		function addDust(img:String, px:Float, py:Float, sf:Float, sc:Float, a:Float, vx:Float, col:Int):FlxBackdrop
@@ -320,10 +320,8 @@ class Sserafim extends BaseStage
 		addDust('dust/dustMid', -650, -400, 1.2, 2.0, 0.8, -200, 0xFF6E645C);
 		addDust('dust/dustBack', -650, -1300, 1.25, 3.5, 0.9, -150, 0xFF886A60);
 
-		// Chicas extra + lip-sync (se insertan antes de frontStool)
-		girls = new SserafimGirls(PlayState.instance, charSh);
-		if (SHOW_LIPSYNC_ERRORS) girls.onError = showLipsyncError;
-		girls.create(frontStool, yunjinIntroSpr);
+		// Chicas extra + lip-sync: los crea data/spaghetti/lipsync.hx (HScript) en onCreatePost
+		game.variables.set('sserCharShader', charSh);
 
 		for (d in dust) add(d);
 
@@ -481,15 +479,13 @@ class Sserafim extends BaseStage
 		// opponentStrums siempre ocultas (end_y_hud.lua)
 		hideP2Strums();
 
-		if (girls != null) girls.update();
-
 		// HUD oculto durante cutscenes (la healthbar aparecia por encima de la intro)
 		if (inCutscene) hideHudForCutscene();
 
 	}
 
 	// Poner en true SOLO para depurar: muestra en pantalla el ultimo error del lip-sync.
-	static final SHOW_LIPSYNC_ERRORS:Bool = true;
+	static final SHOW_LIPSYNC_ERRORS:Bool = false;
 	var lipErrTxt:FlxText;
 
 	function showLipsyncError(msg:String):Void
@@ -573,8 +569,6 @@ class Sserafim extends BaseStage
 			flashAtras(lucesAmts[b % lucesAmts.length], lucesDurs[b % lucesDurs.length], lucesCols[b % lucesCols.length]);
 		}
 
-		if (girls != null) girls.beat(curBeat);
-
 		// SetCameraBop
 		if (game.camZooming && ClientPrefs.data.camZooms && bopRate > 0 && bopIntensity > 0 && ((curBeat + bopOffset) % bopRate == 0))
 		{
@@ -585,21 +579,6 @@ class Sserafim extends BaseStage
 				camHUD.zoom += 0.03 * bopIntensity;
 			}
 		}
-	}
-
-	// =============================================================================================
-	// Notas -> las chicas cantan
-	// =============================================================================================
-	override function goodNoteHit(note:Note)
-	{
-		if (note.hitCausesMiss) return;
-		if (girls != null) girls.sing(note.noteData, note.noteType, false);
-	}
-
-	override function noteMiss(note:Note)
-	{
-		if (note.ignoreNote) return;
-		if (girls != null) girls.sing(note.noteData, note.noteType, true);
 	}
 
 	// =============================================================================================
@@ -692,24 +671,15 @@ class Sserafim extends BaseStage
 					if (sserafimGfBody != null) sserafimGfBody.visible = false;
 					viendoKick = true;
 					limpiarPolvo();
-					if (girls != null) girls.yunjinKickFinal();
+					callGirls('yunjinKickFinal');
 				}
 				else
 				{
 					FlxG.sound.play(Paths.sound('doorKick1'), 1.0);
-					if (girls != null) girls.yunjinKickFirst();
+					callGirls('yunjinKickPrimero');
 				}
 
-			case 'sserafimShow':
-				var v = boolArray(j, 'visible');
-				if (v.length >= 5 && girls != null) girls.setVisibility(v[0], v[1], v[2], v[3], v[4]);
-
-			case 'sserafimSing':
-				var s = boolArray(j, 'singing');
-				if (s.length > 0 && girls != null) girls.setSinging(s);
-
-			case 'sserafimBeautiful':
-				if (j != null && girls != null) girls.setBeautiful(bool(j, 'beautiful', false));
+			// sserafimShow / sserafimSing / sserafimBeautiful: los maneja data/spaghetti/lipsync.hx (onEvent)
 
 			case 'sserafimGuitarVibration':
 				var dur:Float = num(j, 'duration', 0.5);
@@ -1066,7 +1036,7 @@ class Sserafim extends BaseStage
 		rs(3, -1500, -150);
 
 		syncShaders(true);
-		if (girls != null) girls.resetYunjinDoor();
+		callGirls('resetYunjinPuerta');
 	}
 
 	function limpiarPolvo():Void
@@ -1089,8 +1059,8 @@ class Sserafim extends BaseStage
 
 	function checkKick():Bool
 	{
-		if (girls == null || girls.yunjin == null) return false;
-		var y = girls.yunjin;
+		var y:Dynamic = game.variables.get('yunjin');
+		if (y == null) return false;
 		var curA:String = y.getAnimationName();
 		var cf:Int = 0;
 		#if flxanimate
@@ -1143,10 +1113,10 @@ class Sserafim extends BaseStage
 		// Al terminar createPost() se vuelve a llamar aplicarCutscene(true), asi que queda sincronizado.
 		if (cutOn)
 		{
-			if (girls != null) girls.setVisibility(false, false, false, false, false);
+			girlsVis(false, false, false, false, false);
 			setDustVis(false);
 		}
-		else if (girls != null) girls.setVisibility(true, false, false, false, false);
+		else girlsVis(true, false, false, false, false);
 		lastScrollX = -999999.0; // fuerza resync del piso
 		syncFloor();
 	}
@@ -1443,6 +1413,85 @@ class Sserafim extends BaseStage
 	function setPausedState(p:Bool):Void
 	{
 		for (t in cutTimers) if (t != null) t.active = !p;
+	}
+
+	// ---------------------------------------------------------------------------------------------
+	// Puente hacia data/spaghetti/lipsync.hx (HScript)
+	// ---------------------------------------------------------------------------------------------
+	function callGirls(fn:String, ?args:Array<Dynamic>):Void
+	{
+		if (game != null) game.callOnHScript(fn, args != null ? args : []);
+	}
+
+	function girlsVis(a:Bool, b:Bool, c:Bool, d:Bool, e:Bool):Void
+	{
+		if (game == null) return;
+		var v:Array<Bool> = [a, b, c, d, e];
+		game.variables.set('sserGirlsVis', v); // lipsync.hx lo lee al crearse
+		game.callOnHScript('visibilidadChicas', [v]);
+	}
+
+	static function setVis(o:Dynamic, v:Bool):Void
+	{
+		try { o.visible = v; }
+		catch (e:Dynamic) { Reflect.setProperty(o, 'visible', v); }
+	}
+
+	// Oculta capas Clipper/Clipped de un atlas (cabeza/pelo de la GF quedan detras del camion)
+	static function hideClipperLayers(spr:Dynamic, killClippedToo:Bool):Void
+	{
+		if (spr == null || spr.anim == null) return;
+		if (spr.anim.metadata != null)
+		{
+			spr.anim.metadata.skipFilters = true;
+			spr.anim.metadata.showHiddenLayers = false;
+		}
+
+		var clearSym = function(sym:Dynamic)
+		{
+			try {
+			if (sym == null || sym.timeline == null) return;
+			var normalType:Dynamic = null;
+			var layers:Dynamic = sym.timeline.getList();
+			for (layer in (layers : Array<Dynamic>))
+			{
+				if (layer == null) continue;
+				var lt:String = (layer.type != null) ? Type.enumConstructor(layer.type) : '';
+				if (killClippedToo)
+				{
+					if (lt == 'Clipper' || lt == 'Clipped' || layer._clipper != null)
+					{
+						if (normalType == null && layer.type != null)
+							normalType = Type.createEnum(Type.getEnum(layer.type), 'Normal');
+						layer._clipper = null;
+						if (normalType != null) layer.type = normalType;
+						layer._correctClip = true;
+						setVis(layer, false);
+					}
+				}
+				else if (lt == 'Clipper')
+				{
+					layer._correctClip = true;
+					setVis(layer, false);
+				}
+				else if (lt == 'Clipped' || layer._clipper != null)
+				{
+					if (normalType == null && layer.type != null)
+						normalType = Type.createEnum(Type.getEnum(layer.type), 'Normal');
+					layer._clipper = null;
+					if (normalType != null) layer.type = normalType;
+				}
+			}
+			} catch (e:Dynamic) { trace('[Sserafim] hideClipperLayers: ' + e); }
+		};
+
+		if (spr.anim.symbolDictionary != null)
+		{
+			var dict:Dynamic = spr.anim.symbolDictionary;
+			for (sym in (dict : haxe.Constraints.IMap<String, Dynamic>))
+				clearSym(sym);
+		}
+		clearSym(spr.anim.curSymbol);
 	}
 
 	override function destroy()
