@@ -593,6 +593,15 @@ class SserafimGirls
 		return false;
 	}
 
+	/** Igual que el bloque "no visible / sin boca" del Lua: restaura capas y oculta boca + capa frontal. */
+	function hideCfg(cfg:GirlCfg):Void
+	{
+		if (cfg.wasFrontVis || cfg.hiddenC.length > 0 || cfg.hiddenFr.length > 0) restoreLayers(cfg);
+		if (cfg.lip != null && cfg.lip.visible) cfg.lip.visible = false;
+		if (cfg.fr != null && cfg.fr.visible) cfg.fr.visible = false;
+		cfg.wasFrontVis = false;
+	}
+
 	var updateErrors:Int = 0;
 
 	/** Opcional: el stage se suscribe para mostrar el error en pantalla. */
@@ -694,10 +703,7 @@ class SserafimGirls
 
 			if (!charVis || (cfg.idx == 0 && yunjinUsandoIntro))
 			{
-				if (cfg.wasFrontVis || cfg.hiddenC.length > 0 || cfg.hiddenFr.length > 0) restoreLayers(cfg);
-				if (lip != null && lip.visible) lip.visible = false;
-				if (fr != null && fr.visible) fr.visible = false;
-				cfg.wasFrontVis = false;
+				hideCfg(cfg);
 				continue;
 			}
 
@@ -716,13 +722,29 @@ class SserafimGirls
 				{
 					restoreLayers(cfg);
 					var ctx = {poseSymName: (null : String), layerIdx: -1};
-					var absFr:Int = absoluteFrame(c, animName, curFr);
-					var found:Bool = findMouth(c.atlas.anim, inst, identMat, absFr, cfg.sym, resMat, 0, ctx);
+					var found:Bool = findMouth(c.atlas.anim, inst, identMat, curFr, cfg.sym, resMat, 0, ctx);
 					if (!found && cfg.idx == 4)
 					{
 						ctx.poseSymName = null;
 						ctx.layerIdx = -1;
-						found = findMouth(c.atlas.anim, inst, identMat, absFr, 'mouth default', resMat, 0, ctx);
+						found = findMouth(c.atlas.anim, inst, identMat, curFr, 'mouth default', resMat, 0, ctx);
+					}
+					// Respaldo (no existe en el Lua): si _curFrame es relativo a `indices`, reintenta con el frame absoluto
+					if (!found)
+					{
+						var altFr:Int = absoluteFrame(c, animName, curFr);
+						if (altFr != curFr)
+						{
+							ctx.poseSymName = null;
+							ctx.layerIdx = -1;
+							found = findMouth(c.atlas.anim, inst, identMat, altFr, cfg.sym, resMat, 0, ctx);
+							if (!found && cfg.idx == 4)
+							{
+								ctx.poseSymName = null;
+								ctx.layerIdx = -1;
+								found = findMouth(c.atlas.anim, inst, identMat, altFr, 'mouth default', resMat, 0, ctx);
+							}
+						}
 					}
 					entry = {
 						found: found,
@@ -742,10 +764,7 @@ class SserafimGirls
 
 			if (!entry.found)
 			{
-				if (cfg.wasFrontVis || cfg.hiddenC.length > 0 || cfg.hiddenFr.length > 0) restoreLayers(cfg);
-				if (lip != null && lip.visible) lip.visible = false;
-				if (fr != null && fr.visible) fr.visible = false;
-				cfg.wasFrontVis = false;
+				hideCfg(cfg);
 				continue;
 			}
 
@@ -847,8 +866,7 @@ class SserafimGirls
 						cfg.lastFr = curFr;
 					}
 
-					// FlxAnimate no expone cameras como FlxSprite en todas las versiones.
-				// Los atlas frontales se agregan al estado y usan camGame por defecto.
+						try { if (fr.cameras != c.cameras) fr.cameras = c.cameras; } catch (_:Dynamic) {}
 					if (fr.scrollFactor.x != c.scrollFactor.x || fr.scrollFactor.y != c.scrollFactor.y)
 						fr.scrollFactor.set(c.scrollFactor.x, c.scrollFactor.y);
 					if (fr.scale.x != c.scale.x || fr.scale.y != c.scale.y)
