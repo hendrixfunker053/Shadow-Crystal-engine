@@ -119,13 +119,13 @@ class SserafimGirls
 						layer._clipper = null;
 						if (normalType != null) layer.type = normalType;
 						layer._correctClip = true;
-						layer.visible = false;
+						setVis(layer, false);
 					}
 				}
 				else if (lt == 'Clipper')
 				{
 					layer._correctClip = true;
-					layer.visible = false;
+					setVis(layer, false);
 				}
 				else if (lt == 'Clipped' || layer._clipper != null)
 				{
@@ -460,12 +460,12 @@ class SserafimGirls
 	{
 		if (cfg.hiddenC.length > 0)
 		{
-			for (l in cfg.hiddenC) if (l != null) l.visible = true;
+			for (l in cfg.hiddenC) if (l != null) setVis(l, true);
 			cfg.hiddenC.resize(0);
 		}
 		if (cfg.hiddenFr.length > 0)
 		{
-			for (l in cfg.hiddenFr) if (l != null) l.visible = true;
+			for (l in cfg.hiddenFr) if (l != null) setVis(l, true);
 			cfg.hiddenFr.resize(0);
 		}
 		cfg.prevSym = null;
@@ -485,21 +485,52 @@ class SserafimGirls
 	}
 
 	/**
-	 * `symbol._curFrame` es relativo a la animacion (0..N-1) cuando esta definida con `indices`.
-	 * La boca vive en frames ABSOLUTOS del timeline raiz, asi que hay que traducir via indices.
+	 * Devuelve el frame ABSOLUTO del timeline raiz (donde vive la boca).
+	 * Segun la version de FlxAnimate, `symbol._curFrame` puede ser absoluto o relativo a `indices`:
+	 * - si cae dentro del rango [primer indice, ultimo indice] ya es absoluto;
+	 * - si no, y cabe en la lista de indices, es relativo y se traduce.
 	 */
-	function absoluteFrame(c:Character, animName:String, rel:Int):Int
+	function absoluteFrame(c:Character, animName:String, cur:Int):Int
 	{
-		if (c == null || c.animationsArray == null) return rel;
+		if (c == null || c.animationsArray == null) return cur;
 		for (a in c.animationsArray)
 		{
-			if (a.anim != null && a.name == animName)
+			if (a.name == animName)
 			{
-				if (a.indices != null && a.indices.length > 0 && rel >= 0 && rel < a.indices.length) return a.indices[rel];
-				break;
+				var ind = a.indices;
+				if (ind == null || ind.length == 0) return cur;
+				var lo:Int = ind[0];
+				var hi:Int = ind[ind.length - 1];
+				if (cur >= lo && cur <= hi) return cur;
+				if (cur >= 0 && cur < ind.length) return ind[cur];
+				return cur;
 			}
 		}
-		return rel;
+		return cur;
+	}
+
+	static function setVis(o:Dynamic, v:Bool):Void
+	{
+		try { o.visible = v; }
+		catch (e:Dynamic) { Reflect.setProperty(o, 'visible', v); }
+	}
+
+	var frontErrors:Int = 0;
+
+	/** Un fallo en la capa frontal (pelo) NO debe apagar el lip-sync: se aisla y solo desactiva la capa. */
+	function frontError(cfg:GirlCfg, e:Dynamic):Void
+	{
+		frontErrors++;
+		trace('[SserafimGirls] capa frontal idx' + cfg.idx + ' (' + frontErrors + '/5): ' + e);
+		try { restoreLayers(cfg); } catch (_:Dynamic) {}
+		if (frontErrors >= 5)
+		{
+			for (g in cfgs)
+			{
+				try { if (g.fr != null) g.fr.visible = false; } catch (_:Dynamic) {}
+				g.fr = null;
+			}
+		}
 	}
 
 	function findMouth(anim:Dynamic, instance:Dynamic, parentMat:FlxMatrix, frameOffset:Int, targetSubstr:String, outMat:FlxMatrix, depth:Int, outCtx:{poseSymName:String, layerIdx:Int}):Bool
@@ -563,8 +594,6 @@ class SserafimGirls
 	}
 
 	var updateErrors:Int = 0;
-	public var dbg:Array<String> = ['', '', '', '', ''];
-	public function debugInfo():String return dbg.join('\n');
 
 	/** Opcional: el stage se suscribe para mostrar el error en pantalla. */
 	public var onError:String->Void = null;
@@ -665,8 +694,6 @@ class SserafimGirls
 
 			if (!charVis || (cfg.idx == 0 && yunjinUsandoIntro))
 			{
-				dbg[ci] = 'idx' + cfg.idx + ' NOVIS ex=' + (c != null && c.exists) + ' vis=' + (c != null && c.visible) + ' inCut=' + inCut
-					+ ' atlas=' + (c != null && c.isAnimateAtlas) + ' intro=' + (cfg.idx == 0 && yunjinUsandoIntro);
 				if (cfg.wasFrontVis || cfg.hiddenC.length > 0 || cfg.hiddenFr.length > 0) restoreLayers(cfg);
 				if (lip != null && lip.visible) lip.visible = false;
 				if (fr != null && fr.visible) fr.visible = false;
@@ -715,7 +742,6 @@ class SserafimGirls
 
 			if (!entry.found)
 			{
-				dbg[ci] = 'idx' + cfg.idx + ' NOMOUTH anim=' + animName + ' fr=' + curFr + ' abs=' + absoluteFrame(c, animName, curFr) + ' sym=' + cfg.sym;
 				if (cfg.wasFrontVis || cfg.hiddenC.length > 0 || cfg.hiddenFr.length > 0) restoreLayers(cfg);
 				if (lip != null && lip.visible) lip.visible = false;
 				if (fr != null && fr.visible) fr.visible = false;
@@ -739,8 +765,6 @@ class SserafimGirls
 
 			if (lip != null)
 			{
-				dbg[ci] = 'idx' + cfg.idx + ' OK anim=' + animName + ' sing=' + isSinging + ' lipFr=' + lip.animation.frameIndex + '/' + lip.numFrames
-					+ ' pos=' + Std.int(lip.x) + ',' + Std.int(lip.y) + ' sz=' + Std.int(lip.width) + 'x' + Std.int(lip.height);
 				if (!lip.visible) lip.visible = true;
 				if (lip.scrollFactor.x != c.scrollFactor.x || lip.scrollFactor.y != c.scrollFactor.y)
 					lip.scrollFactor.set(c.scrollFactor.x, c.scrollFactor.y);
@@ -770,6 +794,8 @@ class SserafimGirls
 				}
 			}
 
+			try
+			{
 			var poseSym:Dynamic = (entry.poseSymName != null) ? c.atlas.anim.symbolDictionary.get(entry.poseSymName) : null;
 			var layerIdx:Int = entry.layerIdx;
 			if (fr != null && poseSym != null && layerIdx > 0 && poseSym.timeline != null)
@@ -798,7 +824,7 @@ class SserafimGirls
 						{
 							if (layers[i] != null && layers[i].visible)
 							{
-								layers[i].visible = false;
+								setVis(layers[i], false);
 								cfg.hiddenC.push(layers[i]);
 							}
 						}
@@ -811,7 +837,7 @@ class SserafimGirls
 							{
 								if (fls[i] != null && fls[i].visible)
 								{
-									fls[i].visible = false;
+									setVis(fls[i], false);
 									cfg.hiddenFr.push(fls[i]);
 								}
 							}
@@ -866,6 +892,8 @@ class SserafimGirls
 				if (fr != null && fr.visible) fr.visible = false;
 				cfg.wasFrontVis = false;
 			}
+			}
+			catch (e:Dynamic) { frontError(cfg, e); }
 		}
 		#end
 	}

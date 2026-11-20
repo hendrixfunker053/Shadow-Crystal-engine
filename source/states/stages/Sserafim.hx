@@ -322,7 +322,6 @@ class Sserafim extends BaseStage
 
 		// Chicas extra + lip-sync (se insertan antes de frontStool)
 		girls = new SserafimGirls(PlayState.instance, charSh);
-		girls.onError = showDebugError;
 		girls.create(frontStool, yunjinIntroSpr);
 
 		for (d in dust) add(d);
@@ -486,62 +485,6 @@ class Sserafim extends BaseStage
 		// HUD oculto durante cutscenes (la healthbar aparecia por encima de la intro)
 		if (inCutscene) hideHudForCutscene();
 
-		if (DEBUG_OVERLAY) updateDebugOverlay();
-	}
-
-	var dbgTxt:FlxText;
-	var dbgTimer:Float = 0;
-
-	/** Muestra un error de lip-sync en pantalla unos segundos (para poder ver que falla sin logcat). */
-	function showDebugError(msg:String):Void
-	{
-		if (dbgTxt == null)
-		{
-			dbgTxt = new FlxText(10, 80, FlxG.width - 20, '', 20);
-			dbgTxt.setFormat(Paths.font('vcr.ttf'), 20, FlxColor.RED, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
-			dbgTxt.cameras = [camOther];
-			add(dbgTxt);
-		}
-		dbgTxt.text = msg;
-		dbgTxt.visible = true;
-		new FlxTimer().start(10, function(_) { if (dbgTxt != null) dbgTxt.visible = false; });
-	}
-
-	// ---- Overlay de diagnostico (poner DEBUG_OVERLAY en false cuando todo funcione) ----
-	static final DEBUG_OVERLAY:Bool = true;
-	var overlayTxt:FlxText;
-	var overlayT:Float = 0;
-	var postCount:Int = 0;
-
-	function updateDebugOverlay():Void
-	{
-		postCount++;
-		if (overlayTxt == null)
-		{
-			overlayTxt = new FlxText(10, 120, 0, '', 16);
-			overlayTxt.setFormat(Paths.font('vcr.ttf'), 16, FlxColor.YELLOW, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
-			overlayTxt.borderSize = 1.5;
-			overlayTxt.cameras = [camOther];
-			add(overlayTxt);
-		}
-		overlayT += FlxG.elapsed;
-		if (overlayT < 0.25) return;
-		overlayT = 0;
-		var t:String = 'post=' + postCount + ' inCut=' + inCutscene + ' enCut=' + enCutscene + ' camHUD=' + (camHUD != null && camHUD.visible) + ' pos=' + Std.int(Conductor.songPosition);
-		#if flxanimate
-		if (sserafimGf != null)
-		{
-			t += '\nGF vis=' + sserafimGf.visible + ' act=' + sserafimGf.active + ' fr=' + Std.int(sserafimGf.anim.curFrame) + ' fin=' + sserafimGf.anim.finished;
-			if (sserafimGfBody != null)
-			{
-				var bn:String = (sserafimGfBody.animation.curAnim != null) ? (sserafimGfBody.animation.curAnim.name + ':' + sserafimGfBody.animation.curAnim.curFrame + '/' + sserafimGfBody.animation.curAnim.numFrames) : 'noAnim';
-				t += '\nBody vis=' + sserafimGfBody.visible + ' frames=' + (sserafimGfBody.frames != null) + ' ' + bn + ' a=' + sserafimGfBody.alpha;
-			}
-			else t += '\nBody NULL';
-		}
-		#end
-		if (girls != null) t += '\n' + girls.debugInfo();
-		overlayTxt.text = t;
 	}
 
 	var hudSaved:Map<String, Bool> = new Map<String, Bool>();
