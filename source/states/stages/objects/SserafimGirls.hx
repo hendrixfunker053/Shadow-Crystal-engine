@@ -607,29 +607,28 @@ class SserafimGirls
 	/** Opcional: el stage se suscribe para mostrar el error en pantalla. */
 	public var onError:String->Void = null;
 
-	/** Envuelve el lip-sync para que un error raro de FlxAnimate no tumbe el juego entero. */
+	/** Envuelve el lip-sync para que un error raro de FlxAnimate no tumbe el juego. Nunca se desactiva. */
 	public function update():Void
 	{
-		if (updateErrors >= 5) return;
-		try
-		{
-			updateInner();
-			updateErrors = 0;
-		}
-		catch (e:Dynamic)
-		{
-			updateErrors++;
-			trace('[SserafimGirls] error en lip-sync (' + updateErrors + '/5): ' + e);
-			if (onError != null) onError('Lip-sync error ' + updateErrors + '/5: ' + Std.string(e));
-			if (updateErrors >= 5)
-			{
-				for (cfg in cfgs)
-				{
-					if (cfg.lip != null) cfg.lip.visible = false;
-					if (cfg.fr != null) cfg.fr.visible = false;
-				}
-			}
-		}
+		try { updateInner(); }
+		catch (e:Dynamic) { report('update', e); }
+	}
+
+	function report(where:String, e:Dynamic):Void
+	{
+		updateErrors++;
+		if (updateErrors > 20) return;
+		trace('[SserafimGirls] ' + where + ': ' + Std.string(e));
+		if (onError != null) onError('Lip-sync ' + where + ': ' + Std.string(e));
+	}
+
+	/** Un error en una chica NO debe impedir que las demas se procesen. */
+	function girlError(cfg:GirlCfg, e:Dynamic):Void
+	{
+		report('idx' + cfg.idx, e);
+		try { hideCfg(cfg); } catch (_:Dynamic) {}
+		cfg.lastEntry = null;
+		cfg.lastKeyFr = -999;
 	}
 
 	function updateInner():Void
@@ -645,6 +644,8 @@ class SserafimGirls
 		// Swap de Yunjin en puerta por yunjinIntro pre-bakeado
 		var yunjinUsandoIntro:Bool = false;
 		var yiSpr = yunjinIntro;
+		try
+		{
 		if (yunjin != null && yiSpr != null && yunjinVisible && !yunjin.isAnimationNull())
 		{
 			var curA:String = yunjin.getAnimationName();
@@ -690,10 +691,14 @@ class SserafimGirls
 			if (yiSpr != null && yiSpr.visible) yiSpr.visible = false;
 			if (yunjin != null && yunjin.visible != yunjinVisible) yunjin.visible = yunjinVisible;
 		}
+		}
+		catch (e:Dynamic) { report('yunjinIntro', e); }
 
 		for (ci in 0...cfgs.length)
 		{
 			var cfg:GirlCfg = cfgs[ci];
+			try
+			{
 			var c:Character = cfg.c;
 			var lip:FlxSprite = cfg.lip;
 			var fr:Dynamic = cfg.fr;
@@ -912,6 +917,8 @@ class SserafimGirls
 			}
 			}
 			catch (e:Dynamic) { frontError(cfg, e); }
+			}
+			catch (e:Dynamic) { girlError(cfg, e); }
 		}
 		#end
 	}

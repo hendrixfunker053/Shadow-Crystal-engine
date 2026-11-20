@@ -322,6 +322,7 @@ class Sserafim extends BaseStage
 
 		// Chicas extra + lip-sync (se insertan antes de frontStool)
 		girls = new SserafimGirls(PlayState.instance, charSh);
+		if (SHOW_LIPSYNC_ERRORS) girls.onError = showLipsyncError;
 		girls.create(frontStool, yunjinIntroSpr);
 
 		for (d in dust) add(d);
@@ -485,6 +486,23 @@ class Sserafim extends BaseStage
 		// HUD oculto durante cutscenes (la healthbar aparecia por encima de la intro)
 		if (inCutscene) hideHudForCutscene();
 
+	}
+
+	// Poner en true SOLO para depurar: muestra en pantalla el ultimo error del lip-sync.
+	static final SHOW_LIPSYNC_ERRORS:Bool = false;
+	var lipErrTxt:FlxText;
+
+	function showLipsyncError(msg:String):Void
+	{
+		if (lipErrTxt == null)
+		{
+			lipErrTxt = new FlxText(10, 80, FlxG.width - 20, '', 20);
+			lipErrTxt.setFormat(Paths.font('vcr.ttf'), 20, FlxColor.RED, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+			lipErrTxt.cameras = [camOther];
+			add(lipErrTxt);
+		}
+		lipErrTxt.text = msg;
+		lipErrTxt.visible = true;
 	}
 
 	var hudSaved:Map<String, Bool> = new Map<String, Bool>();
