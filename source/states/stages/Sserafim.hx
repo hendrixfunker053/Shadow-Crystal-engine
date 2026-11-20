@@ -489,15 +489,15 @@ class Sserafim extends BaseStage
 	}
 
 	// Poner en true SOLO para depurar: muestra en pantalla el ultimo error del lip-sync.
-	static final SHOW_LIPSYNC_ERRORS:Bool = false;
+	static final SHOW_LIPSYNC_ERRORS:Bool = true;
 	var lipErrTxt:FlxText;
 
 	function showLipsyncError(msg:String):Void
 	{
 		if (lipErrTxt == null)
 		{
-			lipErrTxt = new FlxText(10, 80, FlxG.width - 20, '', 20);
-			lipErrTxt.setFormat(Paths.font('vcr.ttf'), 20, FlxColor.RED, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+			lipErrTxt = new FlxText(10, 80, FlxG.width - 20, '', 16);
+			lipErrTxt.setFormat(Paths.font('vcr.ttf'), 16, FlxColor.RED, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 			lipErrTxt.cameras = [camOther];
 			add(lipErrTxt);
 		}

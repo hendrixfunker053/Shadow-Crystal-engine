@@ -604,14 +604,20 @@ class SserafimGirls
 
 	var updateErrors:Int = 0;
 
+	/** DEBUG: muestra en pantalla el estado de cada chica (frame, anim, si se encontro la boca). */
+	public var debug:Bool = true;
+	var dbg:String = '';
+
 	/** Opcional: el stage se suscribe para mostrar el error en pantalla. */
 	public var onError:String->Void = null;
 
 	/** Envuelve el lip-sync para que un error raro de FlxAnimate no tumbe el juego. Nunca se desactiva. */
 	public function update():Void
 	{
+		if (debug) dbg = 'rawT=' + Math.floor((Conductor.songPosition / 1000.0) * 24.0) + ' sing=' + singing.join(',');
 		try { updateInner(); }
 		catch (e:Dynamic) { report('update', e); }
+		if (debug && onError != null) onError(dbg);
 	}
 
 	function report(where:String, e:Dynamic):Void
@@ -706,6 +712,8 @@ class SserafimGirls
 			var charVis:Bool = (!inCut && c != null && c.exists && c.visible && c.alpha > 0.01 && c.isAnimateAtlas
 				&& c.atlas != null && c.atlas.anim != null && c.atlas.anim.curInstance != null && c.atlas.anim.curInstance.symbol != null);
 
+			if (debug) dbg += '\ni' + cfg.idx + ' vis=' + charVis + ' anim=' + ((c != null && !c.isAnimationNull()) ? c.getAnimationName() : '-');
+
 			if (!charVis || (cfg.idx == 0 && yunjinUsandoIntro))
 			{
 				hideCfg(cfg);
@@ -751,6 +759,8 @@ class SserafimGirls
 				cfg.lastKeyFr = curFr;
 				cfg.lastEntry = entry;
 			}
+
+			if (debug) dbg += ' cur=' + curFr + ' abs=' + absoluteFrame(c, animName, curFr) + ' found=' + entry.found + ' lay=' + entry.layerIdx;
 
 			if (!entry.found)
 			{
