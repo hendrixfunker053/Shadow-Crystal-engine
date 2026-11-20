@@ -472,6 +472,36 @@ class SserafimGirls
 		cfg.prevFrSym = null;
 	}
 
+	/** Set de frame sin acceso Dynamic directo a la propiedad `curFrame` (hxcpp lanza "Invalid field:curFrame"). */
+	static function setAnimFrame(fr:Dynamic, f:Int):Void
+	{
+		try
+		{
+			if (fr.anim.curInstance != null && fr.anim.curInstance.symbol != null)
+				fr.anim.curInstance.symbol._curFrame = f;
+		}
+		catch (e:Dynamic) {}
+		try { Reflect.setProperty(fr.anim, 'curFrame', f); } catch (e:Dynamic) {}
+	}
+
+	/**
+	 * `symbol._curFrame` es relativo a la animacion (0..N-1) cuando esta definida con `indices`.
+	 * La boca vive en frames ABSOLUTOS del timeline raiz, asi que hay que traducir via indices.
+	 */
+	function absoluteFrame(c:Character, animName:String, rel:Int):Int
+	{
+		if (c == null || c.animationsArray == null) return rel;
+		for (a in c.animationsArray)
+		{
+			if (a.anim != null && a.name == animName)
+			{
+				if (a.indices != null && a.indices.length > 0 && rel >= 0 && rel < a.indices.length) return a.indices[rel];
+				break;
+			}
+		}
+		return rel;
+	}
+
 	function findMouth(anim:Dynamic, instance:Dynamic, parentMat:FlxMatrix, frameOffset:Int, targetSubstr:String, outMat:FlxMatrix, depth:Int, outCtx:{poseSymName:String, layerIdx:Int}):Bool
 	{
 		if (anim == null || instance == null || depth > 12 || instance.symbol == null) return false;
@@ -546,6 +576,7 @@ class SserafimGirls
 		try
 		{
 			updateInner();
+			updateErrors = 0;
 		}
 		catch (e:Dynamic)
 		{
@@ -658,12 +689,13 @@ class SserafimGirls
 				{
 					restoreLayers(cfg);
 					var ctx = {poseSymName: (null : String), layerIdx: -1};
-					var found:Bool = findMouth(c.atlas.anim, inst, identMat, curFr, cfg.sym, resMat, 0, ctx);
+					var absFr:Int = absoluteFrame(c, animName, curFr);
+					var found:Bool = findMouth(c.atlas.anim, inst, identMat, absFr, cfg.sym, resMat, 0, ctx);
 					if (!found && cfg.idx == 4)
 					{
 						ctx.poseSymName = null;
 						ctx.layerIdx = -1;
-						found = findMouth(c.atlas.anim, inst, identMat, curFr, 'mouth default', resMat, 0, ctx);
+						found = findMouth(c.atlas.anim, inst, identMat, absFr, 'mouth default', resMat, 0, ctx);
 					}
 					entry = {
 						found: found,
@@ -683,7 +715,7 @@ class SserafimGirls
 
 			if (!entry.found)
 			{
-				dbg[ci] = 'idx' + cfg.idx + ' NOMOUTH anim=' + animName + ' fr=' + curFr + ' sym=' + cfg.sym;
+				dbg[ci] = 'idx' + cfg.idx + ' NOMOUTH anim=' + animName + ' fr=' + curFr + ' abs=' + absoluteFrame(c, animName, curFr) + ' sym=' + cfg.sym;
 				if (cfg.wasFrontVis || cfg.hiddenC.length > 0 || cfg.hiddenFr.length > 0) restoreLayers(cfg);
 				if (lip != null && lip.visible) lip.visible = false;
 				if (fr != null && fr.visible) fr.visible = false;
@@ -756,9 +788,7 @@ class SserafimGirls
 								fr.anim.play(animName, true, false, curFr);
 							else if (cfg.lastFr != curFr)
 							{
-								fr.anim.curFrame = curFr;
-								if (fr.anim.curInstance != null && fr.anim.curInstance.symbol != null)
-									fr.anim.curInstance.symbol._curFrame = curFr;
+								setAnimFrame(fr, curFr);
 							}
 							fr.anim.pause();
 							fr.anim.update(0);

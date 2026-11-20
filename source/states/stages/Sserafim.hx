@@ -1137,7 +1137,7 @@ class Sserafim extends BaseStage
 		{
 			var ai:Dynamic = y.atlas.anim;
 			if (ai.curInstance != null && ai.curInstance.symbol != null) cf = Std.int(ai.curInstance.symbol._curFrame);
-			else cf = Std.int(ai.curFrame);
+			else { try { cf = Std.int(Reflect.getProperty(ai, 'curFrame')); } catch (e:Dynamic) { cf = 0; } }
 		}
 		#end
 		if ((curA == 'kick2' && cf >= 23) || curA != 'kick2')
