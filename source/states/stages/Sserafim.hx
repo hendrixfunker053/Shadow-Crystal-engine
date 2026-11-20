@@ -12,7 +12,7 @@ import haxe.Json;
 import states.PlayState;
 
 import objects.Note;
-import states.stages.objects.SserafimGirls;
+import backend.SserafimGirls;
 
 /**
  * LE SSERAFIM - Spaghetti (SP. COLLAB 1), integrado en el engine.
