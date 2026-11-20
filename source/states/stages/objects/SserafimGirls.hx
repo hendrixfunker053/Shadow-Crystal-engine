@@ -495,7 +495,7 @@ class SserafimGirls
 		if (c == null || c.animationsArray == null) return cur;
 		for (a in c.animationsArray)
 		{
-			if (a.name == animName)
+			if (a.anim == animName)
 			{
 				var ind = a.indices;
 				if (ind == null || ind.length == 0) return cur;
@@ -727,29 +727,14 @@ class SserafimGirls
 				{
 					restoreLayers(cfg);
 					var ctx = {poseSymName: (null : String), layerIdx: -1};
-					var found:Bool = findMouth(c.atlas.anim, inst, identMat, curFr, cfg.sym, resMat, 0, ctx);
+					// El timeline raiz (donde vive la boca) usa frames ABSOLUTOS; _curFrame puede ser relativo a `indices`
+					var lookFr:Int = absoluteFrame(c, animName, curFr);
+					var found:Bool = findMouth(c.atlas.anim, inst, identMat, lookFr, cfg.sym, resMat, 0, ctx);
 					if (!found && cfg.idx == 4)
 					{
 						ctx.poseSymName = null;
 						ctx.layerIdx = -1;
-						found = findMouth(c.atlas.anim, inst, identMat, curFr, 'mouth default', resMat, 0, ctx);
-					}
-					// Respaldo (no existe en el Lua): si _curFrame es relativo a `indices`, reintenta con el frame absoluto
-					if (!found)
-					{
-						var altFr:Int = absoluteFrame(c, animName, curFr);
-						if (altFr != curFr)
-						{
-							ctx.poseSymName = null;
-							ctx.layerIdx = -1;
-							found = findMouth(c.atlas.anim, inst, identMat, altFr, cfg.sym, resMat, 0, ctx);
-							if (!found && cfg.idx == 4)
-							{
-								ctx.poseSymName = null;
-								ctx.layerIdx = -1;
-								found = findMouth(c.atlas.anim, inst, identMat, altFr, 'mouth default', resMat, 0, ctx);
-							}
-						}
+						found = findMouth(c.atlas.anim, inst, identMat, lookFr, 'mouth default', resMat, 0, ctx);
 					}
 					entry = {
 						found: found,
